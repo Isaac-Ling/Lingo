@@ -1,4 +1,4 @@
-module Lexing.Support (Token (..)) where
+module Lexing.Tokens (Token (..)) where
 
 data Token
   -- Variables

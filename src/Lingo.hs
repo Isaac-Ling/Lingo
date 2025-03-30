@@ -1,7 +1,7 @@
 module Lingo (main) where
 
 import Lexing.Lexer
-import Lexing.Support
+import Lexing.Tokens
 import System.Environment
 
 main :: IO ()

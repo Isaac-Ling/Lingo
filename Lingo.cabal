@@ -19,7 +19,7 @@ executable Lingo
   hs-source-dirs:      src
   main-is:             Lingo.hs
   other-modules:       Syntax
-                     , Lexing.Support
+                     , Lexing.Tokens
                      , Lexing.Lexer
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
