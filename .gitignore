@@ -1,2 +1,6 @@
 .stack-work
 .vscode
+*.o
+*.hi
+*.exe
+bin/*
