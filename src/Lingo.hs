@@ -2,7 +2,10 @@ module Lingo (main) where
 
 import Lexing.Lexer
 import Lexing.Tokens
-import qualified Data.ByteString.Lazy.Char8 as B
+import Parsing.Parser
+import Parsing.Syntax
+
+import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
 import System.Environment (getArgs)
 import Control.Exception (catch, IOException)
@@ -24,22 +27,20 @@ main = do
     Just s  -> return s
 
   -- Lexing
-  let tokens = lexer source
+  let tokens = alexScanTokens source
 
   -- Parsing
+  let ast = parseExpr tokens
 
   -- Output
-  print tokens
+  print ast
 
 parseArgs :: [String] -> Maybe Args
 parseArgs []     = Nothing
 parseArgs (x:xs) = Just (Args { sourceFile = x })
 
 getSource :: FilePath -> IO (Maybe ByteString)
-getSource f = catch (Just <$> B.readFile f) handler
+getSource f = catch (Just <$> BS.readFile f) handler
   where
     handler :: IOException -> IO (Maybe ByteString)
     handler _ = return Nothing
-
-lexer :: ByteString -> [Token]
-lexer = alexScanTokens
