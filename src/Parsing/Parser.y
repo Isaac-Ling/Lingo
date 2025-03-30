@@ -16,6 +16,9 @@ import Parsing.Syntax
   '('  { LParen }
   ')'  { RParen }
 
+%nonassoc var '(' '\\'
+%nonassoc APP
+
 %%
 
 Term :: { Term }
@@ -31,7 +34,7 @@ Abstraction :: { Term }
   : '\\' var '.' Term { Lam $2 $4 }
 
 Application :: { Term }
-  : Term Term { App $1 $2 }
+  : Term Term %prec APP { App $1 $2 }
 
 {
   parseError = error . show
