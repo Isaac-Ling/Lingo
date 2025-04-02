@@ -3,10 +3,10 @@ module Lingo (main) where
 import Lexing.Lexer
 import Lexing.Tokens
 import Parsing.Parser
-import Parsing.Syntax
+import Core.Data
 
-import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.ByteString.Lazy.Char8 (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as BS
 import System.Environment (getArgs)
 import Control.Exception (catch, IOException)
 

@@ -8,6 +8,9 @@ data Token
   -- Lambda abstractions
   | Backslash
   | Dot
+  -- Types
+  | Colon
+  | RArrow
   -- Parentheses
   | LParen
   | RParen
