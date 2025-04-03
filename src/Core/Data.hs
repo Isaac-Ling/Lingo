@@ -10,13 +10,15 @@ data Term
   deriving Eq
 
 instance Show Term where
-  show (Anno x t)         = show x ++ " : " ++ show t
-  show (Var x)            = unpack x
-  show (App x (Lam y z))  = show x ++ " (" ++ show (Lam y z) ++ ")"
-  show (App x (Anno y t)) = show x ++ " (" ++ show (Anno y t) ++ ")"
-  show (App x y)          = show x ++ " " ++ show y
-  show (Lam x (Anno y t)) = "\\" ++ unpack x ++ ". (" ++ show (Anno y t) ++ ")"
-  show (Lam x y)          = "\\" ++ unpack x ++ ". " ++ show y
+  show (Anno e t)          = show e ++ " : " ++ show t
+  show (Var x)             = unpack x
+  show (App e (Lam x e'))  = show e ++ " (" ++ show (Lam x e') ++ ")"
+  show (App e (Anno e' t)) = show e ++ " (" ++ show (Anno e' t) ++ ")"
+  show (App (Lam x e) e')  = "(" ++ show (Lam x e) ++ ") " ++ show e'
+  show (App (Anno e t) e') = "(" ++ show (Anno e t) ++ ") " ++ show e'
+  show (App e e')          = show e ++ " " ++ show e'
+  show (Lam x (Anno e t))  = "\\" ++ unpack x ++ ". (" ++ show (Anno e t) ++ ")"
+  show (Lam x e)           = "\\" ++ unpack x ++ ". " ++ show e
 
 data Type
   = TVar ByteString

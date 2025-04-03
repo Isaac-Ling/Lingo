@@ -4,6 +4,7 @@ import Lexing.Lexer
 import Lexing.Tokens
 import Parsing.Parser
 import Core.Data
+import Core.Evaluation
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 import qualified Data.ByteString.Lazy.Char8 as BS
@@ -33,7 +34,7 @@ main = do
   let ast = parseExpr tokens
 
   -- Output
-  print ast
+  print (eval ast)
 
 parseArgs :: [String] -> Maybe Args
 parseArgs []     = Nothing

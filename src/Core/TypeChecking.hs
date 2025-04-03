@@ -1,2 +1,2 @@
-module TypeChecking where
+module Core.TypeChecking where
 
