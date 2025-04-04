@@ -33,8 +33,12 @@ main = do
   -- Parsing
   let ast = parseExpr tokens
 
+  -- Evaluation
+  let result = eval ast
+
   -- Output
-  print (eval ast)
+  print ast
+  print result
 
 parseArgs :: [String] -> Maybe Args
 parseArgs []     = Nothing

@@ -21,11 +21,11 @@ instance Show Term where
   show (Lam x e)           = "\\" ++ unpack x ++ ". " ++ show e
 
 data Type
-  = TVar ByteString
+  = Singl
   | Arr Type Type
   deriving Eq
 
 instance Show Type where
-  show (TVar a)          = unpack a
+  show Singl              = "()"
   show (Arr (Arr a b) c) = "(" ++ show (Arr a b) ++ ") -> " ++ show c
   show (Arr a b)         = show a ++ " -> " ++ show b

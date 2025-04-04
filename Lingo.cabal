@@ -22,6 +22,7 @@ executable Lingo
                      , Lexing.Tokens
                      , Parsing.Parser
                      , Core.Data
+                     , Core.Error
                      , Core.Evaluation
                      , Core.TypeChecking
   default-language:    Haskell2010

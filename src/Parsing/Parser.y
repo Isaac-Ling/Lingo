@@ -41,7 +41,7 @@ Abstraction :: { Term }
 
 Type :: { Type }
   : '(' Type ')'    { $2 }
-  | var             { TVar $1 }
+  | '(' ')'         { Singl }
   | Type '->' Type  { Arr $1 $3 }
 
 {
