@@ -15,7 +15,7 @@ isNeutralTerm _          = False
 
 isFreeIn :: ByteString -> Term -> Bool
 isFreeIn x (Anno e _) = x `isFreeIn` e
-isFreeIn x (Var _)    = True
+isFreeIn x (Var y)    = x == y
 isFreeIn x (App e e') = (x `isFreeIn` e) && (x `isFreeIn` e')
 isFreeIn x (Lam y e)
   | x == y            = False
