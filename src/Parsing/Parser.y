@@ -37,7 +37,7 @@ Application :: { Term }
   : Term Term %prec APP { App $1 $2 }
 
 Abstraction :: { Term }
-  : '\\' var '.' Term { Lam $2 $4 }
+  : '\\' var ':' Type '.' Term { Lam (VarAnno $2 $4) $6 }
 
 Type :: { Type }
   : '(' Type ')'    { $2 }

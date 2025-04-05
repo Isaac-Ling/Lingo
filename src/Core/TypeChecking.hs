@@ -3,10 +3,18 @@ module Core.TypeChecking where
 import Core.Data
 import Core.Error
 
-type Context = [(Term, Type)]
+import Data.ByteString.Lazy.Char8 (ByteString)
+
+type Context = [(ByteString, Type)]
 
 typeInfer :: Context -> Term -> CanError Type
-typeInfer g e = Error Success
+typeInfer g (Var x)    = case mt of
+  Just t  -> Result t
+  Nothing -> Error FailedToInferType
+  where
+    mt = lookup x g
+typeInfer _ (Anno _ _) = Error FailedToInferType
+typeInfer g (Lam x e)  = typeInfer (g) e
 
 typeCheck :: Term -> ErrorCode
 typeCheck e = typeCheckWithContext [] e
