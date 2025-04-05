@@ -8,9 +8,16 @@ data Token
   -- Lambda abstractions
   | Backslash
   | Dot
+  -- Types
+  | Colon
+  | RArrow
   -- Parentheses
   | LParen
   | RParen
+  -- Numbers
+  | Int Integer
+  -- Other
+  | Asterisk
   -- EOF
   | EOF
   deriving (Eq, Show)
