@@ -7,21 +7,23 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 
 type Context = [(ByteString, Type)]
 
-typeInfer :: Context -> Term -> CanError Type
-typeInfer g (Var x)    = case mt of
-  Just t  -> Result t
-  Nothing -> Error FailedToInferType
-  where
-    mt = lookup x g
-typeInfer _ (Anno _ _) = Error FailedToInferType
-typeInfer g (Lam x e)  = typeInfer (g) e
-
-typeCheck :: Term -> ErrorCode
+typeCheck :: Term -> CanError Type
 typeCheck e = typeCheckWithContext [] e
   where
-    typeCheckWithContext :: Context -> Term -> ErrorCode
-    typeCheckWithContext g (Anno e t) = 
-      case typeInfer g e of
-        Result t' -> if t == t' then Success else TypeMismatch
-        Error er  -> er
-    typeCheckWithContext g e = Success
+    typeCheckWithContext :: Context -> Term -> CanError Type
+    typeCheckWithContext g (Anno (Var x) t)      = case lookup x g of
+      Just t' -> if t == t' then Result t else Error TypeMismatch
+      Nothing -> Result t
+    typeCheckWithContext g (Anno e t)            = case typeCheckWithContext g e of
+      Result t' -> if t == t' then Result t else Error TypeMismatch
+      Error er  -> Error er
+    typeCheckWithContext g (Var x)               = case lookup x g of
+      Just t  -> Result t
+      Nothing -> Error FailedToInferType
+    typeCheckWithContext g (Lam (VarAnno x t) e) = case typeCheckWithContext ((x, t) : g) e of
+      Result t' -> Result (Arr t t')
+      Error er  -> Error er
+    typeCheckWithContext g (App e e')            = case (typeCheckWithContext g e, typeCheckWithContext g e') of
+      (Result (Arr t t'), Result t'' ) -> if t == t'' then Result t' else Error FailedToInferType
+      (Result _, Error er)             -> Error er
+      (Error er, _)                    -> Error er

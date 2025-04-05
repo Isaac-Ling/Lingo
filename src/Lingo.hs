@@ -53,8 +53,9 @@ getSource f = catch (Result <$> BS.readFile f) handler
     handler _ = return (Error FailedToReadSourceFile)
 
 execute :: Term -> IO (CanError Term)
-execute e = case er of
-  Success -> return (Result (eval e))
-  _       -> return (Error er)
+execute e = case mt of
+  Error er -> return (Error er)
+  Result t        -> do 
+    return (Result (Anno (eval e) t))
   where
-    er = typeCheck e
+    mt = typeCheck e
