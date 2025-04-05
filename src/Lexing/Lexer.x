@@ -23,4 +23,5 @@ $white+ ;
 <0> @id  { \s -> Id s }
 <0> \:   { \s -> Colon }
 <0> "->" { \s -> RArrow }
-<0> "->" { \s -> RArrow }
+<0> "*"  { \s -> Asterisk }
+<0> "1"  { \s -> Int 1 }

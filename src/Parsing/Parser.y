@@ -17,17 +17,20 @@ import Lexing.Tokens
   ')'  { RParen }
   ':'  { Colon }
   '->' { RArrow }
+  '*'  { Asterisk }
+  '1'  { Int 1 }
 
 %nonassoc ':'
 %nonassoc '.'
 %right '->'
-%nonassoc var '(' '\\'
+%nonassoc var '(' '\\' '1' '*'
 %nonassoc APP
 
 %%
 
 Term :: { Term }
   : var           { Var $1 }
+  | '*'           { Star }
   | Application   { $1 }
   | Abstraction   { $1 }
   | Term ':' Type { Anno $1 $3}
@@ -40,9 +43,9 @@ Abstraction :: { Term }
   : '\\' var ':' Type '.' Term { Lam (VarAnno $2 $4) $6 }
 
 Type :: { Type }
-  : '(' Type ')'    { $2 }
-  | '(' ')'         { Singl }
-  | Type '->' Type  { Arr $1 $3 }
+  : '(' Type ')'   { $2 }
+  | '1'            { One }
+  | Type '->' Type { Arr $1 $3 }
 
 {
   parseError = error . show

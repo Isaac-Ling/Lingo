@@ -10,6 +10,7 @@ isValue e         = isNeutralTerm e
 isNeutralTerm :: Term -> Bool
 isNeutralTerm (Anno e _) = isNeutralTerm e
 isNeutralTerm (Var _)    = True
+isNeutralTerm Star       = True
 isNeutralTerm (App e e') = isNeutralTerm e && isValue e'
 isNeutralTerm _          = False
 
@@ -28,11 +29,13 @@ getFreshVar e = buildFreshVar e (pack "")
     buildFreshVar :: Term -> ByteString -> ByteString
     buildFreshVar (Anno e _) x            = buildFreshVar e x
     buildFreshVar (Var y)    x            = x <> y
+    buildFreshVar Star x                  = x
     buildFreshVar (App e e') x            = buildFreshVar e x <> buildFreshVar e' x
     buildFreshVar (Lam (VarAnno y _) e) x = buildFreshVar e (x <> y)
 
 sub :: Term -> ByteString -> Term -> Term
 sub t x (Anno e _) = sub t x e
+sub t x Star = Star
 sub t x (Var y)
   | x == y         = t
   | otherwise      = Var y
@@ -51,9 +54,10 @@ beta (App (Lam (VarAnno x t') e) e') = sub e' x e
 beta e                               = e
 
 eval :: Term -> Term
-eval (Anno e _)     = eval e
-eval (Var x)        = Var x
-eval (Lam (VarAnno x t) e)      = Lam (VarAnno x t) (eval e)
+eval (Anno e _)            = eval e
+eval (Var x)               = Var x
+eval Star                  = Star
+eval (Lam (VarAnno x t) e) = Lam (VarAnno x t) (eval e)
 eval (App e e')
   | isNeutralTerm f = App f (eval e')
   | otherwise       = eval (beta (App f e'))

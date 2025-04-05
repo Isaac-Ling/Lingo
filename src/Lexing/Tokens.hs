@@ -14,6 +14,10 @@ data Token
   -- Parentheses
   | LParen
   | RParen
+  -- Numbers
+  | Int Integer
+  -- Other
+  | Asterisk
   -- EOF
   | EOF
   deriving (Eq, Show)

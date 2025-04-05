@@ -3,7 +3,7 @@ module Core.TypeChecking where
 import Core.Data
 import Core.Error
 
-import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 type Context = [(ByteString, Type)]
 
@@ -11,9 +11,7 @@ typeCheck :: Term -> CanError Type
 typeCheck e = typeCheckWithContext [] e
   where
     typeCheckWithContext :: Context -> Term -> CanError Type
-    typeCheckWithContext g (Anno (Var x) t)      = case lookup x g of
-      Just t' -> if t == t' then Result t else Error TypeMismatch
-      Nothing -> Result t
+    typeCheckWithContext g Star                   = Result One
     typeCheckWithContext g (Anno e t)            = case typeCheckWithContext g e of
       Result t' -> if t == t' then Result t else Error TypeMismatch
       Error er  -> Error er
