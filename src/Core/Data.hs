@@ -27,11 +27,13 @@ instance Show Term where
   show (Lam (VarAnno x t) e)           = "\\" ++ unpack x ++ " : " ++ show t ++ ". " ++ show e
 
 data Type
-  = One
+  = Zero
+  | One
   | Arr Type Type
   deriving Eq
 
 instance Show Type where
+  show Zero              = "0"
   show One               = "1"
   show (Arr (Arr a b) c) = "(" ++ show (Arr a b) ++ ") -> " ++ show c
   show (Arr a b)         = show a ++ " -> " ++ show b

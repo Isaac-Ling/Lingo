@@ -11,6 +11,9 @@ import Lexing.Tokens
 
 %token
   var  { Id $$ }
+  '0'  { Int 0 }
+  '1'  { Int 1 }
+  int  { Int $$ }
   '\\' { Backslash }
   '.'  { Dot }
   '('  { LParen }
@@ -18,12 +21,11 @@ import Lexing.Tokens
   ':'  { Colon }
   '->' { RArrow }
   '*'  { Asterisk }
-  '1'  { Int 1 }
 
 %nonassoc ':'
 %nonassoc '.'
 %right '->'
-%nonassoc var '(' '\\' '1' '*'
+%nonassoc var '(' '\\' '0' '1' '*'
 %nonassoc APP
 
 %%
@@ -43,9 +45,10 @@ Abstraction :: { Term }
   : '\\' var ':' Type '.' Term { Lam (VarAnno $2 $4) $6 }
 
 Type :: { Type }
-  : '(' Type ')'   { $2 }
+  : '0'            { Zero }
   | '1'            { One }
   | Type '->' Type { Arr $1 $3 }
+  | '(' Type ')'   { $2 }
 
 {
   parseError = error . show
