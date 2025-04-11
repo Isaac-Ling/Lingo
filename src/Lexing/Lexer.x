@@ -19,12 +19,15 @@ $upper = [ A-Z ]
 tokens :-
 
 $white+ ;
-<0> \\   { \s -> Backslash }
-<0> \.   { \s -> Dot }
-<0> \(   { \s -> LParen }
-<0> \)   { \s -> RParen }
-<0> @id  { \s -> Id s }
-<0> \:   { \s -> Colon }
-<0> "->" { \s -> RArrow }
-<0> "*"  { \s -> Asterisk }
-<0> @int { \s -> Int $ read $ unpack s }
+<0> \\      { \s -> Backslash }
+<0> \.      { \s -> Dot }
+<0> \(      { \s -> LParen }
+<0> \)      { \s -> RParen }
+<0> \:      { \s -> Colon }
+<0> "->"    { \s -> RArrow }
+<0> "*"     { \s -> Asterisk }
+<0> "true"  { \s -> TTrue }
+<0> "false" { \s -> TFalse }
+<0> "Bool"  { \s -> Boolean }
+<0> @id     { \s -> Id s }
+<0> @int    { \s -> Int $ read $ unpack s }

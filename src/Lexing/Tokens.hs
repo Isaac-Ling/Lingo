@@ -11,9 +11,13 @@ data Token
   -- Types
   | Colon
   | RArrow
+  | Boolean
   -- Parentheses
   | LParen
   | RParen
+  -- Booleans
+  | TTrue
+  | TFalse
   -- Numbers
   | Int Integer
   -- Other

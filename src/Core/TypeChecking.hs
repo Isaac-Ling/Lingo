@@ -12,6 +12,7 @@ typeCheck e = typeCheckWithContext [] e
   where
     typeCheckWithContext :: Context -> Term -> CanError Type
     typeCheckWithContext g Star                  = Result One
+    typeCheckWithContext g (Flag _)              = Result Bool
     typeCheckWithContext g (Anno e t)            = case typeCheckWithContext g e of
       Result t' -> if t == t' then Result t else Error TypeMismatch
       Error er  -> Error er

@@ -9,6 +9,7 @@ data Annotation
 data Term
   = Anno Term Type
   | Star
+  | Flag Bool
   | Var ByteString
   | App Term Term
   | Lam Annotation Term
@@ -17,6 +18,7 @@ data Term
 instance Show Term where
   show (Anno e t)                      = show e ++ " : " ++ show t
   show (Var x)                         = unpack x
+  show (Flag b)                        = if b then "true" else "false"
   show Star                            = "*"
   show (App e (Lam xt e'))             = show e ++ " (" ++ show (Lam xt e') ++ ")"
   show (App e (Anno e' t))             = show e ++ " (" ++ show (Anno e' t) ++ ")"
@@ -29,11 +31,13 @@ instance Show Term where
 data Type
   = Zero
   | One
+  | Bool
   | Arr Type Type
   deriving Eq
 
 instance Show Type where
   show Zero              = "0"
   show One               = "1"
+  show Bool              = "Bool"
   show (Arr (Arr a b) c) = "(" ++ show (Arr a b) ++ ") -> " ++ show c
   show (Arr a b)         = show a ++ " -> " ++ show b
