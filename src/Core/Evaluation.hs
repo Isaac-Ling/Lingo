@@ -9,8 +9,11 @@ isValue m                = isNeutralTerm m
 
 isNeutralTerm :: Term -> Bool
 isNeutralTerm (Var _)   = True
-isNeutralTerm Star      = True
 isNeutralTerm (App m n) = isNeutralTerm m && isValue n
+isNeutralTerm Star      = True
+isNeutralTerm (Univ _)  = True
+isNeutralTerm Zero      = True
+isNeutralTerm One       = True
 isNeutralTerm _         = False
 
 isFreeIn :: ByteString -> Term -> Bool

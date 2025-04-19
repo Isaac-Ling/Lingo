@@ -14,15 +14,18 @@ data Term
   | Univ Int
   | Zero
   | One
+  | Pi Assumption Term
   deriving Eq
 
 instance Show Term where
-  show (Var x)             = unpack x
-  show Star                = "*"
-  show (App e (Lam xt e')) = show e ++ " (" ++ show (Lam xt e') ++ ")"
-  show (App (Lam xt e) e') = "(" ++ show (Lam xt e) ++ ") " ++ show e'
-  show (App e e')          = show e ++ " " ++ show e'
-  show (Lam (x, t) e)      = "\\(" ++ unpack x ++ " : " ++ show t ++ "). " ++ show e
-  show (Univ i)            = "U" ++ show i
-  show Zero                = "0"
-  show One                 = "1"
+  show (Var x)            = unpack x
+  show Star               = "*"
+  show (App m (Lam xt n)) = show m ++ " (" ++ show (Lam xt n) ++ ")"
+  show (App (Lam xt m) n) = "(" ++ show (Lam xt m) ++ ") " ++ show n
+  show (App (Pi xt m) n)  = "(" ++ show (Pi xt m) ++ ") " ++ show n
+  show (App m n)          = show m ++ " " ++ show n
+  show (Lam (x, t) m)     = "\\(" ++ unpack x ++ " : " ++ show t ++ "). " ++ show m
+  show (Univ i)           = "U" ++ show i
+  show Zero               = "0"
+  show One                = "1"
+  show (Pi (x, t) m)      = "(" ++ unpack x ++ " : " ++ show t ++ ") -> " ++ show m

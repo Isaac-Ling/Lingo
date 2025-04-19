@@ -35,14 +35,12 @@ main = do
   -- Parse
   let ast = parseExpr tokens
 
-  print ast
-
   -- Execute
   result <- execute ast >>= \mr -> case mr of
     Result a -> return a
     Error er -> showError er
 
-  print result
+  print (show (fst result) ++ " : " ++ show (snd result))
 
 parseArgs :: [String] -> CanError Args
 parseArgs []     = Error NoCommandLineArgsSupplied
@@ -54,10 +52,10 @@ getSource f = catch (Result <$> BS.readFile f) handler
     handler :: IOException -> IO (CanError ByteString)
     handler _ = return (Error FailedToReadSourceFile)
 
-execute :: Term -> IO (CanError Term)
+execute :: Term -> IO (CanError (Term, Term))
 execute e = case mt of
   Error er -> return (Error er)
   Result t -> do 
-    return (Result (eval e))
+    return (Result (eval e, t))
   where
     mt = typeCheck e

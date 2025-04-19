@@ -36,14 +36,15 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %%
 
 Term :: { Term }
-  : var           { Var $1 }
-  | '0'           { Zero }
-  | '1'           { One }
-  | 'U'           { Univ 0 }
-  | Abstraction   { $1 }
-  | Application   { $1 }
-  | '*'           { Star }
-  | '(' Term ')'  { $2 }
+  : var          { Var $1 }
+  | '0'          { Zero }
+  | '1'          { One }
+  | 'U'          { Univ 0 }
+  | Abstraction  { $1 }
+  | Application  { $1 }
+  | PiType       { $1 }
+  | '*'          { Star }
+  | '(' Term ')' { $2 }
 
 Assumption :: { Assumption }
   : var ':' Term { ($1, $3) }
@@ -53,3 +54,6 @@ Application :: { Term }
 
 Abstraction :: { Term }
   : '\\' '(' Assumption ')' '.' Term { Lam $3 $6 }
+
+PiType :: { Term }
+  : '(' Assumption ')' '->' Term { Pi $2 $5 }
