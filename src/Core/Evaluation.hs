@@ -5,64 +5,57 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 isValue :: Term -> Bool
 isValue (Lam _ _) = True
-isValue e         = isNeutralTerm e
+isValue m                = isNeutralTerm m
 
 isNeutralTerm :: Term -> Bool
-isNeutralTerm (Anno e _) = isNeutralTerm e
-isNeutralTerm (Var _)    = True
-isNeutralTerm Star       = True
-isNeutralTerm (Flag _)   = True
-isNeutralTerm (App e e') = isNeutralTerm e && isValue e'
-isNeutralTerm _          = False
+isNeutralTerm (Var _)   = True
+isNeutralTerm Star      = True
+isNeutralTerm (App m n) = isNeutralTerm m && isValue n
+isNeutralTerm _         = False
 
 isFreeIn :: ByteString -> Term -> Bool
-isFreeIn x (Anno e _) = x `isFreeIn` e
 isFreeIn x (Var y)    = x == y
-isFreeIn x (App e e') = (x `isFreeIn` e) && (x `isFreeIn` e')
-isFreeIn x (Lam (VarAnno y _) e)
+isFreeIn x (App m n) = (x `isFreeIn` m) && (x `isFreeIn` n)
+isFreeIn x (Lam (y, _) m)
   | x == y            = False
-  | otherwise         = x `isFreeIn` e
-isFreeIn x e          = True
+  | otherwise         = x `isFreeIn` m
+isFreeIn x m          = True
 
 -- TODO: Make fresh var readable
 getFreshVar :: Term -> ByteString
-getFreshVar e = buildFreshVar e (pack "")
+getFreshVar m = buildFreshVar m (pack "")
   where
     buildFreshVar :: Term -> ByteString -> ByteString
-    buildFreshVar (Anno e _) x            = buildFreshVar e x
-    buildFreshVar (Var y)    x            = x <> y
-    buildFreshVar (App e e') x            = buildFreshVar e x <> buildFreshVar e' x
-    buildFreshVar (Lam (VarAnno y _) e) x = buildFreshVar e (x <> y)
-    buildFreshVar e x                     = x
+    buildFreshVar (Var y)    x     = x <> y
+    buildFreshVar (App m n) x     = buildFreshVar m x <> buildFreshVar n x
+    buildFreshVar (Lam (y, _) m) x = buildFreshVar m (x <> y)
+    buildFreshVar m x              = x
 
 sub :: Term -> ByteString -> Term -> Term
-sub t x (Anno e _) = sub t x e
 sub t x (Var y)
   | x == y         = t
   | otherwise      = Var y
-sub t x (App e e') = App (sub t x e) (sub t x e')
-sub t x (Lam (VarAnno y t') e)
-  | x == y         = Lam (VarAnno y t') e
-  | y `isFreeIn` t = Lam (VarAnno freshVar t') (sub t x (sub (Var freshVar) y e))
-  | otherwise      = Lam (VarAnno y t') (sub t x e)
+sub t x (App m n) = App (sub t x m) (sub t x n)
+sub t x (Lam (y, t') m)
+  | x == y         = Lam (y, t') m
+  | y `isFreeIn` t = Lam (freshVar, t') (sub t x (sub (Var freshVar) y m))
+  | otherwise      = Lam (y, t') (sub t x m)
   where
     freshVar :: ByteString
-    freshVar = getFreshVar e
-sub t x e          = e
+    freshVar = getFreshVar m
+sub t x m          = m
 
 beta :: Term -> Term
-beta (Anno e _)                      = beta e
-beta (App (Lam (VarAnno x t') e) e') = sub e' x e
-beta e                               = e
+beta (App (Lam (x, t') m) n) = sub n x m
+beta m                       = m
 
 eval :: Term -> Term
-eval (Anno e _)            = eval e
-eval (Var x)               = Var x
-eval (Lam (VarAnno x t) e) = Lam (VarAnno x t) (eval e)
-eval (App e e')
-  | isNeutralTerm f        = App f (eval e')
-  | otherwise              = eval (beta (App f e'))
+eval (Var x)        = Var x
+eval (Lam (x, t) m) = Lam (x, t) (eval m)
+eval (App m n)
+  | isNeutralTerm f = App f (eval n)
+  | otherwise       = eval (beta (App f n))
   where
     f :: Term
-    f = eval e
-eval e                     = e
+    f = eval m
+eval m              = m

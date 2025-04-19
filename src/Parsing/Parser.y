@@ -4,6 +4,8 @@ module Parsing.Parser where
 import Core.Data
 import Core.Error
 import Lexing.Tokens
+
+import Data.ByteString.Lazy.Char8 (ByteString, pack)
 }
 
 %name parseExpr
@@ -11,48 +13,43 @@ import Lexing.Tokens
 %error { showError SyntaxError }
 
 %token
-  '0'     { Int 0 }
-  '1'     { Int 1 }
-  int     { Int $$ }
-  '\\'    { Backslash }
-  '.'     { Dot }
-  '('     { LParen }
-  ')'     { RParen }
-  ':'     { Colon }
-  '->'    { RArrow }
-  '*'     { Asterisk }
-  'true'  { TTrue }
-  'false' { TFalse }
-  'Bool'  { Boolean }
-  var     { Id $$ }
+  '\\'    { TkBackslash }
+  '.'     { TkDot }
+  '('     { TkLParen }
+  ')'     { TkRParen }
+  ':='    { TkColonEqual }
+  ':'     { TkColon }
+  '->'    { TkRArrow }
+  '*'     { TkStar }
+  '0'     { TkInt 0 }
+  '1'     { TkInt 1 }
+  'U'     { TkU }
+  var     { TkID $$ }
+  int     { TkInt $$ }
 
 %nonassoc ':'
 %nonassoc '.'
 %right '->'
-%nonassoc var '(' '\\' '0' '1' '*' 'true' 'false' 'Bool'
+%nonassoc var '(' '\\'  '0' '1' 'U' '*'
 %nonassoc APP
 
 %%
 
 Term :: { Term }
-  : '*'           { Star }
-  | 'true'        { Flag True }
-  | 'false'       { Flag False }
-  | Application   { $1 }
+  : var           { Var $1 }
+  | '0'           { Zero }
+  | '1'           { One }
+  | 'U'           { Univ 0 }
   | Abstraction   { $1 }
-  | Term ':' Type { Anno $1 $3 }
-  | var           { Var $1 }
+  | Application   { $1 }
+  | '*'           { Star }
   | '(' Term ')'  { $2 }
+
+Assumption :: { Assumption }
+  : var ':' Term { ($1, $3) }
 
 Application :: { Term }
   : Term Term %prec APP { App $1 $2 }
 
 Abstraction :: { Term }
-  : '\\' var ':' Type '.' Term { Lam (VarAnno $2 $4) $6 }
-
-Type :: { Type }
-  : '0'            { Zero }
-  | '1'            { One }
-  | 'Bool'         { Bool }
-  | Type '->' Type { Arr $1 $3 }
-  | '(' Type ')'   { $2 }
+  : '\\' '(' Assumption ')' '.' Term { Lam $3 $6 }

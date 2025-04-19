@@ -35,6 +35,8 @@ main = do
   -- Parse
   let ast = parseExpr tokens
 
+  print ast
+
   -- Execute
   result <- execute ast >>= \mr -> case mr of
     Result a -> return a
@@ -55,7 +57,7 @@ getSource f = catch (Result <$> BS.readFile f) handler
 execute :: Term -> IO (CanError Term)
 execute e = case mt of
   Error er -> return (Error er)
-  Result t        -> do 
-    return (Result (Anno (eval e) t))
+  Result t -> do 
+    return (Result (eval e))
   where
     mt = typeCheck e

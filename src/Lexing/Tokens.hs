@@ -3,25 +3,22 @@ module Lexing.Tokens (Token (..)) where
 import Data.ByteString.Lazy.Char8 (ByteString)
 
 data Token
-  -- Variables
-  = Id ByteString
-  -- Lambda abstractions
-  | Backslash
-  | Dot
-  -- Types
-  | Colon
-  | RArrow
-  | Boolean
-  -- Parentheses
-  | LParen
-  | RParen
-  -- Booleans
-  | TTrue
-  | TFalse
+  -- Identifiers
+  = TkID ByteString
+  -- Punctuation
+  | TkBackslash
+  | TkDot
+  | TkColon
+  | TkLParen
+  | TkRParen
+  -- Symbols
+  | TkRArrow
+  | TkColonEqual
+  | TkStar
   -- Numbers
-  | Int Integer
-  -- Other
-  | Asterisk
+  | TkInt Integer
+  -- Keywords
+  | TkU
   -- EOF
-  | EOF
+  | TkEOF
   deriving (Eq, Show)
