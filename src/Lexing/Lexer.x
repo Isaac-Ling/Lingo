@@ -7,7 +7,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 }
 
 %encoding "latin1"
-%wrapper "basic-bytestring"
+%wrapper "posn-bytestring"
 
 $digit = [ 0-9 ]
 $lower = [ a-z ]
@@ -18,15 +18,22 @@ $upper = [ A-Z ]
 
 tokens :-
 
-$white+ ;
-<0> \\      { \s -> TkBackslash }
-<0> \.      { \s -> TkDot }
-<0> \(      { \s -> TkLParen }
-<0> \)      { \s -> TkRParen }
-<0> ":="    { \s -> TkColonEqual }
-<0> \:      { \s -> TkColon }
-<0> "->"    { \s -> TkRArrow }
-<0> \*      { \s -> TkStar }
-<0> \U      { \s -> TkU }
-<0> @id     { \s -> TkID s }
-<0> @int    { \s -> TkInt $ read $ unpack s }
+<0> $white+ ;
+<0> \\      { \p s -> PositionedToken TkBackslash p }
+<0> \.      { \p s -> PositionedToken TkDot p }
+<0> \(      { \p s -> PositionedToken TkLParen p }
+<0> \)      { \p s -> PositionedToken TkRParen p }
+<0> ":="    { \p s -> PositionedToken TkColonEqual p }
+<0> \:      { \p s -> PositionedToken TkColon p }
+<0> "->"    { \p s -> PositionedToken TkRArrow p }
+<0> \*      { \p s -> PositionedToken TkStar p }
+<0> \U      { \p s -> PositionedToken (TkUniv 0) p }
+<0> @id     { \p s -> PositionedToken (TkID s) p }
+<0> @int    { \p s -> PositionedToken (TkInt $ read $ unpack s) p }
+
+{
+data PositionedToken = PositionedToken
+  { ptToken    :: Token
+  , ptPosition :: AlexPosn
+  }
+}

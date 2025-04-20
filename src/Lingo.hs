@@ -5,8 +5,8 @@ import Lexing.Tokens
 import Parsing.Parser
 import Core.Data
 import Core.Error
+import Core.Judgement
 import Core.Evaluation
-import Core.TypeChecking
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 import qualified Data.ByteString.Lazy.Char8 as BS
@@ -15,6 +15,11 @@ import Control.Exception (catch, IOException)
 
 data Args = Args
   { sourceFile :: FilePath
+  }
+
+data Output = Output
+  { outTerm :: Term
+  , outType :: Term
   }
 
 main :: IO ()
@@ -33,14 +38,15 @@ main = do
   let tokens = alexScanTokens source
 
   -- Parse
-  let ast = parseExpr tokens
+  let ast = parseExpr $ map ptToken tokens
 
   -- Execute
   result <- execute ast >>= \mr -> case mr of
     Result a -> return a
     Error er -> showError er
 
-  print (show (fst result) ++ " : " ++ show (snd result))
+  print (outTerm result)
+  print (outType result)
 
 parseArgs :: [String] -> CanError Args
 parseArgs []     = Error NoCommandLineArgsSupplied
@@ -50,12 +56,12 @@ getSource :: FilePath -> IO (CanError ByteString)
 getSource f = catch (Result <$> BS.readFile f) handler
   where
     handler :: IOException -> IO (CanError ByteString)
-    handler _ = return (Error FailedToReadSourceFile)
+    handler _ = return $ Error FailedToReadSourceFile
 
-execute :: Term -> IO (CanError (Term, Term))
+execute :: Term -> IO (CanError Output)
 execute e = case mt of
-  Error er -> return (Error er)
+  Error er -> return $ Error er
   Result t -> do 
-    return (Result (eval e, t))
+    return (Result (Output { outTerm = eval e, outType = t }))
   where
-    mt = typeCheck e
+    mt = inferType [] e

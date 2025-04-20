@@ -54,7 +54,8 @@ beta m                       = m
 
 eval :: Term -> Term
 eval (Var x)        = Var x
-eval (Lam (x, t) m) = Lam (x, t) (eval m)
+eval (Lam (x, t) m) = Lam (x, eval t) (eval m)
+eval (Pi (x, t) m)  = Pi (x, eval t) (eval m)
 eval (App m n)
   | isNeutralTerm f = App f (eval n)
   | otherwise       = eval (beta (App f n))

@@ -18,7 +18,7 @@ data Token
   -- Numbers
   | TkInt Integer
   -- Keywords
-  | TkU
+  | TkUniv Integer
   -- EOF
   | TkEOF
   deriving (Eq, Show)

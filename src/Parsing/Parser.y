@@ -23,7 +23,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   '*'     { TkStar }
   '0'     { TkInt 0 }
   '1'     { TkInt 1 }
-  'U'     { TkU }
+  'U'     { TkUniv 0 }
   var     { TkID $$ }
   int     { TkInt $$ }
 
