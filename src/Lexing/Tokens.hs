@@ -26,4 +26,4 @@ data Token
 data PositionedToken = PositionedToken
   { ptToken    :: Token
   , ptPosition :: (Int, Int)
-  }
+  } deriving (Eq, Show)

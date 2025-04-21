@@ -3,6 +3,7 @@ module Lingo (main) where
 import Lexing.Tokens
 import Core.Data
 import Core.Error
+import Lexing.Lexer
 import Parsing.Parser
 import Core.Judgement
 import Core.Evaluation
@@ -32,6 +33,8 @@ main = do
   source <- getSource (sourceFile args) >>= \ms -> case ms of
     Result s -> return s
     Error er -> showError er
+
+  print (scan source)
 
   -- Parse
   ast <- case parse source of

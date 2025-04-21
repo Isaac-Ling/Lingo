@@ -15,8 +15,9 @@ $digit = [ 0-9 ]
 $lower = [ a-z ]
 $upper = [ A-Z ]
 
-@id  = ($lower | $upper | \_) (\')*
-@int = $digit+
+@id   = ($lower | $upper | \_)+ (\')*
+@int  = $digit+
+@univ = \U $digit+
 
 lingo :-
 
@@ -31,7 +32,8 @@ lingo :-
 <0> \:                  { createTk TkColon }
 <0> "->"                { createTk TkRArrow }
 <0> \*                  { createTk TkStar }
-<0> \U                  { createUnivTk }
+<0> 'U'                 { createTk $ TkUniv 0 }
+<0> @univ               { createUnivTk }
 <0> @id                 { createIDTk }
 <0> @int                { createIntTk }
 
@@ -42,10 +44,11 @@ alexEOF = do
   return $ PositionedToken TkEOF (line, col)
 
 createIDTk :: AlexAction PositionedToken
-createIDTk ((AlexPn _ line col), _, str, _) len = return PositionedToken 
-  { ptToken = TkID $ BS.take len str
-  , ptPosition = (line, col)
-  }
+createIDTk (start@(AlexPn _ line col), _, str, _) len =
+  return PositionedToken 
+    { ptToken = TkID $ BS.take len str
+    , ptPosition = (line, col)
+    }
 
 createIntTk :: AlexAction PositionedToken
 createIntTk ((AlexPn _ line col), _, str, _) len = return PositionedToken 

@@ -27,7 +27,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   '*'     { PositionedToken TkStar _ }
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
-  'U'     { PositionedToken (TkUniv 0) _ }
+  univ    { PositionedToken (TkUniv $$) _ }
   var     { PositionedToken (TkID $$) _ }
   int     { PositionedToken (TkInt $$) _ }
 
@@ -43,7 +43,7 @@ Term :: { Term }
   : var          { Var $1 }
   | '0'          { Zero }
   | '1'          { One }
-  | 'U'          { Univ 0 }
+  | univ          { Univ $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
   | PiType       { $1 }
