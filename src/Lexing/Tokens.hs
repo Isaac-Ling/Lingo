@@ -1,4 +1,4 @@
-module Lexing.Tokens (Token (..)) where
+module Lexing.Tokens where
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 
@@ -22,3 +22,8 @@ data Token
   -- EOF
   | TkEOF
   deriving (Eq, Show)
+
+data PositionedToken = PositionedToken
+  { ptToken    :: Token
+  , ptPosition :: (Int, Int)
+  }

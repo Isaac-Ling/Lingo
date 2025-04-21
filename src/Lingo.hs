@@ -1,10 +1,9 @@
 module Lingo (main) where
 
-import Lexing.Lexer
 import Lexing.Tokens
-import Parsing.Parser
 import Core.Data
 import Core.Error
+import Parsing.Parser
 import Core.Judgement
 import Core.Evaluation
 
@@ -34,11 +33,10 @@ main = do
     Result s -> return s
     Error er -> showError er
 
-  -- Lex
-  let tokens = alexScanTokens source
-
   -- Parse
-  let ast = parseExpr $ map ptToken tokens
+  ast <- parseSource source >>= \ms -> case ms of
+    Result s -> return s
+    Error er -> showError er
 
   -- Execute
   result <- execute ast >>= \mr -> case mr of
@@ -57,6 +55,11 @@ getSource f = catch (Result <$> BS.readFile f) handler
   where
     handler :: IOException -> IO (CanError ByteString)
     handler _ = return $ Error FailedToReadSourceFile
+
+parseSource :: ByteString -> IO (CanError Term)
+parseSource s = case parse s of
+  Error er -> return $ Error er
+  Result t -> return $ Result t
 
 execute :: Term -> IO (CanError Output)
 execute e = case mt of
