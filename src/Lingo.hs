@@ -34,12 +34,12 @@ main = do
     Error er -> showError er
 
   -- Parse
-  ast <- parseSource source >>= \ms -> case ms of
+  ast <- case parse source of
     Result s -> return s
     Error er -> showError er
 
   -- Execute
-  result <- execute ast >>= \mr -> case mr of
+  result <- case execute ast of
     Result a -> return a
     Error er -> showError er
 
@@ -56,15 +56,10 @@ getSource f = catch (Result <$> BS.readFile f) handler
     handler :: IOException -> IO (CanError ByteString)
     handler _ = return $ Error FailedToReadSourceFile
 
-parseSource :: ByteString -> IO (CanError Term)
-parseSource s = case parse s of
-  Error er -> return $ Error er
-  Result t -> return $ Result t
-
-execute :: Term -> IO (CanError Output)
+execute :: Term -> CanError Output
 execute e = case mt of
-  Error er -> return $ Error er
+  Error er -> Error er
   Result t -> do 
-    return (Result (Output { outTerm = eval e, outType = t }))
+    Result (Output { outTerm = eval e, outType = t })
   where
     mt = inferType [] e
