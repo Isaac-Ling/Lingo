@@ -4,11 +4,27 @@ import Core.Data
 import Core.Error
 import Core.Evaluation
 
-import Data.ByteString.Lazy.Char8 (ByteString, pack)
+import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 
 -- Judgemental equality of terms/types is alpha-beta equivalence
 instance Eq Term where
   m == n = isAlphaEquiv (eval m) (eval n)
+
+instance Show Term where
+  show (Var x)                     = unpack x
+  show Star                        = "*"
+  show (App (Lam xt m) (Lam yt n)) = "(" ++ show (Lam xt m) ++ ") " ++ "(" ++ show (Lam yt n) ++ ") "
+  show (App m (Lam xt n))          = show m ++ " (" ++ show (Lam xt n) ++ ")"
+  show (App (Lam xt m) n)          = "(" ++ show (Lam xt m) ++ ") " ++ show n
+  show (App (Pi xt m) n)           = "(" ++ show (Pi xt m) ++ ") " ++ show n
+  show (App m n)                   = show m ++ " " ++ show n
+  show (Lam (x, t) m)              = "\\(" ++ unpack x ++ " : " ++ show t ++ "). " ++ show m
+  show (Univ i)                    = "U" ++ show i
+  show Zero                        = "0"
+  show One                         = "1"
+  show (Pi (x, t) m)
+    | x `isFreeIn` m              = show t ++ " -> " ++ show m
+    | otherwise                    = "(" ++ unpack x ++ " : " ++ show t ++ ") -> " ++ show m
 
 isAlphaEquiv :: Term -> Term -> Bool
 isAlphaEquiv (Var x) (Var y)                = x == y

@@ -26,7 +26,7 @@ isFreeIn x m          = True
 
 -- TODO: Make fresh var readable
 getFreshVar :: Term -> ByteString
-getFreshVar m = buildFreshVar m (pack "")
+getFreshVar m = buildFreshVar m (pack "a")
   where
     buildFreshVar :: Term -> ByteString -> ByteString
     buildFreshVar (Var y)    x     = x <> y
@@ -54,6 +54,12 @@ beta m                       = m
 
 eval :: Term -> Term
 eval (Var x)        = Var x
+
+-- Eta expansion
+eval (Lam (x, t) (App f (Var x')))
+  | x == x'   = eval f
+  | otherwise = Lam (x, eval t) (eval (App f (Var x')))
+
 eval (Lam (x, t) m) = Lam (x, eval t) (eval m)
 eval (Pi (x, t) m)  = Pi (x, eval t) (eval m)
 eval (App m n)
