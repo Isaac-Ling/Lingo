@@ -3,6 +3,7 @@ module Parsing.Parser where
 
 import Core.Data
 import Core.Error
+import Core.Evaluation
 import Lexing.Lexer
 import Lexing.Tokens
 
@@ -46,6 +47,7 @@ Term :: { Term }
   | univ          { Univ $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
+  | ArrType      { $1 }
   | PiType       { $1 }
   | '*'          { Star }
   | '(' Term ')' { $2 }
@@ -61,6 +63,9 @@ Abstraction :: { Term }
 
 PiType :: { Term }
   : '(' Assumption ')' '->' Term { Pi $2 $5 }
+
+ArrType :: { Term }
+  : Term '->' Term { Pi (getFreshVar $3, $1) $3 }
 
 {
 parseError :: PositionedToken -> Alex a

@@ -22,6 +22,9 @@ data Output = Output
   , outType :: Term
   }
 
+instance Show Output where
+  show (Output { outTerm = m, outType = t }) = show m ++ " : " ++ show t
+
 main :: IO ()
 main = do
   -- Get command line args
@@ -34,7 +37,8 @@ main = do
     Result s -> return s
     Error er -> showError er
 
-  print (scan source)
+  -- Prints lexed source for debugging
+  --print (scan source)
 
   -- Parse
   ast <- case parse source of
@@ -46,8 +50,7 @@ main = do
     Result a -> return a
     Error er -> showError er
 
-  print (outTerm result)
-  print (outType result)
+  print result
 
 parseArgs :: [String] -> CanError Args
 parseArgs []     = Error NoCommandLineArgsSupplied
