@@ -8,6 +8,8 @@ data Token
   -- Punctuation
   | TkBackslash
   | TkDot
+  | TkComma
+  | TkCross
   | TkColon
   | TkLParen
   | TkRParen

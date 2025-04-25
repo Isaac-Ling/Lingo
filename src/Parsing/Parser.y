@@ -20,6 +20,8 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %token
   '\\'    { PositionedToken TkBackslash _ }
   '.'     { PositionedToken TkDot _ }
+  ','     { PositionedToken TkComma _ }
+  'x'     { PositionedToken TkCross _ }
   '('     { PositionedToken TkLParen _ }
   ')'     { PositionedToken TkRParen _ }
   ':='    { PositionedToken TkColonEqual _ }
@@ -33,9 +35,9 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   int     { PositionedToken (TkInt $$) _ }
 
 %nonassoc ':'
-%nonassoc '.'
+%nonassoc '.' ','
 %right '->'
-%nonassoc var '(' '\\'  '0' '1' 'U' '*'
+%nonassoc var '(' '\\'  '0' '1' 'U' '*' 'x'
 %nonassoc APP
 
 %%
@@ -44,11 +46,11 @@ Term :: { Term }
   : var          { Var $1 }
   | '0'          { Zero }
   | '1'          { One }
-  | univ          { Univ $1 }
+  | univ         { Univ $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
-  | ArrType      { $1 }
   | PiType       { $1 }
+  | SigmaType    { $1 }
   | '*'          { Star }
   | '(' Term ')' { $2 }
 
@@ -63,9 +65,11 @@ Abstraction :: { Term }
 
 PiType :: { Term }
   : '(' Assumption ')' '->' Term { Pi $2 $5 }
+  | Term '->' Term { Pi (getFreshVar $3, $1) $3 }
 
-ArrType :: { Term }
-  : Term '->' Term { Pi (getFreshVar $3, $1) $3 }
+SigmaType :: { Term }
+  : '(' Assumption ')' 'x' Term { Sigma $2 $5 }
+  | Term 'x' Term       { Sigma (getFreshVar $3, $1) $3 }
 
 {
 parseError :: PositionedToken -> Alex a

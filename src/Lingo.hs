@@ -45,6 +45,8 @@ main = do
     Result s -> return s
     Error er -> showError er
 
+  --print ast
+
   -- Execute
   result <- case execute ast of
     Result a -> return a
