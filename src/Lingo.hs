@@ -30,12 +30,12 @@ main = do
   -- Get command line args
   args <- getArgs >>= \ma -> case parseArgs ma of
     Result a -> return a
-    Error er -> showError er
+    err      -> outputError err
   
   -- Read source code
   source <- getSource (sourceFile args) >>= \ms -> case ms of
     Result s -> return s
-    Error er -> showError er
+    err      -> outputError err
 
   -- Prints lexed source for debugging
   --print (scan source)
@@ -43,31 +43,31 @@ main = do
   -- Parse
   ast <- case parse source of
     Result s -> return s
-    Error er -> showError er
+    err      -> outputError err
 
   --print ast
 
   -- Execute
   result <- case execute ast of
     Result a -> return a
-    Error er -> showError er
+    err      -> outputError err
 
   print result
 
 parseArgs :: [String] -> CanError Args
-parseArgs []     = Error NoCommandLineArgsSupplied
+parseArgs []     = Error NoCommandLineArgsSupplied Nothing
 parseArgs (x:xs) = Result $ Args { sourceFile = x }
 
 getSource :: FilePath -> IO (CanError ByteString)
 getSource f = catch (Result <$> BS.readFile f) handler
   where
     handler :: IOException -> IO (CanError ByteString)
-    handler _ = return $ Error FailedToReadSourceFile
+    handler _ = return $ Error FailedToReadSourceFile Nothing
 
 execute :: Term -> CanError Output
 execute e = case mt of
-  Error er -> Error er
-  Result t -> do 
+  Error err s -> Error err s
+  Result t    -> do 
     Result (Output { outTerm = eval e, outType = t })
   where
-    mt = inferType [] e
+    mt = typeCheck [] e

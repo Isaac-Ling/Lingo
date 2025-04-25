@@ -52,6 +52,7 @@ Term :: { Term }
   | PiType       { $1 }
   | SigmaType    { $1 }
   | '*'          { Star }
+  | Pair         { Star }
   | '(' Term ')' { $2 }
 
 Assumption :: { Assumption }
@@ -65,11 +66,14 @@ Abstraction :: { Term }
 
 PiType :: { Term }
   : '(' Assumption ')' '->' Term { Pi $2 $5 }
-  | Term '->' Term { Pi (getFreshVar $3, $1) $3 }
+  | Term '->' Term               { Pi (getFreshVar $3, $1) $3 }
 
 SigmaType :: { Term }
   : '(' Assumption ')' 'x' Term { Sigma $2 $5 }
-  | Term 'x' Term       { Sigma (getFreshVar $3, $1) $3 }
+  | Term 'x' Term               { Sigma (getFreshVar $3, $1) $3 }
+
+Pair :: { Term }
+  : '(' Term ',' Term ')' { Pair $2 $4 }
 
 {
 parseError :: PositionedToken -> Alex a
@@ -82,6 +86,6 @@ parse :: ByteString -> CanError Term
 parse s = case runAlex s parser of
   Right t -> Result t
   Left er -> case er of
-    ""     -> Error $ SyntaxError ""
-    (x:xs) -> Error $ SyntaxError (toUpper x : xs)
+    ""     -> Error SyntaxError Nothing
+    (x:xs) -> Error SyntaxError (Just (toUpper x : xs))
 }

@@ -1,7 +1,7 @@
 module Core.Evaluation where
 
 import Core.Data
-import Data.ByteString.Lazy.Char8 (ByteString, pack)
+import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 
 isValue :: Term -> Bool
 isValue (Lam _ _) = True
@@ -22,6 +22,12 @@ isFreeIn x (App m n) = (x `isFreeIn` m) && (x `isFreeIn` n)
 isFreeIn x (Lam (y, _) m)
   | x == y            = False
   | otherwise         = x `isFreeIn` m
+isFreeIn x (Pi (y, _) m)
+  | x == y            = False
+  | otherwise         = x `isFreeIn` m
+isFreeIn x (Sigma (y, _) m)
+  | x == y            = False
+  | otherwise         = x `isFreeIn` m
 isFreeIn x m          = True
 
 -- TODO: Make fresh var readable
@@ -29,10 +35,12 @@ getFreshVar :: Term -> ByteString
 getFreshVar m = buildFreshVar m (pack "a")
   where
     buildFreshVar :: Term -> ByteString -> ByteString
-    buildFreshVar (Var y)    x     = x <> y
-    buildFreshVar (App m n) x     = buildFreshVar m x <> buildFreshVar n x
-    buildFreshVar (Lam (y, _) m) x = buildFreshVar m (x <> y)
-    buildFreshVar m x              = x
+    buildFreshVar (Var y)    x       = x <> y
+    buildFreshVar (App m n) x        = buildFreshVar m x <> buildFreshVar n x
+    buildFreshVar (Lam (y, _) m) x   = buildFreshVar m (x <> y)
+    buildFreshVar (Pi (y, _) m) x    = buildFreshVar m (x <> y)
+    buildFreshVar (Sigma (y, _) m) x = buildFreshVar m (x <> y)
+    buildFreshVar m x                = x
 
 sub :: Term -> ByteString -> Term -> Term
 sub t x (Var y)
@@ -69,3 +77,35 @@ eval (App m n)
     f :: Term
     f = eval m
 eval m              = m
+
+instance Show Term where
+  show (Var x)                          = unpack x
+  show Star                             = "*"
+  show (App (Lam xt m) (Lam yt n))      = "(" ++ show (Lam xt m) ++ ") " ++ "(" ++ show (Lam yt n) ++ ")"
+  show (App m (Lam xt n))               = show m ++ " (" ++ show (Lam xt n) ++ ")"
+  show (App (Lam xt m) n)               = "(" ++ show (Lam xt m) ++ ") " ++ show n
+  show (App (Pi xt m) n)                = "(" ++ show (Pi xt m) ++ ") " ++ show n
+  show (App (Sigma xt m) n)             = "(" ++ show (Sigma xt m) ++ ") " ++ show n
+  show (App m n)                        = show m ++ " " ++ show n
+  show (Pair m n)                       = "(" ++ show m ++ ", " ++ show n ++ ")"
+  show (Lam (x, t) m)                   = "\\(" ++ unpack x ++ " : " ++ show t ++ "). " ++ show m
+  show (Univ 0)                         = "U"
+  show (Univ i)                         = "U" ++ show i
+  show Zero                             = "0"
+  show One                              = "1"
+  show (Pi (x, Pi (y, t') m) n)         = "(" ++ show (Pi (y, t') m) ++ ")" ++ " -> " ++ show n
+  show (Pi (x, t) m)
+    | x `isFreeIn` m                    = show t ++ " -> " ++ show m
+    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") -> " ++ show m  
+  show (Sigma (x, t) (Sigma (y, t') m))
+    | x `isFreeIn` Sigma (y, t') m      = showSigmaOperarands t ++ " x (" ++ show (Sigma (y, t') m) ++ show ")"
+    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ "(" ++ show (Sigma (y, t') m) ++ ")"
+  show (Sigma (x, t) m)
+    | x `isFreeIn` m                    = showSigmaOperarands t ++ " x " ++ showSigmaOperarands m
+    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showSigmaOperarands m
+
+-- TODO: Generalise this to support arbitrary terms with any precedence
+showSigmaOperarands :: Term -> String
+showSigmaOperarands (App m n)     = "(" ++ show (App m n) ++ ")"
+showSigmaOperarands (Pi (x, t) m) = "(" ++ show (Pi (x, t) m) ++ ")"
+showSigmaOperarands m             = show m

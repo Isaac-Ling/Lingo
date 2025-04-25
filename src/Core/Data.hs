@@ -11,6 +11,7 @@ data Term
   | Lam Assumption Term
   | App Term Term
   | Star
+  | Pair Term Term
   | Univ Integer
   | Zero
   | One
