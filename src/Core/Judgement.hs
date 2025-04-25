@@ -28,10 +28,16 @@ instance Show Term where
   show (Pi (x, t) m)
     | x `isFreeIn` m                    = show t ++ " -> " ++ show m
     | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") -> " ++ show m  
-  show (Sigma (x, t) (Sigma (y, t') m)) = show t ++ " x (" ++ show (Sigma (y, t') m) ++ show ")"
+  show (Sigma (x, t) (Sigma (y, t') m))
+    | x `isFreeIn` Sigma (y, t') m      = showAppInParens t ++ " x (" ++ show (Sigma (y, t') m) ++ show ")"
+    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ show (Sigma (y, t') m)
   show (Sigma (x, t) m)
-    | x `isFreeIn` m                    = show t ++ " x " ++ show m
-    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ show m
+    | x `isFreeIn` m                    = showAppInParens t ++ " x " ++ showAppInParens m
+    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showAppInParens m
+
+showAppInParens :: Term -> String
+showAppInParens (App m n) = "(" ++ show (App m n) ++ ")"
+showAppInParens m         = show m
 
 isAlphaEquiv :: Term -> Term -> Bool
 isAlphaEquiv (Var x) (Var y)                    = x == y
