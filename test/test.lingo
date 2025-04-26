@@ -1,5 +1,5 @@
 -- Apply id to *
---(\(id : 1 -> 1). id *) \(a : 1). a
+--(\(id : 1 -> 1). id *)
 
 -- Sigma type
-\(b : 1 -> U). (a : 1) x (b a)
+(*, \(id : 1 -> 1). id)

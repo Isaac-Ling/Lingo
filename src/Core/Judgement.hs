@@ -54,18 +54,11 @@ typeCheck g (App m n)       = case (typeCheck g m, typeCheck g n) of
   (Error errc s, _)                   -> Error errc s
   (_, Error errc s)                   -> Error errc s
 
-{-
-typeCheck g (Pair m n)      = case typeCheck g m of
-  Result t   -> case (typeCheck ((freshVar, t) : g) m, typeCheck g n) of
-    (Result (Univ _), t') ->
-    (Result _, _)         -> Error TypeMismatch (Just ("'" ++ show t ++ "' is not a term of a universe"))
-    (_, Error er s)       ->
-    (Error _, _)          ->
-  Error er s -> Error er s
-  where
-    freshVar :: ByteString
-    freshVar = getFreshVar n
--}
+-- TODO: This only supports non-dependent pairs, generalise it
+typeCheck g (Pair m n)      = case (typeCheck g m, typeCheck g n) of
+  (Result t, Result t') -> Result (Sigma (getFreshVar n, t) t')
+  (Error errc s, _)     -> Error errc s
+  (_, Error errc s)     -> Error errc s
 
 -- A is a type <=> A : Univ i, for some i
 isType :: Context -> Term -> Bool

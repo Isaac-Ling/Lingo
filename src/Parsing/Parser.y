@@ -51,8 +51,8 @@ Term :: { Term }
   | Application  { $1 }
   | PiType       { $1 }
   | SigmaType    { $1 }
+  | Pair         { $1 }
   | '*'          { Star }
-  | Pair         { Star }
   | '(' Term ')' { $2 }
 
 Assumption :: { Assumption }

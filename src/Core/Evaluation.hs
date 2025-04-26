@@ -17,18 +17,18 @@ isNeutralTerm One       = True
 isNeutralTerm _         = False
 
 isFreeIn :: ByteString -> Term -> Bool
-isFreeIn x (Var y)    = x == y
+isFreeIn x (Var y)   = x == y
 isFreeIn x (App m n) = (x `isFreeIn` m) && (x `isFreeIn` n)
 isFreeIn x (Lam (y, _) m)
-  | x == y            = False
-  | otherwise         = x `isFreeIn` m
+  | x == y           = False
+  | otherwise        = x `isFreeIn` m
 isFreeIn x (Pi (y, _) m)
-  | x == y            = False
-  | otherwise         = x `isFreeIn` m
+  | x == y           = False
+  | otherwise        = x `isFreeIn` m
 isFreeIn x (Sigma (y, _) m)
-  | x == y            = False
-  | otherwise         = x `isFreeIn` m
-isFreeIn x m          = True
+  | x == y           = False
+  | otherwise        = x `isFreeIn` m
+isFreeIn x m         = False
 
 -- TODO: Make fresh var readable
 getFreshVar :: Term -> ByteString
@@ -95,14 +95,14 @@ instance Show Term where
   show One                              = "1"
   show (Pi (x, Pi (y, t') m) n)         = "(" ++ show (Pi (y, t') m) ++ ")" ++ " -> " ++ show n
   show (Pi (x, t) m)
-    | x `isFreeIn` m                    = show t ++ " -> " ++ show m
-    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") -> " ++ show m  
+    | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") -> " ++ show m
+    | otherwise                         = show t ++ " -> " ++ show m
   show (Sigma (x, t) (Sigma (y, t') m))
     | x `isFreeIn` Sigma (y, t') m      = showSigmaOperarands t ++ " x (" ++ show (Sigma (y, t') m) ++ show ")"
     | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ "(" ++ show (Sigma (y, t') m) ++ ")"
   show (Sigma (x, t) m)
-    | x `isFreeIn` m                    = showSigmaOperarands t ++ " x " ++ showSigmaOperarands m
-    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showSigmaOperarands m
+    | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showSigmaOperarands m
+    | otherwise                         = showSigmaOperarands t ++ " x " ++ showSigmaOperarands m
 
 -- TODO: Generalise this to support arbitrary terms with any precedence
 showSigmaOperarands :: Term -> String
