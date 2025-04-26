@@ -6,7 +6,7 @@ import Core.Evaluation
 
 import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
--- Judgemental equality of terms/types is alpha-beta equivalence
+-- Judgemental equality of terms/types is alpha-beta-eta equivalence
 instance Eq Term where
   m == n = isAlphaEquiv (eval m) (eval n)
 
@@ -49,7 +49,7 @@ typeCheck g (Lam (x, t) m)   = case (typeCheck g t, typeCheck ((x, t) : g) m) of
   (Error errc s, _)            -> Error errc s
   (_, Error errc s)            -> Error errc s
 typeCheck g (App m n)       = case (typeCheck g m, typeCheck g n) of
-  (Result (Pi (x, t) t'), Result t'') -> if t == t'' then Result (sub t'' x t') else Error TypeMismatch (Just ("Type " ++ show (Pi (x, t) t') ++ " cannot be applied to type '" ++ show t''))
+  (Result (Pi (x, t) t'), Result t'') -> if t == t'' then Result (sub n x t') else Error TypeMismatch (Just ("Type " ++ show (Pi (x, t) t') ++ " cannot be applied to type " ++ show t''))
   (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not a Pi type") )
   (Error errc s, _)                   -> Error errc s
   (_, Error errc s)                   -> Error errc s

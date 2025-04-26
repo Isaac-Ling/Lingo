@@ -49,11 +49,26 @@ sub t x (Var y)
 sub t x (App m n) = App (sub t x m) (sub t x n)
 sub t x (Lam (y, t') m)
   | x == y         = Lam (y, t') m
-  | y `isFreeIn` t = Lam (freshVar, t') (sub t x (sub (Var freshVar) y m))
-  | otherwise      = Lam (y, t') (sub t x m)
+  | y `isFreeIn` t = Lam (freshVar, sub t x t') (sub t x (sub (Var freshVar) y m))
+  | otherwise      = Lam (y, sub t x t') (sub t x m)
   where
     freshVar :: ByteString
     freshVar = getFreshVar m
+sub t x (Pi (y, t') m)
+  | x == y         = Pi (y, t') m
+  | y `isFreeIn` t = Pi (freshVar, sub t x t') (sub t x (sub (Var freshVar) y m))
+  | otherwise      = Pi (y, sub t x t') (sub t x m)
+  where
+    freshVar :: ByteString
+    freshVar = getFreshVar m
+sub t x (Sigma (y, t') m)
+  | x == y         = Sigma (y, t') m
+  | y `isFreeIn` t = Sigma (freshVar, sub t x t') (sub t x (sub (Var freshVar) y m))
+  | otherwise      = Sigma (y, sub t x t') (sub t x m)
+  where
+    freshVar :: ByteString
+    freshVar = getFreshVar m
+sub t x (Pair m n) = Pair (sub t x m) (sub t x n)
 sub t x m          = m
 
 beta :: Term -> Term
@@ -62,12 +77,9 @@ beta m                       = m
 
 eval :: Term -> Term
 eval (Var x)        = Var x
-
--- Eta expansion
 eval (Lam (x, t) (App f (Var x')))
-  | x == x'   = eval f
+  | x == x'   = eval f -- Eta expansion
   | otherwise = Lam (x, eval t) (eval (App f (Var x')))
-
 eval (Lam (x, t) m) = Lam (x, eval t) (eval m)
 eval (Pi (x, t) m)  = Pi (x, eval t) (eval m)
 eval (App m n)
