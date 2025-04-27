@@ -15,7 +15,7 @@ isAlphaEquiv (Var x) (Var y)                    = x == y
 isAlphaEquiv (Lam (x, t) m) (Lam (y, t') n)     = isAlphaEquiv t t' && isAlphaEquiv m (sub (Var x) y n)
 isAlphaEquiv (Pi (x, t) m) (Pi (y, t') n)       = isAlphaEquiv t t' && isAlphaEquiv m (sub (Var x) y n)
 isAlphaEquiv (Sigma (x, t) m) (Sigma (y, t') n) = isAlphaEquiv t t' && isAlphaEquiv m (sub (Var x) y n)
-isAlphaEquiv (App m n) (App m' n')              = isAlphaEquiv m n && isAlphaEquiv m' n'
+isAlphaEquiv (App m n) (App m' n')              = isAlphaEquiv m m' && isAlphaEquiv n n'
 isAlphaEquiv (Pair m n) (Pair m' n')            = isAlphaEquiv m m' && isAlphaEquiv n n'
 isAlphaEquiv Star Star                          = True
 isAlphaEquiv Zero Zero                          = True
