@@ -13,6 +13,8 @@ data Token
   | TkColon
   | TkLParen
   | TkRParen
+  | TkLSqParen
+  | TkRSqParen
   -- Symbols
   | TkRArrow
   | TkColonEqual
@@ -21,6 +23,7 @@ data Token
   | TkInt Integer
   -- Keywords
   | TkUniv Integer
+  | TkInd
   -- EOF
   | TkEOF
   deriving (Eq, Show)

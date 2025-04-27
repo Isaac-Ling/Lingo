@@ -24,20 +24,22 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   'x'     { PositionedToken TkCross _ }
   '('     { PositionedToken TkLParen _ }
   ')'     { PositionedToken TkRParen _ }
+  '['     { PositionedToken TkLSqParen _ }
+  ']'     { PositionedToken TkRSqParen _ }
   ':='    { PositionedToken TkColonEqual _ }
   ':'     { PositionedToken TkColon _ }
   '->'    { PositionedToken TkRArrow _ }
   '*'     { PositionedToken TkStar _ }
+  'ind'   { PositionedToken TkInd _ }
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
   univ    { PositionedToken (TkUniv $$) _ }
   var     { PositionedToken (TkID $$) _ }
   int     { PositionedToken (TkInt $$) _ }
 
-%nonassoc ':'
-%nonassoc '.' ','
+%nonassoc ':' '.' ','
 %right '->'
-%nonassoc var '(' '\\'  '0' '1' 'U' '*' 'x'
+%nonassoc var '(' '[' '\\' '0' '1' 'U' '*' 'x' 'ind'
 %nonassoc APP
 
 %%
@@ -52,6 +54,7 @@ Term :: { Term }
   | PiType       { $1 }
   | SigmaType    { $1 }
   | Pair         { $1 }
+  | Induction    { $1 }
   | '*'          { Star }
   | '(' Term ')' { $2 }
 
@@ -74,6 +77,9 @@ SigmaType :: { Term }
 
 Pair :: { Term }
   : '(' Term ',' Term ')' { Pair $2 $4 }
+
+Induction :: { Term }
+  : 'ind' '[' Term ']' '(' Term ',' Term ',' Term ')' { Ind $3 $6 $8 $10 }
 
 {
 parseError :: PositionedToken -> Alex a
