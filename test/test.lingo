@@ -4,5 +4,5 @@
 -- Sigma type
 -- (\(c : U). (*, \(id : c -> c). id)) 1
 
--- Sigma induction
-ind[*](*, *, *)
+-- Unit induction
+ind[1](a. 1, *, *)

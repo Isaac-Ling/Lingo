@@ -79,7 +79,8 @@ Pair :: { Term }
   : '(' Term ',' Term ')' { Pair $2 $4 }
 
 Induction :: { Term }
-  : 'ind' '[' Term ']' '(' Term ',' Term ',' Term ')' { Ind $3 $6 $8 $10 }
+  : 'ind' '[' Term ']' '(' var '.' Term ',' Term ',' Term ')' { Ind $3 ($6, $8) $10 $12 }
+  | 'ind' '[' Term ']' '(' Term ',' Term ',' Term ')' { Ind $3 (getFreshVar $6, $6) $8 $10 }
 
 {
 parseError :: PositionedToken -> Alex a

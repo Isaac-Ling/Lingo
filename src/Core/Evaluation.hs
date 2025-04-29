@@ -115,7 +115,9 @@ instance Show Term where
   show (Sigma (x, t) m)
     | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showSigmaOperarands m
     | otherwise                         = showSigmaOperarands t ++ " x " ++ showSigmaOperarands m
-  show (Ind t c g p)                    = "ind[" ++ show t ++ "](" ++ show c ++ ", " ++ show g ++ ", " ++ show p ++ ")"
+  show (Ind t (x, m) c a)
+    | x `isFreeIn` m                    = "ind[" ++ show t ++ "](" ++ show x ++ ". " ++ show m ++ ", " ++ show c ++ ", " ++ show a ++ ")"
+    | otherwise                         = "ind[" ++ show t ++ "](" ++ show m ++ ", " ++ show c ++ ", " ++ show a ++ ")"
 
 -- TODO: Generalise this to support arbitrary terms with any precedence
 showSigmaOperarands :: Term -> String

@@ -43,7 +43,7 @@ typeCheck g (Sigma (x, t) m) = case (typeCheck g t, typeCheck ((x, t) : g) m) of
 typeCheck g (Var x)                       = case lookup x g of
   Just t  -> Result t
   Nothing -> Error FailedToInferType (Just ("Unknown variable " ++ show x))
-typeCheck g (Lam (x, t) m)   = case (typeCheck g t, typeCheck ((x, t) : g) m) of
+typeCheck g (Lam (x, t) m)                = case (typeCheck g t, typeCheck ((x, t) : g) m) of
   (Result (Univ _), Result t') -> Result (Pi (x, t) t')
   (Result _, Result _)         -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
   (Error errc s, _)            -> Error errc s
@@ -60,10 +60,9 @@ typeCheck g (Pair m n)                    = case (typeCheck g m, typeCheck g n) 
   (Error errc s, _)     -> Error errc s
   (_, Error errc s)     -> Error errc s
 
--- TODO: Type check induction operator
---typeCheck g (Ind (Sigma (x, t) m) c g' p) = case (typeCheck g t, typeCheck g n) of
-
-
+typeCheck g (Ind One (x, m) c a)          = case (typeCheck ((x, One) : g) m, typeCheck g c, typeCheck g a) of
+  (Result (Univ _), Result t, Result One) -> if t == sub Star x m then Result (sub a x m) else Error TypeMismatch (Just ("The term " ++ show c ++ " does not have the type of the motive " ++ show m))
+  -- TODO: Type check rest of unit induction
 
 -- A is a type <=> A : Univ i, for some i
 isType :: Context -> Term -> Bool

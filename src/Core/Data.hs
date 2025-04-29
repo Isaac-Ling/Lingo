@@ -17,4 +17,4 @@ data Term
   | One
   | Pi Assumption Term
   | Sigma Assumption Term
-  | Ind Term Term Term Term
+  | Ind Term (ByteString, Term) Term Term
