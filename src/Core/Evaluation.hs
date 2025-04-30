@@ -30,6 +30,10 @@ isFreeIn x (Sigma (y, _) m)
   | otherwise        = x `isFreeIn` m
 isFreeIn x m         = False
 
+isFreeInBound :: ByteString -> BoundTerm -> Bool
+isFreeInBound x (Bind y t) = if x == y then False else isFreeInBound x t
+isFreeInBound x (NoBind t) = isFreeIn x t
+
 -- TODO: Make fresh var readable
 getFreshVar :: Term -> ByteString
 getFreshVar m = buildFreshVar m (pack "a")
@@ -115,12 +119,19 @@ instance Show Term where
   show (Sigma (x, t) m)
     | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showSigmaOperarands m
     | otherwise                         = showSigmaOperarands t ++ " x " ++ showSigmaOperarands m
-  show (Ind t (x, m) c a)
-    | x `isFreeIn` m                    = "ind[" ++ show t ++ "](" ++ show x ++ ". " ++ show m ++ ", " ++ show c ++ ", " ++ show a ++ ")"
-    | otherwise                         = "ind[" ++ show t ++ "](" ++ show m ++ ", " ++ show c ++ ", " ++ show a ++ ")"
+  show (Ind t m e a)                    = "ind[" ++ show t ++ "](" ++ show m ++ ", " ++ showListNoParen e ++ ", " ++ show a ++ ")"
+
+showListNoParen :: Show a => [a] -> String
+showListNoParen []     = ""
+showListNoParen [x]    = show x
+showListNoParen (x:xs) = show x ++ ", " ++ showListNoParen xs
 
 -- TODO: Generalise this to support arbitrary terms with any precedence
 showSigmaOperarands :: Term -> String
 showSigmaOperarands (App m n)     = "(" ++ show (App m n) ++ ")"
 showSigmaOperarands (Pi (x, t) m) = "(" ++ show (Pi (x, t) m) ++ ")"
 showSigmaOperarands m             = show m
+
+instance Show BoundTerm where
+  show (Bind x t) = unpack x ++ ". " ++ show t
+  show (NoBind t) = show t

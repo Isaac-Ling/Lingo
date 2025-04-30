@@ -78,9 +78,17 @@ SigmaType :: { Term }
 Pair :: { Term }
   : '(' Term ',' Term ')' { Pair $2 $4 }
 
+BoundTerm :: { BoundTerm }
+  : Term              { NoBind $1 }
+  | var '.' BoundTerm { Bind $1 $3 }
+
+BoundTerms :: { [BoundTerm] }
+  :                          { [] }
+  | BoundTerm                { [$1] }
+  | BoundTerm ':=' BoundTerms { $1 : $3 }
+
 Induction :: { Term }
-  : 'ind' '[' Term ']' '(' var '.' Term ',' Term ',' Term ')' { Ind $3 ($6, $8) $10 $12 }
-  | 'ind' '[' Term ']' '(' Term ',' Term ',' Term ')' { Ind $3 (getFreshVar $6, $6) $8 $10 }
+  : 'ind' '[' Term ']' '(' BoundTerm ',' BoundTerms ',' Term ')' { Ind $3 $6 $8 $10 }
 
 {
 parseError :: PositionedToken -> Alex a

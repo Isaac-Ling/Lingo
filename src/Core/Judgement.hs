@@ -60,7 +60,7 @@ typeCheck g (Pair m n)                    = case (typeCheck g m, typeCheck g n) 
   (Error errc s, _)     -> Error errc s
   (_, Error errc s)     -> Error errc s
 
-typeCheck g (Ind One (x, m) c a)          = case (typeCheck ((x, One) : g) m, typeCheck g c, typeCheck g a) of
+typeCheck g (Ind One (Bind x (NoBind m)) [NoBind c] a)    = case (typeCheck ((x, One) : g) m, typeCheck g c, typeCheck g a) of
   (Result (Univ _), Result t, Result One) -> if t == sub Star x m then Result (sub a x m) else Error TypeMismatch (Just ("The term " ++ show c ++ " does not have the type of the motive " ++ show m))
   -- TODO: Type check rest of unit induction
 
