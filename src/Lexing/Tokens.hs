@@ -11,6 +11,7 @@ data Token
   | TkComma
   | TkCross
   | TkColon
+  | TkSemiColon
   | TkLParen
   | TkRParen
   | TkLSqParen

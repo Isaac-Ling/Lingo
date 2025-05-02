@@ -28,6 +28,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   ']'     { PositionedToken TkRSqParen _ }
   ':='    { PositionedToken TkColonEqual _ }
   ':'     { PositionedToken TkColon _ }
+  ';'     { PositionedToken TkSemiColon _ }
   '->'    { PositionedToken TkRArrow _ }
   '*'     { PositionedToken TkStar _ }
   'ind'   { PositionedToken TkInd _ }
@@ -85,10 +86,14 @@ BoundTerm :: { BoundTerm }
 BoundTerms :: { [BoundTerm] }
   :                          { [] }
   | BoundTerm                { [$1] }
-  | BoundTerm ':=' BoundTerms { $1 : $3 }
+  | BoundTerm ',' BoundTerms { $1 : $3 }
+
+BoundTermsList :: { [BoundTerm] }
+  :                { [] }
+  | ',' BoundTerms { $2 }
 
 Induction :: { Term }
-  : 'ind' '[' Term ']' '(' BoundTerm ',' BoundTerms ',' Term ')' { Ind $3 $6 $8 $10 }
+  : 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ';' Term ')' { Ind $3 $6 $7 $9 }
 
 {
 parseError :: PositionedToken -> Alex a

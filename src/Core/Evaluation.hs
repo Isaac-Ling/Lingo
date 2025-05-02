@@ -119,7 +119,7 @@ instance Show Term where
   show (Sigma (x, t) m)
     | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showSigmaOperarands m
     | otherwise                         = showSigmaOperarands t ++ " x " ++ showSigmaOperarands m
-  show (Ind t m e a)                    = "ind[" ++ show t ++ "](" ++ show m ++ ", " ++ showListNoParen e ++ ", " ++ show a ++ ")"
+  show (Ind t m e a)                    = "ind[" ++ show t ++ "](" ++ show m ++ (if null e then "" else ", ") ++ showListNoParen e ++ "; " ++ show a ++ ")"
 
 showListNoParen :: Show a => [a] -> String
 showListNoParen []     = ""

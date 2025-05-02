@@ -60,6 +60,12 @@ typeCheck g (Pair m n)                    = case (typeCheck g m, typeCheck g n) 
   (Error errc s, _)     -> Error errc s
   (_, Error errc s)     -> Error errc s
 
+typeCheck g (Ind Zero (NoBind m) [] a)                    = typeCheck g (Ind Zero (Bind (getFreshVar m) (NoBind m)) [] a)
+typeCheck g (Ind Zero (Bind x (NoBind m)) [] a)           = case (typeCheck ((x, Zero) : g) m, typeCheck g a) of
+  (Result (Univ _), Result Zero) ->Result (sub a x m)
+  -- TODO: Type check rest of zero induction
+
+typeCheck g (Ind One (NoBind m) [NoBind c] a)             = typeCheck g (Ind One (Bind (getFreshVar m) (NoBind m)) [NoBind c] a)
 typeCheck g (Ind One (Bind x (NoBind m)) [NoBind c] a)    = case (typeCheck ((x, One) : g) m, typeCheck g c, typeCheck g a) of
   (Result (Univ _), Result t, Result One) -> if t == sub Star x m then Result (sub a x m) else Error TypeMismatch (Just ("The term " ++ show c ++ " does not have the type of the motive " ++ show m))
   -- TODO: Type check rest of unit induction

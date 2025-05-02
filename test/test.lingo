@@ -5,4 +5,4 @@
 -- (\(c : U). (*, \(id : c -> c). id)) 1
 
 -- Unit induction
-ind[1](a. 1, *, *)
+ind[1](a. 1, *; *)
