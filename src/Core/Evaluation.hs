@@ -78,28 +78,36 @@ sub t x m              = m
 
 subInBoundTerm :: Term -> ByteString -> BoundTerm -> BoundTerm
 subInBoundTerm t x (NoBind m) = NoBind (sub t x m)
-subInBoundTerm t x (Bind y m) = if x == y then Bind y m else Bind y (subInBoundTerm t x m)
+subInBoundTerm t x (Bind y m)
+  | x == y         = Bind y m 
+  | y `isFreeIn` t = Bind freshVar (subInBoundTerm t x (subInBoundTerm (Var freshVar) y m))
+  | otherwise      = Bind y (subInBoundTerm t x m)
+  where
+    freshVar :: ByteString
+    freshVar = getFreshVar t
 
 beta :: Term -> Term
 beta (App (Lam (x, t') m) n) = sub n x m
 beta m                       = m
 
-eval :: Term -> Term
-eval (Var x)                                                     = Var x
-eval (Lam (x, t) (App f (Var x')))
-  | x == x'   = eval f -- Eta expansion
-  | otherwise = Lam (x, eval t) (eval (App f (Var x')))
-eval (Lam (x, t) m)                                              = Lam (x, eval t) (eval m)
-eval (Pi (x, t) m)                                               = Pi (x, eval t) (eval m)
-eval (App m n)
-  | isNeutral f = App f (eval n)
-  | otherwise   = eval (beta (App f n))
+eval :: Environment -> Term -> Term
+eval e (Var x)                                                     = case lookup x e of
+  Just m  -> eval e m
+  Nothing -> Var x
+eval e (Lam (x, t) (App f (Var x')))
+  | x == x'   = eval e f -- Eta expansion
+  | otherwise = Lam (x, eval e t) (eval e (App f (Var x')))
+eval e (Lam (x, t) m)                                              = Lam (x, eval e t) (eval e m)
+eval e (Pi (x, t) m)                                               = Pi (x, eval e t) (eval e m)
+eval e (App m n)
+  | isNeutral f = App f (eval e n)
+  | otherwise   = eval e (beta (App f n))
   where
     f :: Term
-    f = eval m
-eval (Ind One _ [NoBind c] _)                                    = c
-eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b)) = sub a w (sub b y f)
-eval m                                                           = m
+    f = eval e m
+eval e (Ind One _ [NoBind c] _)                                    = c
+eval e (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b)) = sub a w (sub b y f)
+eval e m                                                           = m
 
 instance Show Term where
   show (Var x)                          = unpack x

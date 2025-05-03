@@ -8,7 +8,7 @@ import Parsing.Parser
 import Core.Judgement
 import Core.Evaluation
 
-import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 import qualified Data.ByteString.Lazy.Char8 as BS
 import System.Environment (getArgs)
 import Control.Exception (catch, IOException)
@@ -16,14 +16,6 @@ import Control.Exception (catch, IOException)
 data Args = Args
   { sourceFile :: FilePath
   }
-
-data Output = Output
-  { outTerm :: Term
-  , outType :: Term
-  }
-
-instance Show Output where
-  show (Output { outTerm = m, outType = t }) = show m ++ " : " ++ show t
 
 main :: IO ()
 main = do
@@ -37,19 +29,18 @@ main = do
     Result s -> return s
     err      -> outputError err
 
-  -- Prints lexed source for debugging
-  --print (scan source)
+  print $ scan source
 
   -- Parse
-  ast <- case parse source of
+  program <- case parse source of
     Result s -> return s
     err      -> outputError err
 
-  --print ast
+  print program
 
-  -- Execute
-  result <- case execute ast of
-    Result a -> return a
+  -- Run
+  result <- case run program of
+    Result a -> return (Result a)
     err      -> outputError err
 
   print result
@@ -64,10 +55,20 @@ getSource f = catch (Result <$> BS.readFile f) handler
     handler :: IOException -> IO (CanError ByteString)
     handler _ = return $ Error FailedToReadSourceFile Nothing
 
-execute :: Term -> CanError Output
-execute e = case mt of
-  Error err s -> Error err s
-  Result t    -> do 
-    Result (Output { outTerm = eval e, outType = t })
+run :: Program -> CanError ()
+run = runWithContexts [] []
   where
-    mt = typeCheck [] e
+    runWithContexts :: Environment -> Context -> Program -> CanError ()
+    runWithContexts e g []     = Result ()
+    runWithContexts e g (d:ds) = case d of
+        Def (x, m) -> case typeCheck g m of
+          Error err s -> Error err s
+          Result t    -> case lookup x g of
+            Nothing -> p
+            Just t' -> if t == t' then p else Error TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t'))
+            where p = runWithContexts ((x, eval e m) : e) g ds
+        --Anno m t      -> 
+
+instance Show Declaration where
+  show (Anno (x, t)) = unpack x ++ " : " ++ show t
+  show (Def (x, m))  = unpack x ++ " := " ++ show m

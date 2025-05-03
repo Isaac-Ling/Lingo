@@ -8,7 +8,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
 -- Judgemental equality of terms/types is alpha-beta-eta equivalence
 instance Eq Term where
-  m == n = isAlphaEquiv (eval m) (eval n)
+  m == n = isAlphaEquiv (eval [] m) (eval [] n)
 
 isAlphaEquiv :: Term -> Term -> Bool
 isAlphaEquiv (Var x) (Var y)                    = x == y

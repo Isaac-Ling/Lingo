@@ -2,9 +2,19 @@ module Core.Data where
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 
+-- Typing context
 type Assumption = (ByteString, Term)
-
 type Context = [Assumption]
+
+-- Evaluation environment
+type Alias = (ByteString, Term)
+type Environment = [Alias]
+
+data Declaration
+  = Anno Assumption
+  | Def Alias
+
+type Program = [Declaration]
 
 data Term
   = Var ByteString

@@ -30,7 +30,7 @@ instance Monad CanError where
   return = pure
 
 instance Show ErrorCode where
-  show Success                   = ""
+  show Success                   = "Success"
   show NoCommandLineArgsSupplied = "No command line arguments supplied"
   show FailedToReadSourceFile    = "Failed to read source file"
   show SyntaxError               = "Syntax error"

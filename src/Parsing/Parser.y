@@ -16,6 +16,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %error { parseError }
 %monad { Alex }
 %lexer { lexer } { PositionedToken TkEOF _ }
+%expect 0
 
 %token
   '\\'    { PositionedToken TkBackslash _ }
@@ -38,12 +39,24 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   var     { PositionedToken (TkID $$) _ }
   int     { PositionedToken (TkInt $$) _ }
 
+%nonassoc ':='
 %nonassoc ':' '.' ','
 %right '->'
-%nonassoc var '(' '[' '\\' '0' '1' 'U' '*' 'x' 'ind'
+%nonassoc var univ '(' '[' '\\' '0' '1' 'U' '*' 'x' 'ind'
 %nonassoc APP
 
 %%
+
+Program :: { Program }
+  : Declarations { reverse $1 }
+
+Declarations :: { Program }
+  :                    { [] }
+  | Definition Program { $1 : $2 }
+  | Assumption Program { (Anno $1) : $2 }
+
+Definition :: { Declaration }
+  : var ':=' Term { Def ($1, $3) }
 
 Term :: { Term }
   : var          { Var $1 }
@@ -102,7 +115,7 @@ parseError t = alexError ("Parsing error at line " ++ show (fst (ptPosition t)) 
 lexer :: (PositionedToken -> Alex a) -> Alex a
 lexer = (=<< alexMonadScan)
 
-parse :: ByteString -> CanError Term
+parse :: ByteString -> CanError Program
 parse s = case runAlex s parser of
   Right t -> Result t
   Left er -> case er of

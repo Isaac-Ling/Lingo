@@ -5,4 +5,5 @@
 -- (\(c : U). (*, \(id : c -> c). id)) 1
 
 -- snd
-\(A : U). \(B : U). \(p : A x B). ind[A x B](B, a. b. b; p)
+bob : 1
+bob := (\(A : U). \(B : U). \(p : A x B). ind[A x B](B, a. b. b; p))
