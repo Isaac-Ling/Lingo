@@ -5,33 +5,33 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 
 isValue :: Term -> Bool
 isValue (Lam _ _) = True
-isValue m                = isNeutralTerm m
+isValue m         = isNeutral m
 
-isNeutralTerm :: Term -> Bool
-isNeutralTerm (Var _)   = True
-isNeutralTerm (App m n) = isNeutralTerm m && isValue n
-isNeutralTerm Star      = True
-isNeutralTerm (Univ _)  = True
-isNeutralTerm Zero      = True
-isNeutralTerm One       = True
-isNeutralTerm _         = False
+isNeutral :: Term -> Bool
+isNeutral (Var _)   = True
+isNeutral (App m n) = isNeutral m && isValue n
+isNeutral Star      = True
+isNeutral (Univ _)  = True
+isNeutral Zero      = True
+isNeutral One       = True
+isNeutral _         = False
 
 isFreeIn :: ByteString -> Term -> Bool
 isFreeIn x (Var y)   = x == y
 isFreeIn x (App m n) = (x `isFreeIn` m) && (x `isFreeIn` n)
-isFreeIn x (Lam (y, _) m)
+isFreeIn x (Lam (y, t) m)
   | x == y           = False
-  | otherwise        = x `isFreeIn` m
-isFreeIn x (Pi (y, _) m)
+  | otherwise        = x `isFreeIn` m || x `isFreeIn` t
+isFreeIn x (Pi (y, t) m)
   | x == y           = False
-  | otherwise        = x `isFreeIn` m
-isFreeIn x (Sigma (y, _) m)
+  | otherwise        = x `isFreeIn` m || x `isFreeIn` t
+isFreeIn x (Sigma (y, t) m)
   | x == y           = False
-  | otherwise        = x `isFreeIn` m
+  | otherwise        = x `isFreeIn` m || x `isFreeIn` t
 isFreeIn x m         = False
 
 isFreeInBound :: ByteString -> BoundTerm -> Bool
-isFreeInBound x (Bind y t) = if x == y then False else isFreeInBound x t
+isFreeInBound x (Bind y t) = (x /= y) && isFreeInBound x t
 isFreeInBound x (NoBind t) = isFreeIn x t
 
 -- TODO: Make fresh var readable
@@ -48,9 +48,9 @@ getFreshVar m = buildFreshVar m (pack "a")
 
 sub :: Term -> ByteString -> Term -> Term
 sub t x (Var y)
-  | x == y         = t
-  | otherwise      = Var y
-sub t x (App m n) = App (sub t x m) (sub t x n)
+  | x == y             = t
+  | otherwise          = Var y
+sub t x (App m n)      = App (sub t x m) (sub t x n)
 sub t x (Lam (y, t') m)
   | x == y         = Lam (y, t') m
   | y `isFreeIn` t = Lam (freshVar, sub t x t') (sub t x (sub (Var freshVar) y m))
@@ -72,27 +72,34 @@ sub t x (Sigma (y, t') m)
   where
     freshVar :: ByteString
     freshVar = getFreshVar m
-sub t x (Pair m n) = Pair (sub t x m) (sub t x n)
-sub t x m          = m
+sub t x (Pair m n)     = Pair (sub t x m) (sub t x n)
+sub t x (Ind t' m c a) = Ind (sub t x t') (subInBoundTerm t x m) (map (subInBoundTerm t x) c) (sub t x a)
+sub t x m              = m
+
+subInBoundTerm :: Term -> ByteString -> BoundTerm -> BoundTerm
+subInBoundTerm t x (NoBind m) = NoBind (sub t x m)
+subInBoundTerm t x (Bind y m) = if x == y then Bind y m else Bind y (subInBoundTerm t x m)
 
 beta :: Term -> Term
 beta (App (Lam (x, t') m) n) = sub n x m
 beta m                       = m
 
 eval :: Term -> Term
-eval (Var x)        = Var x
+eval (Var x)                                                     = Var x
 eval (Lam (x, t) (App f (Var x')))
   | x == x'   = eval f -- Eta expansion
   | otherwise = Lam (x, eval t) (eval (App f (Var x')))
-eval (Lam (x, t) m) = Lam (x, eval t) (eval m)
-eval (Pi (x, t) m)  = Pi (x, eval t) (eval m)
+eval (Lam (x, t) m)                                              = Lam (x, eval t) (eval m)
+eval (Pi (x, t) m)                                               = Pi (x, eval t) (eval m)
 eval (App m n)
-  | isNeutralTerm f = App f (eval n)
-  | otherwise       = eval (beta (App f n))
+  | isNeutral f = App f (eval n)
+  | otherwise   = eval (beta (App f n))
   where
     f :: Term
     f = eval m
-eval m              = m
+eval (Ind One _ [NoBind c] _)                                    = c
+eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b)) = sub a w (sub b y f)
+eval m                                                           = m
 
 instance Show Term where
   show (Var x)                          = unpack x
@@ -114,8 +121,8 @@ instance Show Term where
     | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") -> " ++ show m
     | otherwise                         = show t ++ " -> " ++ show m
   show (Sigma (x, t) (Sigma (y, t') m))
-    | x `isFreeIn` Sigma (y, t') m      = showSigmaOperarands t ++ " x (" ++ show (Sigma (y, t') m) ++ show ")"
-    | otherwise                         = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ "(" ++ show (Sigma (y, t') m) ++ ")"
+    | x `isFreeIn` Sigma (y, t') m      = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ "(" ++ show (Sigma (y, t') m) ++ ")"
+    | otherwise                         = showSigmaOperarands t ++ " x (" ++ show (Sigma (y, t') m) ++ show ")"
   show (Sigma (x, t) m)
     | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showSigmaOperarands m
     | otherwise                         = showSigmaOperarands t ++ " x " ++ showSigmaOperarands m

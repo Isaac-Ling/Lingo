@@ -1,7 +1,6 @@
 module Core.Data where
 
 import Data.ByteString.Lazy.Char8 (ByteString)
-import Control.Exception.Base (NonTermination)
 
 type Assumption = (ByteString, Term)
 

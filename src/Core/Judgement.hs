@@ -24,31 +24,31 @@ isAlphaEquiv (Univ i) (Univ j)                  = i == j
 isAlphaEquiv _ _                                = False
 
 typeCheck :: Context -> Term -> CanError Term
-typeCheck g (Univ i)                      = Result (Univ (i + 1))
-typeCheck g Zero                          = Result (Univ 0)
-typeCheck g One                           = Result (Univ 0)
-typeCheck g Star                          = Result One
-typeCheck g (Pi (x, t) m)                 = case (typeCheck g t, typeCheck ((x, t) : g) m) of
-  (Result (Univ i), Result (Univ j)) -> Result (Univ (max i j))
-  (Result (Univ i), Result _)        -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
-  (Result _, Result _)               -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
-  (Error errc s, _)                  -> Error errc s
-  (_, Error errc s)                  -> Error errc s
-typeCheck g (Sigma (x, t) m) = case (typeCheck g t, typeCheck ((x, t) : g) m) of
-  (Result (Univ i), Result (Univ j)) -> Result (Univ (max i j))
-  (Result (Univ i), Result _)        -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
-  (Result _, Result _)               -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
-  (Error errc s, _)                  -> Error errc s
-  (_, Error errc s)                  -> Error errc s
-typeCheck g (Var x)                       = case lookup x g of
+typeCheck g (Univ i)                                                                  = Result (Univ (i + 1))
+typeCheck g Zero                                                                      = Result (Univ 0)
+typeCheck g One                                                                       = Result (Univ 0)
+typeCheck g Star                                                                      = Result One
+typeCheck g (Var x)                                                                   = case lookup x g of
   Just t  -> Result t
   Nothing -> Error FailedToInferType (Just ("Unknown variable " ++ show x))
-typeCheck g (Lam (x, t) m)                = case (typeCheck g t, typeCheck ((x, t) : g) m) of
+typeCheck g (Pi (x, t) m)                                                             = case (typeCheck g t, typeCheck ((x, t) : g) m) of
+  (Result (Univ i), Result (Univ j)) -> Result (Univ (max i j))
+  (Result (Univ i), Result _)        -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+  (Result _, Result _)               -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
+  (Error errc s, _)                  -> Error errc s
+  (_, Error errc s)                  -> Error errc s
+typeCheck g (Sigma (x, t) m)                                                          = case (typeCheck g t, typeCheck ((x, t) : g) m) of
+  (Result (Univ i), Result (Univ j)) -> Result (Univ (max i j))
+  (Result (Univ i), Result _)        -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+  (Result _, Result _)               -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
+  (Error errc s, _)                  -> Error errc s
+  (_, Error errc s)                  -> Error errc s
+typeCheck g (Lam (x, t) m)                                                            = case (typeCheck g t, typeCheck ((x, t) : g) m) of
   (Result (Univ _), Result t') -> Result (Pi (x, t) t')
   (Result _, Result _)         -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
   (Error errc s, _)            -> Error errc s
   (_, Error errc s)            -> Error errc s
-typeCheck g (App m n)                     = case (typeCheck g m, typeCheck g n) of
+typeCheck g (App m n)                                                                 = case (typeCheck g m, typeCheck g n) of
   (Result (Pi (x, t) t'), Result t'') -> if t == t'' then Result (sub n x t') else Error TypeMismatch (Just ("Type " ++ show (Pi (x, t) t') ++ " cannot be applied to type " ++ show t''))
   (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not a Pi type") )
   (Error errc s, _)                   -> Error errc s
@@ -60,15 +60,22 @@ typeCheck g (Pair m n)                    = case (typeCheck g m, typeCheck g n) 
   (Error errc s, _)     -> Error errc s
   (_, Error errc s)     -> Error errc s
 
-typeCheck g (Ind Zero (NoBind m) [] a)                    = typeCheck g (Ind Zero (Bind (getFreshVar m) (NoBind m)) [] a)
-typeCheck g (Ind Zero (Bind x (NoBind m)) [] a)           = case (typeCheck ((x, Zero) : g) m, typeCheck g a) of
-  (Result (Univ _), Result Zero) ->Result (sub a x m)
+typeCheck g (Ind Zero (NoBind m) [] a)                                                = typeCheck g (Ind Zero (Bind (getFreshVar m) (NoBind m)) [] a)
+typeCheck g (Ind Zero (Bind x (NoBind m)) [] a)                                       = case (typeCheck ((x, Zero) : g) m, typeCheck g a) of
+  (Result (Univ _), Result Zero) -> Result (sub a x m)
   -- TODO: Type check rest of zero induction
 
-typeCheck g (Ind One (NoBind m) [NoBind c] a)             = typeCheck g (Ind One (Bind (getFreshVar m) (NoBind m)) [NoBind c] a)
-typeCheck g (Ind One (Bind x (NoBind m)) [NoBind c] a)    = case (typeCheck ((x, One) : g) m, typeCheck g c, typeCheck g a) of
+typeCheck g (Ind One (NoBind m) [NoBind c] a)                                         = typeCheck g (Ind One (Bind (getFreshVar m) (NoBind m)) [NoBind c] a)
+typeCheck g (Ind One (Bind x (NoBind m)) [NoBind c] a)                                = case (typeCheck ((x, One) : g) m, typeCheck g c, typeCheck g a) of
   (Result (Univ _), Result t, Result One) -> if t == sub Star x m then Result (sub a x m) else Error TypeMismatch (Just ("The term " ++ show c ++ " does not have the type of the motive " ++ show m))
   -- TODO: Type check rest of unit induction
+
+typeCheck g (Ind (Sigma (x, t) n) (NoBind m) [Bind w (Bind y (NoBind f))] a)          = typeCheck g (Ind (Sigma (x, t) n) (Bind (getFreshVar m) (NoBind m)) [Bind w (Bind y (NoBind f))] a)
+typeCheck g (Ind (Sigma (x, t) n) (Bind z (NoBind m)) [Bind w (Bind y (NoBind f))] a) = case (typeCheck ((z, Sigma (x, t) n) : g) m, typeCheck ((w, t) : (y, n) : g) f, typeCheck g a) of
+  (Result (Univ _), Result s, Result s') -> case (s == sub (Pair (Var w) (Var y)) z m, s' == Sigma (x, t) n) of
+    (True, True) -> Result (sub a z m)
+    (True, _)    -> Error TypeMismatch (Just ("The term " ++ show a ++ " does not have type " ++ show (Sigma (x, t) n)))
+  -- TODO: Type check rest of Sigma induction
 
 -- A is a type <=> A : Univ i, for some i
 isType :: Context -> Term -> Bool
