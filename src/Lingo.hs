@@ -29,14 +29,10 @@ main = do
     Result s -> return s
     err      -> outputError err
 
-  print $ scan source
-
   -- Parse
   program <- case parse source of
     Result s -> return s
     err      -> outputError err
-
-  print program
 
   -- Run
   result <- case run program of
@@ -61,13 +57,16 @@ run = runWithContexts [] []
     runWithContexts :: Environment -> Context -> Program -> CanError ()
     runWithContexts e g []     = Result ()
     runWithContexts e g (d:ds) = case d of
-        Def (x, m) -> case typeCheck g m of
+        Def (x, m)  -> case typeCheck g m of
           Error err s -> Error err s
           Result t    -> case lookup x g of
             Nothing -> p
             Just t' -> if t == t' then p else Error TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t'))
-            where p = runWithContexts ((x, eval e m) : e) g ds
-        --Anno m t      -> 
+            where p = runWithContexts ((x, eval e m) : e) ((x, t) : g) ds
+        Anno (x, t) -> case lookup x g of
+          Nothing -> p
+          Just t' -> if t == t' then p else Error TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t' ++ " but expected " ++ show t))
+          where p = runWithContexts e ((x, t) : g) ds
 
 instance Show Declaration where
   show (Anno (x, t)) = unpack x ++ " : " ++ show t

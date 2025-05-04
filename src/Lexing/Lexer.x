@@ -11,9 +11,11 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 %encoding "latin1"
 %wrapper "monad-bytestring"
 
-$digit = [ 0-9 ]
-$lower = [ a-z ]
-$upper = [ A-Z ]
+$digit     = [ 0-9 ]
+$lower     = [ a-z ]
+$upper     = [ A-Z ]
+$newLine   = [ \n ]
+$whiteNoNL = [ \ \t\f\v\r ]
 
 @id   = ($lower | $upper | \_)+ (\')*
 @int  = $digit+
@@ -21,27 +23,28 @@ $upper = [ A-Z ]
 
 lingo :-
 
-<0> $white+ ;
-<0> "--"\-*.* { skip }
+<0> "--"\-*.*$newLine   { skip }
+<0> $whiteNoNL+ ;
+<0> $newLine    { createTk TkNewL }
 
-<0> \\        { createTk TkBackslash }
-<0> \.        { createTk TkDot }
-<0> \,        { createTk TkComma }
-<0> \x        { createTk TkCross }
-<0> \(        { createTk TkLParen }
-<0> \)        { createTk TkRParen }
-<0> \[        { createTk TkLSqParen }
-<0> \]        { createTk TkRSqParen }
-<0> ":="      { createTk TkColonEqual }
-<0> \:        { createTk TkColon }
-<0> \;        { createTk TkSemiColon }
-<0> "->"      { createTk TkRArrow }
-<0> \*        { createTk TkStar }
-<0> "ind"     { createTk TkInd }
-<0> @univ     { createUnivTk }
-<0> \U        { createTk $ TkUniv 0 }
-<0> @id       { createIDTk }
-<0> @int      { createIntTk }
+<0> \\          { createTk TkBackslash }
+<0> \.          { createTk TkDot }
+<0> \,          { createTk TkComma }
+<0> \x          { createTk TkCross }
+<0> \(          { createTk TkLParen }
+<0> \)          { createTk TkRParen }
+<0> \[          { createTk TkLSqParen }
+<0> \]          { createTk TkRSqParen }
+<0> ":="        { createTk TkColonEqual }
+<0> \:          { createTk TkColon }
+<0> \;          { createTk TkSemiColon }
+<0> "->"        { createTk TkRArrow }
+<0> \*          { createTk TkStar }
+<0> "ind"       { createTk TkInd }
+<0> @univ       { createUnivTk }
+<0> \U          { createTk $ TkUniv 0 }
+<0> @id         { createIDTk }
+<0> @int        { createIntTk }
 
 {
 alexEOF :: Alex PositionedToken

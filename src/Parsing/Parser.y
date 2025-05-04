@@ -16,9 +16,10 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %error { parseError }
 %monad { Alex }
 %lexer { lexer } { PositionedToken TkEOF _ }
-%expect 0
+--%expect 0
 
 %token
+  '\n'    { PositionedToken TkNewL _ }
   '\\'    { PositionedToken TkBackslash _ }
   '.'     { PositionedToken TkDot _ }
   ','     { PositionedToken TkComma _ }
@@ -48,12 +49,13 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %%
 
 Program :: { Program }
-  : Declarations { reverse $1 }
+  : Declarations { $1 }
 
 Declarations :: { Program }
-  :                    { [] }
-  | Definition Program { $1 : $2 }
-  | Assumption Program { (Anno $1) : $2 }
+  :                              { [] }
+  | '\n' Declarations            { $2 }
+  | Definition '\n' Declarations { $1 : $3 }
+  | Assumption '\n' Declarations { (Anno $1) : $3 }
 
 Definition :: { Declaration }
   : var ':=' Term { Def ($1, $3) }

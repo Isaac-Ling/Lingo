@@ -25,7 +25,8 @@ data Token
   -- Keywords
   | TkUniv Integer
   | TkInd
-  -- EOF
+  -- Misc
+  | TkNewL
   | TkEOF
   deriving (Eq, Show)
 
