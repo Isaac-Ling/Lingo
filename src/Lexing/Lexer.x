@@ -17,7 +17,7 @@ $upper     = [ A-Z ]
 $newLine   = [ \n ]
 $whiteNoNL = [ \ \t\f\v\r ]
 
-@id   = ($lower | $upper | \_)+ (\')*
+@id   = ($lower | $upper | \_) ($lower | $upper | \_ | $digit)* (\')*
 @int  = $digit+
 @univ = \U $digit+
 

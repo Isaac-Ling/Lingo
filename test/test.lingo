@@ -1,4 +1,11 @@
--- snd
-bob := \(A : U). \(B : U). \(p : A x B). ind[A x B](B, a. b. b; p)
+-- Projections1
+fst := \(A : U). \(B : U). \(p : A x B). ind[A x B](A, a. b. a; p)
+snd := \(A : U). \(B : U). \(p : A x B). ind[A x B](B, a. b. b; p)
 
-#check bob
+result1 := fst 1 1 (*, *)
+result2 := snd 1 1 (*, *)
+
+#check fst
+#check snd
+#check result1
+#check result2

@@ -69,7 +69,7 @@ run = runWithContexts [] []
         Pragma (Check m) -> do
           case typeCheck g m of
             Result t    -> do
-              putStrLn (show (unsafeEval e m) ++ " : " ++ show t)
+              putStrLn (show m ++ " := " ++ show (unsafeEval e m) ++ " : " ++ show t)
               runWithContexts e g ds
             Error err s -> return (Error err s)
 
