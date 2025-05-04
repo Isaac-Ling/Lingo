@@ -9,6 +9,7 @@ data Token
   | TkBackslash
   | TkDot
   | TkComma
+  | TkHash
   | TkCross
   | TkColon
   | TkSemiColon
@@ -25,6 +26,7 @@ data Token
   -- Keywords
   | TkUniv Integer
   | TkInd
+  | TkCheck
   -- Misc
   | TkNewL
   | TkEOF

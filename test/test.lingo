@@ -1,13 +1,4 @@
--- Apply id to *
---(\(id : 1 -> 1). id *)
-
--- Sigma type
--- (\(c : U). (*, \(id : c -> c). id)) 1
-
 -- snd
---bob := \(A : U). \(B : U). \(p : A x B). ind[A x B](B, a. b. b; p)
-bob :  1 -> 1
-bob := \(a : 1). a
+bob := \(A : U). \(B : U). \(p : A x B). ind[A x B](B, a. b. b; p)
 
-charlie : 1
-charlie := bob *
+#check bob

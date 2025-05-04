@@ -33,6 +33,7 @@ lingo :-
 <0> \x          { createTk TkCross }
 <0> \(          { createTk TkLParen }
 <0> \)          { createTk TkRParen }
+<0> \)          { createTk TkRParen }
 <0> \[          { createTk TkLSqParen }
 <0> \]          { createTk TkRSqParen }
 <0> ":="        { createTk TkColonEqual }
@@ -41,6 +42,7 @@ lingo :-
 <0> "->"        { createTk TkRArrow }
 <0> \*          { createTk TkStar }
 <0> "ind"       { createTk TkInd }
+<0> "#check"    { createTk TkCheck }
 <0> @univ       { createUnivTk }
 <0> \U          { createTk $ TkUniv 0 }
 <0> @id         { createIDTk }

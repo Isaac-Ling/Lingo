@@ -10,9 +10,13 @@ type Context = [Assumption]
 type Alias = (ByteString, Term)
 type Environment = [Alias]
 
+newtype Pragma
+  = Check Term
+
 data Declaration
   = Anno Assumption
   | Def Alias
+  | Pragma Pragma
 
 type Program = [Declaration]
 

@@ -51,4 +51,4 @@ getErrorCode FailedToInferType         = 4
 getErrorCode TypeMismatch              = 5
 
 outputError :: CanError a -> b
-outputError = error . show
+outputError e = error ("Program exited with: " ++ show e)

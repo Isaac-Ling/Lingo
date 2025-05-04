@@ -1,11 +1,11 @@
 {
 module Parsing.Parser where
 
-import Core.Data
-import Core.Error
-import Core.Evaluation
 import Lexing.Lexer
 import Lexing.Tokens
+import Core.Data
+import Core.Error
+import Core.Judgement
 
 import Data.Char
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
@@ -34,6 +34,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   '->'    { PositionedToken TkRArrow _ }
   '*'     { PositionedToken TkStar _ }
   'ind'   { PositionedToken TkInd _ }
+  'check' { PositionedToken TkCheck _ }
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
   univ    { PositionedToken (TkUniv $$) _ }
@@ -52,13 +53,17 @@ Program :: { Program }
   : Declarations { $1 }
 
 Declarations :: { Program }
-  :                              { [] }
-  | '\n' Declarations            { $2 }
-  | Definition '\n' Declarations { $1 : $3 }
-  | Assumption '\n' Declarations { (Anno $1) : $3 }
+  :                         { [] }
+  | '\n' Declarations       { $2 }
+  | Definition Declarations { $1 : $2 }
+  | Assumption Declarations { (Anno $1) : $2 }
+  | Pragma     Declarations { (Pragma $1) : $2 }
 
 Definition :: { Declaration }
   : var ':=' Term { Def ($1, $3) }
+
+Pragma :: { Pragma }
+  : 'check' Term { Check $2 }
 
 Term :: { Term }
   : var          { Var $1 }

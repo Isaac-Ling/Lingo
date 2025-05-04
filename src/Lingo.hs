@@ -6,7 +6,6 @@ import Core.Error
 import Lexing.Lexer
 import Parsing.Parser
 import Core.Judgement
-import Core.Evaluation
 
 import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 import qualified Data.ByteString.Lazy.Char8 as BS
@@ -35,11 +34,11 @@ main = do
     err      -> outputError err
 
   -- Run
-  result <- case run program of
+  result <- run program >>= \mr -> case mr of
     Result a -> return (Result a)
     err      -> outputError err
 
-  print result
+  putStrLn ("Program exited with: " ++ show result)
 
 parseArgs :: [String] -> CanError Args
 parseArgs []     = Error NoCommandLineArgsSupplied Nothing
@@ -51,22 +50,28 @@ getSource f = catch (Result <$> BS.readFile f) handler
     handler :: IOException -> IO (CanError ByteString)
     handler _ = return $ Error FailedToReadSourceFile Nothing
 
-run :: Program -> CanError ()
+run :: Program -> IO (CanError ())
 run = runWithContexts [] []
   where
-    runWithContexts :: Environment -> Context -> Program -> CanError ()
-    runWithContexts e g []     = Result ()
+    runWithContexts :: Environment -> Context -> Program -> IO (CanError ())
+    runWithContexts e g []     = return (Result ())
     runWithContexts e g (d:ds) = case d of
-        Def (x, m)  -> case typeCheck g m of
-          Error err s -> Error err s
+        Def (x, m)       -> case typeCheck g m of
           Result t    -> case lookup x g of
             Nothing -> p
-            Just t' -> if t == t' then p else Error TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t'))
-            where p = runWithContexts ((x, eval e m) : e) ((x, t) : g) ds
-        Anno (x, t) -> case lookup x g of
+            Just t' -> if t == t' then p else return (Error TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t')))
+            where p = runWithContexts ((x, unsafeEval e m) : e) ((x, t) : g) ds
+          Error err s -> return (Error err s)
+        Anno (x, t)      -> case lookup x g of
           Nothing -> p
-          Just t' -> if t == t' then p else Error TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t' ++ " but expected " ++ show t))
+          Just t' -> if t == t' then p else return (Error TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t' ++ " but expected " ++ show t)))
           where p = runWithContexts e ((x, t) : g) ds
+        Pragma (Check m) -> do
+          case typeCheck g m of
+            Result t    -> do
+              putStrLn (show (unsafeEval e m) ++ " : " ++ show t)
+              runWithContexts e g ds
+            Error err s -> return (Error err s)
 
 instance Show Declaration where
   show (Anno (x, t)) = unpack x ++ " : " ++ show t
