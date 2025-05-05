@@ -48,29 +48,37 @@ typeCheck g (App m n)                                                           
   (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not a Pi type") )
   (Error errc s, _)                   -> Error errc s
   (_, Error errc s)                   -> Error errc s
-
 -- TODO: This only supports non-dependent pairs, generalise it
 typeCheck g (Pair m n)                    = case (typeCheck g m, typeCheck g n) of
   (Result t, Result t') -> Result (Sigma (getFreshVar n, t) t')
   (Error errc s, _)     -> Error errc s
   (_, Error errc s)     -> Error errc s
-
 typeCheck g (Ind Zero (NoBind m) [] a)                                                = typeCheck g (Ind Zero (Bind (getFreshVar m) (NoBind m)) [] a)
 typeCheck g (Ind Zero (Bind x (NoBind m)) [] a)                                       = case (typeCheck ((x, Zero) : g) m, typeCheck g a) of
   (Result (Univ _), Result Zero) -> Result (sub a x m)
-  -- TODO: Type check rest of zero induction
-
+  (Result _, Result Zero)           -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+  (Result _, Result _)              -> Error TypeMismatch (Just (show a ++ " is not of the type " ++ show Zero))
+  (Error errc s, _)                 -> Error errc s
+  (_, Error errc s)                 -> Error errc s
 typeCheck g (Ind One (NoBind m) [NoBind c] a)                                         = typeCheck g (Ind One (Bind (getFreshVar m) (NoBind m)) [NoBind c] a)
 typeCheck g (Ind One (Bind x (NoBind m)) [NoBind c] a)                                = case (typeCheck ((x, One) : g) m, typeCheck g c, typeCheck g a) of
   (Result (Univ _), Result t, Result One) -> if t == sub Star x m then Result (sub a x m) else Error TypeMismatch (Just ("The term " ++ show c ++ " does not have the type of the motive " ++ show m))
-  -- TODO: Type check rest of unit induction
-
+  (Result _, Result t, Result One)        -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+  (Result _, Result _, Result _)          -> Error TypeMismatch (Just (show a ++ " is not of the type " ++ show One))
+  (Error errc s, _, _)                    -> Error errc s
+  (_, Error errc s, _)                    -> Error errc s
+  (_, _, Error errc s)                    -> Error errc s
 typeCheck g (Ind (Sigma (x, t) n) (NoBind m) [Bind w (Bind y (NoBind f))] a)          = typeCheck g (Ind (Sigma (x, t) n) (Bind (getFreshVar m) (NoBind m)) [Bind w (Bind y (NoBind f))] a)
 typeCheck g (Ind (Sigma (x, t) n) (Bind z (NoBind m)) [Bind w (Bind y (NoBind f))] a) = case (typeCheck ((z, Sigma (x, t) n) : g) m, typeCheck ((w, t) : (y, n) : g) f, typeCheck g a) of
   (Result (Univ _), Result s, Result s') -> case (s == sub (Pair (Var w) (Var y)) z m, s' == Sigma (x, t) n) of
     (True, True) -> Result (sub a z m)
-    (True, _)    -> Error TypeMismatch (Just ("The term " ++ show a ++ " does not have type " ++ show (Sigma (x, t) n)))
-  -- TODO: Type check rest of Sigma induction
+    (True, _)    -> Error TypeMismatch (Just ("The term " ++ show a ++ " is not of the type " ++ show (Sigma (x, t) n)))
+    (_, _)       -> Error TypeMismatch (Just ("The term " ++ show g ++ " is not of the type " ++ show (sub (Pair (Var w) (Var y)) z m)))
+  (Result _, Result _, Result _)        -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+  (Error errc s, _, _)                    -> Error errc s
+  (_, Error errc s, _)                    -> Error errc s
+  (_, _, Error errc s)                    -> Error errc s
+typecheck g (Ind t m c a)                                                             = Error FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
 
 -- A is a type <=> A : Univ i, for some i
 isType :: Context -> Term -> Bool
