@@ -106,7 +106,7 @@ isNeutral _         = False
 
 isFreeIn :: ByteString -> Term -> Bool
 isFreeIn x (Var y)        = x == y
-isFreeIn x (App m n)      = (x `isFreeIn` m) && (x `isFreeIn` n)
+isFreeIn x (App m n)      = (x `isFreeIn` m) || (x `isFreeIn` n)
 isFreeIn x (Lam (y, t) m)
   | x == y    = False
   | otherwise = x `isFreeIn` m || x `isFreeIn` t
@@ -217,6 +217,7 @@ instance Show Term where
   show Star                             = "*"
   show (App (Lam xt m) (Lam yt n))      = "(" ++ show (Lam xt m) ++ ") " ++ "(" ++ show (Lam yt n) ++ ")"
   show (App m (Lam xt n))               = show m ++ " (" ++ show (Lam xt n) ++ ")"
+  show (App m (App p n))                = show m ++ " (" ++ show (App p n) ++ ")"
   show (App (Lam xt m) n)               = "(" ++ show (Lam xt m) ++ ") " ++ show n
   show (App (Pi xt m) n)                = "(" ++ show (Pi xt m) ++ ") " ++ show n
   show (App (Sigma xt m) n)             = "(" ++ show (Sigma xt m) ++ ") " ++ show n
@@ -227,7 +228,9 @@ instance Show Term where
   show (Univ i)                         = "U" ++ show i
   show Zero                             = "0"
   show One                              = "1"
-  show (Pi (x, Pi (y, t') m) n)         = "(" ++ show (Pi (y, t') m) ++ ")" ++ " -> " ++ show n
+  show (Pi (x, Pi (y, t') m) n)
+    | x `isFreeIn` n                    = "(" ++ unpack x ++ " : " ++ show (Pi (y, t') m) ++ ") -> " ++ show n
+    | otherwise                         = "(" ++ show (Pi (y, t') m) ++ ") -> " ++ show n
   show (Pi (x, t) m)
     | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") -> " ++ show m
     | otherwise                         = show t ++ " -> " ++ show m

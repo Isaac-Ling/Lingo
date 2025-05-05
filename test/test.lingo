@@ -1,11 +1,8 @@
--- Projections1
+-- Projections
 fst := \(A : U). \(B : U). \(p : A x B). ind[A x B](A, a. b. a; p)
 snd := \(A : U). \(B : U). \(p : A x B). ind[A x B](B, a. b. b; p)
 
-result1 := fst 1 1 (*, *)
-result2 := snd 1 1 (*, *)
+-- Type theoretic axiom of choice
+ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> (R a (f a))))
 
-#check fst
-#check snd
-#check result1
-#check result2
+#check ac

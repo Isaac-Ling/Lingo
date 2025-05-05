@@ -33,6 +33,8 @@ main = do
     Result s -> return s
     err      -> outputError err
 
+  --putStrLn $ unlines $ map show program
+
   -- Run
   result <- run program >>= \mr -> case mr of
     Result a -> return (Result a)
@@ -73,6 +75,10 @@ run = runWithContexts [] []
               runWithContexts e g ds
             Error err s -> return (Error err s)
 
+instance Show Pragma where
+  show (Check m) = "#check " ++ show m
+
 instance Show Declaration where
   show (Anno (x, t)) = unpack x ++ " : " ++ show t
   show (Def (x, m))  = unpack x ++ " := " ++ show m
+  show (Pragma p)    = show p
