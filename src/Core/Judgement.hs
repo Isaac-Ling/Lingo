@@ -78,7 +78,7 @@ typeCheck g (Ind (Sigma (x, t) n) (Bind z (NoBind m)) [Bind w (Bind y (NoBind f)
   (Error errc s, _, _)                    -> Error errc s
   (_, Error errc s, _)                    -> Error errc s
   (_, _, Error errc s)                    -> Error errc s
-typecheck g (Ind t m c a)                                                             = Error FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
+typeCheck g (Ind t m c a)                                                             = Error FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
 
 -- A is a type <=> A : Univ i, for some i
 isType :: Context -> Term -> Bool
@@ -240,7 +240,7 @@ instance Show Term where
   show (Sigma (x, t) m)
     | x `isFreeIn` m                    = "(" ++ unpack x ++ " : " ++ show t ++ ") x " ++ showSigmaOperarands m
     | otherwise                         = showSigmaOperarands t ++ " x " ++ showSigmaOperarands m
-  show (Ind t m e a)                    = "ind[" ++ show t ++ "](" ++ show m ++ (if null e then "" else ", ") ++ showListNoParen e ++ "; " ++ show a ++ ")"
+  show (Ind t m e a)                    = "ind[" ++ show t ++ "](" ++ show m ++ (if null e then "" else ", ") ++ showListNoParen e ++ ", " ++ show a ++ ")"
 
 showListNoParen :: Show a => [a] -> String
 showListNoParen []     = ""

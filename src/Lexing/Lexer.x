@@ -23,7 +23,7 @@ $whiteNoNL = [ \ \t\f\v\r ]
 
 lingo :-
 
-<0> "--"\-*.*$newLine   { skip }
+<0> "--"\-*.*$newLine*   { skip }
 <0> $whiteNoNL+ ;
 <0> $newLine    { createTk TkNewL }
 
@@ -38,7 +38,6 @@ lingo :-
 <0> \]          { createTk TkRSqParen }
 <0> ":="        { createTk TkColonEqual }
 <0> \:          { createTk TkColon }
-<0> \;          { createTk TkSemiColon }
 <0> "->"        { createTk TkRArrow }
 <0> \*          { createTk TkStar }
 <0> "ind"       { createTk TkInd }

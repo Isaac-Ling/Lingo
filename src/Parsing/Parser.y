@@ -30,10 +30,9 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   ']'     { PositionedToken TkRSqParen _ }
   ':='    { PositionedToken TkColonEqual _ }
   ':'     { PositionedToken TkColon _ }
-  ';'     { PositionedToken TkSemiColon _ }
   '->'    { PositionedToken TkRArrow _ }
   '*'     { PositionedToken TkStar _ }
-  'ind'   { PositionedToken TkInd _ }
+  'ind'   { PositionedToken TkInd pos }
   'check' { PositionedToken TkCheck _ }
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
@@ -114,11 +113,22 @@ BoundTermsList :: { [BoundTerm] }
   | ',' BoundTerms { $2 }
 
 Induction :: { Term }
-  : 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ';' Term ')' { Ind $3 $6 $7 $9 }
+  : 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ')' 
+  {
+    case $7 of
+      []     -> outputParseError $8
+      (_:[]) -> outputParseError $8
+      (_:xs) -> case last xs of
+        Bind _ _ -> outputParseError $8
+        NoBind a -> Ind $3 $6 (init $7) a 
+  }
 
 {
 parseError :: PositionedToken -> Alex a
 parseError t = alexError ("Parsing error at line " ++ show (fst (ptPosition t)) ++ ", column " ++ show (snd (ptPosition t)))
+
+outputParseError :: PositionedToken -> a
+outputParseError t = outputError (Error (SyntaxError) (Just ("Parsing error at line " ++ show (fst (ptPosition t)) ++ ", column " ++ show (snd (ptPosition t)))))
 
 lexer :: (PositionedToken -> Alex a) -> Alex a
 lexer = (=<< alexMonadScan)

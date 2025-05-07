@@ -12,7 +12,6 @@ data Token
   | TkHash
   | TkCross
   | TkColon
-  | TkSemiColon
   | TkLParen
   | TkRParen
   | TkLSqParen
