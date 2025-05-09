@@ -16,6 +16,7 @@ isAlphaEquiv Star Star                          = True
 isAlphaEquiv Zero Zero                          = True
 isAlphaEquiv One One                            = True
 isAlphaEquiv (Univ i) (Univ j)                  = i == j
+isAlphaEquiv (Ind t m c a) (Ind t' m' c' a')    = t == t' && m == m' && c == c' && a == a'
 isAlphaEquiv _ _                                = False
 
 typeCheck :: Context -> Term -> CanError Term
@@ -45,7 +46,7 @@ typeCheck g (Lam (x, t) m)                                                      
   (_, Error errc s)            -> Error errc s
 typeCheck g (App m n)                                                                 = case (typeCheck g m, typeCheck g n) of
   (Result (Pi (x, t) t'), Result t'') -> if t == t'' then Result (sub n x t') else Error TypeMismatch (Just ("Type " ++ show (Pi (x, t) t') ++ " cannot be applied to type " ++ show t''))
-  (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not a Pi type") )
+  (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not of type Pi") )
   (Error errc s, _)                   -> Error errc s
   (_, Error errc s)                   -> Error errc s
 -- TODO: This only supports non-dependent pairs, generalise it
@@ -168,17 +169,17 @@ sub t x (Sigma (y, t') m)
     freshVar = getFreshVar m
 sub t x (Pair m n)     = Pair (sub t x m) (sub t x n)
 sub t x (Ind t' m c a) = Ind (sub t x t') (subInBoundTerm t x m) (map (subInBoundTerm t x) c) (sub t x a)
-  where
-    subInBoundTerm :: Term -> ByteString -> BoundTerm -> BoundTerm
-    subInBoundTerm t x (NoBind m) = NoBind (sub t x m)
-    subInBoundTerm t x (Bind y m)
-      | x == y         = Bind y m
-      | y `isFreeIn` t = Bind freshVar (subInBoundTerm t x (subInBoundTerm (Var freshVar) y m))
-      | otherwise      = Bind y (subInBoundTerm t x m)
-      where
-        freshVar :: ByteString
-        freshVar = getFreshVar t
 sub t x m              = m
+
+subInBoundTerm :: Term -> ByteString -> BoundTerm -> BoundTerm
+subInBoundTerm t x (NoBind m) = NoBind (sub t x m)
+subInBoundTerm t x (Bind y m)
+  | x == y         = Bind y m
+  | y `isFreeIn` t = Bind freshVar (subInBoundTerm t x (subInBoundTerm (Var freshVar) y m))
+  | otherwise      = Bind y (subInBoundTerm t x m)
+  where
+    freshVar :: ByteString
+    freshVar = getFreshVar t
 
 beta :: Term -> Term
 beta (App (Lam (x, t') m) n) = sub n x m
@@ -211,6 +212,10 @@ unsafeEval e m                                                           = m
 -- Judgemental equality of terms/types is alpha-beta-eta equivalence
 instance Eq Term where
   m == n = isAlphaEquiv (unsafeEval [] m) (unsafeEval [] n)
+
+instance Eq BoundTerm where
+  (NoBind m) == (NoBind n) = m == n
+  (Bind a m) == (Bind b n) = subInBoundTerm (Var b) a m == n
 
 instance Show Term where
   show (Var x)                          = unpack x
