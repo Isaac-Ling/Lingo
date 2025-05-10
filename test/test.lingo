@@ -1,10 +1,14 @@
 -- Projections
-fst := \(A : U). \(B : U). \(p : A x B). ind[A x B](A, a. b. a, p)
-snd := \(A : U). \(B : U). \(p : A x B). ind[A x B](B, a. b. b, p)
+fst : (A : U) -> (B : U) -> A x B -> A
+fst := \A. \B. \p. ind[A x B](A, a. b. a, p)
+
+snd : (A : U) -> (B : U) -> A x B -> B
+snd := \A. \B. \p. ind[A x B](B, a. b. b, p)
 
 -- Type theoretic axiom of choice
-ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) -> ((a : A) x (R a (f a))))
---ac := \(A : U). \(B : U). \(R : A -> B -> U). \(g : (a : A) -> (b : B) x (R a b)). 1
+--ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> (R a (f a))))
+ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> U
+ac := \A. \B. \R. \g. 1
 
 #check fst
 #check ac

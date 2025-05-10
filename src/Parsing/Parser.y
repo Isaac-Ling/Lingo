@@ -56,7 +56,7 @@ Declarations :: { Program }
   :                         { [] }
   | '\n' Declarations       { $2 }
   | Definition Declarations { $1 : $2 }
-  | Assumption Declarations { (Anno $1) : $2 }
+  | Assumption Declarations { (Signature $1) : $2 }
   | Pragma     Declarations { (Pragma $1) : $2 }
 
 Definition :: { Declaration }
@@ -72,6 +72,7 @@ Term :: { Term }
   | univ         { Univ $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
+  | Annotation   { $1 }
   | PiType       { $1 }
   | SigmaType    { $1 }
   | Pair         { $1 }
@@ -82,11 +83,15 @@ Term :: { Term }
 Assumption :: { Assumption }
   : var ':' Term { ($1, $3) }
 
+Annotation :: { Term }
+  : Term ':' Term { Anno $1 $3 }
+
 Application :: { Term }
   : Term Term %prec APP { App $1 $2 }
 
 Abstraction :: { Term }
-  : '\\' '(' Assumption ')' '.' Term { Lam $3 $6 }
+  : '\\' '(' Assumption ')' '.' Term { Lam (Exp $3) $6 }
+  | '\\' var '.' Term                { Lam (Imp $2) $4 }
 
 PiType :: { Term }
   : '(' Assumption ')' '->' Term { Pi $2 $5 }

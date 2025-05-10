@@ -14,15 +14,24 @@ newtype Pragma
   = Check Term
 
 data Declaration
-  = Anno Assumption
-  | Def Alias
+  = Def Alias
+  | Signature Assumption
   | Pragma Pragma
 
 type Program = [Declaration]
 
+data LambdaBinding
+  = Imp ByteString
+  | Exp Assumption
+
+data BoundTerm
+  = NoBind Term
+  | Bind ByteString BoundTerm
+
 data Term
-  = Var ByteString
-  | Lam Assumption Term
+  = Anno Term Term
+  | Var ByteString
+  | Lam LambdaBinding Term
   | App Term Term
   | Star
   | Pair Term Term
@@ -31,9 +40,5 @@ data Term
   | One
   | Pi Assumption Term
   | Sigma Assumption Term
-  -- Induction principle is of the form: Ind <What am I inducting over?> <Motive> <Required evidence> <Term to prove>
+  -- Induction principle is of the form: Ind <What am I inducting over?> <Motive> <Required evidence> <Antecedent>
   | Ind Term BoundTerm [BoundTerm] Term
-
-data BoundTerm
-  = NoBind Term
-  | Bind ByteString BoundTerm

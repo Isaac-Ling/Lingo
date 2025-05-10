@@ -7,6 +7,7 @@ data ErrorCode
   | SyntaxError
   | FailedToInferType
   | TypeMismatch
+  | DuplicateDefinitions
   deriving Eq
 
 data CanError a
@@ -36,6 +37,7 @@ instance Show ErrorCode where
   show SyntaxError               = "Syntax error"
   show FailedToInferType         = "Failed to infer type"
   show TypeMismatch              = "Type mismatch"
+  show DuplicateDefinitions      = "Duplicate definitions"
 
 instance Show (CanError a) where
   show (Result a)            = "Success (" ++ show (getErrorCode Success) ++ ")"
@@ -49,6 +51,7 @@ getErrorCode FailedToReadSourceFile    = 2
 getErrorCode SyntaxError               = 3
 getErrorCode FailedToInferType         = 4
 getErrorCode TypeMismatch              = 5
+getErrorCode DuplicateDefinitions      = 6
 
 outputError :: CanError a -> b
 outputError e = error ("Program exited with: " ++ show e)
