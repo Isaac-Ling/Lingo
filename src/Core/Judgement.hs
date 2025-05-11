@@ -25,7 +25,6 @@ isAlphaEquivInBound (NoBind m) (NoBind n) = isAlphaEquiv m n
 isAlphaEquivInBound (Bind a m) (Bind b n) = isAlphaEquivInBound m (subInBoundTerm (Var a) b n)
 
 inferType :: Context -> Term -> CanError Term
-inferType g (Anno m t)                                                                = checkType g m t
 inferType g (Univ i)                                                                  = Result (Univ (i + 1))
 inferType g Zero                                                                      = Result (Univ 0)
 inferType g One                                                                       = Result (Univ 0)
@@ -56,7 +55,6 @@ inferType g (App m n)                                                           
   (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not of type Pi") )
   (Error errc s, _)                   -> Error errc s
   (_, Error errc s)                   -> Error errc s
--- TODO: This only supports non-dependent pairs, generalise it
 inferType g (Pair m n)                    = case (inferType g m, inferType g n) of
   (Result t, Result t') -> Result (Sigma (getFreshVar n, t) t')
   (Error errc s, _)     -> Error errc s
@@ -82,14 +80,68 @@ inferType g (Ind (Sigma (x, t) n) (Bind z (NoBind m)) [Bind w (Bind y (NoBind f)
     (True, True) -> Result (sub a z m)
     (True, _)    -> Error TypeMismatch (Just ("The term " ++ show a ++ " is not of the type " ++ show (Sigma (x, t) n)))
     (_, _)       -> Error TypeMismatch (Just ("The term " ++ show g ++ " is not of the type " ++ show (sub (Pair (Var w) (Var y)) z m)))
-  (Result _, Result _, Result _) -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+  (Result _, Result _, Result _)         -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
   (Error errc s, _, _)                   -> Error errc s
   (_, Error errc s, _)                   -> Error errc s
   (_, _, Error errc s)                   -> Error errc s
 inferType g (Ind t m c a)                                                             = Error FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
 
+-- TODO: Use expected type to type sigma terms
 checkType :: Context -> Term -> Term -> CanError Term
-checkType g m t = inferType g m
+checkType g m t = checkTypeWithContexts g m g t
+  where
+    checkInferredTypeMatch :: Context -> Term -> Term -> CanError Term
+    checkInferredTypeMatch g m t = case inferType g m of
+      Result t'    -> if t == t' then Result t else Error TypeMismatch (Just ("The type of " ++ show m ++ " is " ++ show t' ++ " but expected " ++ show t))
+      Error errc s -> Error errc s
+
+    checkTypeWithContexts :: Context -> Term -> Context -> Term -> CanError Term
+    checkTypeWithContexts g (Lam (Exp (x, t)) m) g' (Pi (x', t') n) = case (inferType g t, inferType g' t', checkTypeWithContexts ((x, t) : g) m ((x', t') : g') n) of
+      (Result (Univ i), Result (Univ j), Result t') -> if i == j then Result (Pi (x, t) t') else Error TypeMismatch (Just ("The type of " ++ show t ++ " is " ++ show (Univ i) ++ " but expected " ++ show (Univ j)))
+      (Result (Univ _), Result _, _)                -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
+      (Result _, Result (Univ _), _)                -> Error TypeMismatch (Just (show t' ++ " is not a term of a universe"))
+      (Error errc s, _, _)                          -> Error errc s
+      (_, Error errc s, _)                          -> Error errc s
+      (_, _, Error errc s)                          -> Error errc s
+    checkTypeWithContexts g (Lam (Imp x) m) g' (Pi (x', t) n) = case (inferType g' t, checkTypeWithContexts ((x, t) : g) m ((x', t) : g') n) of
+      (Result (Univ _), Result t') -> Result (Pi (x', t) t')
+      (_, Result _)                -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
+      (Error errc s, _)            -> Error errc s
+      (_, Error errc s)            -> Error errc s
+    checkTypeWithContexts g m _ t                                   = checkInferredTypeMatch g m t
+      {-
+    -- TODO: This only supports non-dependent pairs, generalise it
+    checkTypeWithContexts g (Pair m n)                    = case (inferType g m, inferType g n) of
+      (Result t, Result t') -> Result (Sigma (getFreshVar n, t) t')
+      (Error errc s, _)     -> Error errc s
+      (_, Error errc s)     -> Error errc s
+    checkTypeWithContexts g (Ind Zero (NoBind m) [] a)                                                = inferType g (Ind Zero (Bind (getFreshVar m) (NoBind m)) [] a)
+    checkTypeWithContexts g (Ind Zero (Bind x (NoBind m)) [] a)                                       = case (inferType ((x, Zero) : g) m, inferType g a) of
+      (Result (Univ _), Result Zero) -> Result (sub a x m)
+      (Result _, Result Zero)           -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+      (Result _, Result _)              -> Error TypeMismatch (Just (show a ++ " is not of the type " ++ show Zero))
+      (Error errc s, _)                 -> Error errc s
+      (_, Error errc s)                 -> Error errc s
+    checkTypeWithContexts g (Ind One (NoBind m) [NoBind c] a)                                         = inferType g (Ind One (Bind (getFreshVar m) (NoBind m)) [NoBind c] a)
+    checkTypeWithContexts g (Ind One (Bind x (NoBind m)) [NoBind c] a)                                = case (inferType ((x, One) : g) m, inferType g c, inferType g a) of
+      (Result (Univ _), Result t, Result One) -> if t == sub Star x m then Result (sub a x m) else Error TypeMismatch (Just ("The term " ++ show c ++ " does not have the type of the motive " ++ show m))
+      (Result _, Result t, Result One)        -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+      (Result _, Result _, Result _)          -> Error TypeMismatch (Just (show a ++ " is not of the type " ++ show One))
+      (Error errc s, _, _)                    -> Error errc s
+      (_, Error errc s, _)                    -> Error errc s
+      (_, _, Error errc s)                    -> Error errc s
+    checkTypeWithContexts g (Ind (Sigma (x, t) n) (NoBind m) [Bind w (Bind y (NoBind f))] a)          = inferType g (Ind (Sigma (x, t) n) (Bind (getFreshVar m) (NoBind m)) [Bind w (Bind y (NoBind f))] a)
+    checkTypeWithContexts g (Ind (Sigma (x, t) n) (Bind z (NoBind m)) [Bind w (Bind y (NoBind f))] a) = case (inferType ((z, Sigma (x, t) n) : g) m, inferType ((w, t) : (y, n) : g) f, inferType g a) of
+      (Result (Univ _), Result s, Result s') -> case (s == sub (Pair (Var w) (Var y)) z m, s' == Sigma (x, t) n) of
+        (True, True) -> Result (sub a z m)
+        (True, _)    -> Error TypeMismatch (Just ("The term " ++ show a ++ " is not of the type " ++ show (Sigma (x, t) n)))
+        (_, _)       -> Error TypeMismatch (Just ("The term " ++ show g ++ " is not of the type " ++ show (sub (Pair (Var w) (Var y)) z m)))
+      (Result _, Result _, Result _)         -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
+      (Error errc s, _, _)                   -> Error errc s
+      (_, Error errc s, _)                   -> Error errc s
+      (_, _, Error errc s)                   -> Error errc s
+    checkTypeWithContexts g (Ind t m c a)                                                             = Error FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
+    -}
 
 -- A is a type <=> A : Univ i, for some i
 isType :: Context -> Term -> Bool
@@ -242,7 +294,6 @@ instance Eq BoundTerm where
       unsafeEvalBoundTerm (Bind a m) = Bind a (unsafeEvalBoundTerm m)
 
 instance Show Term where
-  show (Anno m t)                       = show m ++ " : " ++ show t
   show (Var x)                          = unpack x
   show Star                             = "*"
   show (App (Lam xt m) (Lam yt n))      = "(" ++ show (Lam xt m) ++ ") " ++ "(" ++ show (Lam yt n) ++ ")"

@@ -72,7 +72,6 @@ Term :: { Term }
   | univ         { Univ $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
-  | Annotation   { $1 }
   | PiType       { $1 }
   | SigmaType    { $1 }
   | Pair         { $1 }
@@ -82,9 +81,6 @@ Term :: { Term }
 
 Assumption :: { Assumption }
   : var ':' Term { ($1, $3) }
-
-Annotation :: { Term }
-  : Term ':' Term { Anno $1 $3 }
 
 Application :: { Term }
   : Term Term %prec APP { App $1 $2 }

@@ -29,8 +29,7 @@ data BoundTerm
   | Bind ByteString BoundTerm
 
 data Term
-  = Anno Term Term
-  | Var ByteString
+  = Var ByteString
   | Lam LambdaBinding Term
   | App Term Term
   | Star

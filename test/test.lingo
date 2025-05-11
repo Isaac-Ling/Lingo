@@ -1,4 +1,5 @@
 -- Projections
+
 fst : (A : U) -> (B : U) -> A x B -> A
 fst := \A. \B. \p. ind[A x B](A, a. b. a, p)
 
