@@ -41,3 +41,6 @@ data Term
   | Sigma Assumption Term
   -- Induction principle is of the form: Ind <What am I inducting over?> <Motive> <Required evidence> <Antecedent>
   | Ind Term BoundTerm [BoundTerm] Term
+
+class JudgementalEquality a where
+  (===) :: a -> a -> Environment -> Bool

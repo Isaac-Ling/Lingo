@@ -89,13 +89,14 @@ Abstraction :: { Term }
   : '\\' '(' Assumption ')' '.' Term { Lam (Exp $3) $6 }
   | '\\' var '.' Term                { Lam (Imp $2) $4 }
 
+-- TODO: Need to carry along environment when parsing to pass to getFreshVar
 PiType :: { Term }
   : '(' Assumption ')' '->' Term { Pi $2 $5 }
-  | Term '->' Term               { Pi (getFreshVar $3, $1) $3 }
+  | Term '->' Term               { Pi (getFreshVar [] $3, $1) $3 }
 
 SigmaType :: { Term }
   : '(' Assumption ')' 'x' Term { Sigma $2 $5 }
-  | Term 'x' Term               { Sigma (getFreshVar $3, $1) $3 }
+  | Term 'x' Term               { Sigma (getFreshVar [] $3, $1) $3 }
 
 Pair :: { Term }
   : '(' Term ',' Term ')' { Pair $2 $4 }
