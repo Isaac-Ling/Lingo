@@ -51,7 +51,7 @@ inferType e g (Lam (Exp (x, t)) m)                                              
   (_, Error errc s)            -> Error errc s
 inferType e g (Lam (Imp x) m)                                                           = Error FailedToInferType (Just ("Cannot infer type of implicit lambda " ++ show (Lam (Imp x) m)))
 inferType e g (App m n)                                                                 = case (inferType e g m, inferType e g n) of
-  (Result (Pi (x, t) t'), Result t'') -> if t === t'' $ e then Result (sub e n x t') else Error TypeMismatch (Just ("Type " ++ show (Pi (x, t) t') ++ " cannot be applied to type " ++ show t''))
+  (Result (Pi (x, t) t'), Result t'') -> if t === t'' $ e then Result (sub e n x t') else Error TypeMismatch (Just ("Type " ++ show (unsafeEval e (Pi (x, t) t')) ++ " cannot be applied to type " ++ show (unsafeEval e t'')))
   (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not of type Pi") )
   (Error errc s, _)                   -> Error errc s
   (_, Error errc s)                   -> Error errc s
@@ -98,50 +98,23 @@ checkType e g m t = checkTypeWithContexts e g m g t
     checkTypeWithContexts :: Environment -> Context -> Term -> Context -> Term -> CanError Term
     checkTypeWithContexts e g (Lam (Exp (x, t)) m) g' (Pi (x', t') n) = case (inferType e g t, inferType e g' t', checkTypeWithContexts e ((x, t) : g) m ((x', t') : g') n) of
       (Result (Univ i), Result (Univ j), Result t') -> if i == j then Result (Pi (x, t) t') else Error TypeMismatch (Just ("The type of " ++ show t ++ " is " ++ show (Univ i) ++ " but expected " ++ show (Univ j)))
-      (Result (Univ _), Result _, _)                -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
-      (Result _, Result (Univ _), _)                -> Error TypeMismatch (Just (show t' ++ " is not a term of a universe"))
+      (Result (Univ _), Result _, Result _)         -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
+      (Result _, Result (Univ _), Result _)         -> Error TypeMismatch (Just (show t' ++ " is not a term of a universe"))
       (Error errc s, _, _)                          -> Error errc s
       (_, Error errc s, _)                          -> Error errc s
       (_, _, Error errc s)                          -> Error errc s
-    checkTypeWithContexts e g (Lam (Imp x) m) g' (Pi (x', t) n) = case (inferType e g' t, checkTypeWithContexts e ((x, t) : g) m ((x', t) : g') n) of
+    checkTypeWithContexts e g (Lam (Imp x) m) g' (Pi (x', t) n)       = case (inferType e g' t, checkTypeWithContexts e ((x, t) : g) m ((x, t) : g') (sub e (Var x) x' n)) of
       (Result (Univ _), Result t') -> Result (Pi (x', t) t')
       (_, Result _)                -> Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
       (Error errc s, _)            -> Error errc s
       (_, Error errc s)            -> Error errc s
-    -- TODO: Finish this
-    checkTypeWithContexts e g (Pair m n) g' (Sigma (x, t) t')   = case (inferType e g' t, inferType e ((x, t) : g') t', checkTypeWithContexts e g m g' t, checkTypeWithContexts e g n g' t') of
+    checkTypeWithContexts e g (Pair m n) g' (Sigma (x, t) t')         = case (inferType e g' t, inferType e ((x, t) : g') t', checkTypeWithContexts e g m g' t, checkTypeWithContexts e g n g' t') of
       (Result (Univ _), Result (Univ _), Result a, Result b) -> if (a === t $ e) && (b === sub e m x t' $ e) then Result (Sigma (x, t) t') else Error TypeMismatch (Just (show t ++ " is not a term of a universe"))
-      --(Error errc s, _)     -> Error errc s
-      --(_, Error errc s)     -> Error errc s
+      (Error errc s, _, _, _)                                -> Error errc s
+      (_, Error errc s, _, _)                                -> Error errc s
+      (_, _, Error errc s, _)                                -> Error errc s
+      (_, _, _, Error errc s)                                -> Error errc s
     checkTypeWithContexts e g m _ t                                   = checkInferredTypeMatch e g m t
-    {-
-    checkTypeWithContexts g (Ind Zero (NoBind m) [] a)                                                = inferType g (Ind Zero (Bind (getFreshVar m) (NoBind m)) [] a)
-    checkTypeWithContexts g (Ind Zero (Bind x (NoBind m)) [] a)                                       = case (inferType ((x, Zero) : g) m, inferType g a) of
-      (Result (Univ _), Result Zero) -> Result (sub a x m)
-      (Result _, Result Zero)           -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
-      (Result _, Result _)              -> Error TypeMismatch (Just (show a ++ " is not of the type " ++ show Zero))
-      (Error errc s, _)                 -> Error errc s
-      (_, Error errc s)                 -> Error errc s
-    checkTypeWithContexts g (Ind One (NoBind m) [NoBind c] a)                                         = inferType g (Ind One (Bind (getFreshVar m) (NoBind m)) [NoBind c] a)
-    checkTypeWithContexts g (Ind One (Bind x (NoBind m)) [NoBind c] a)                                = case (inferType ((x, One) : g) m, inferType g c, inferType g a) of
-      (Result (Univ _), Result t, Result One) -> if t == sub Star x m then Result (sub a x m) else Error TypeMismatch (Just ("The term " ++ show c ++ " does not have the type of the motive " ++ show m))
-      (Result _, Result t, Result One)        -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
-      (Result _, Result _, Result _)          -> Error TypeMismatch (Just (show a ++ " is not of the type " ++ show One))
-      (Error errc s, _, _)                    -> Error errc s
-      (_, Error errc s, _)                    -> Error errc s
-      (_, _, Error errc s)                    -> Error errc s
-    checkTypeWithContexts g (Ind (Sigma (x, t) n) (NoBind m) [Bind w (Bind y (NoBind f))] a)          = inferType g (Ind (Sigma (x, t) n) (Bind (getFreshVar m) (NoBind m)) [Bind w (Bind y (NoBind f))] a)
-    checkTypeWithContexts g (Ind (Sigma (x, t) n) (Bind z (NoBind m)) [Bind w (Bind y (NoBind f))] a) = case (inferType ((z, Sigma (x, t) n) : g) m, inferType ((w, t) : (y, n) : g) f, inferType g a) of
-      (Result (Univ _), Result s, Result s') -> case (s == sub (Pair (Var w) (Var y)) z m, s' == Sigma (x, t) n) of
-        (True, True) -> Result (sub a z m)
-        (True, _)    -> Error TypeMismatch (Just ("The term " ++ show a ++ " is not of the type " ++ show (Sigma (x, t) n)))
-        (_, _)       -> Error TypeMismatch (Just ("The term " ++ show g ++ " is not of the type " ++ show (sub (Pair (Var w) (Var y)) z m)))
-      (Result _, Result _, Result _)         -> Error TypeMismatch (Just (show m ++ " is not a term of a universe"))
-      (Error errc s, _, _)                   -> Error errc s
-      (_, Error errc s, _)                   -> Error errc s
-      (_, _, Error errc s)                   -> Error errc s
-    checkTypeWithContexts g (Ind t m c a)                                                             = Error FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
-    -}
 
 -- A is a type <=> A : Univ i, for some i
 isType :: Environment -> Context -> Term -> Bool
@@ -160,7 +133,7 @@ isValue :: Environment -> Term -> Bool
 isValue e (Lam _ _) = True
 isValue e (Var x)   = case lookup x e of
     Just m  -> isValue e m
-    Nothing -> False
+    Nothing -> True
 isValue e m         = isNeutral e m
 
 isNeutral :: Environment -> Term -> Bool
@@ -291,6 +264,7 @@ unsafeEval e (Lam (Imp x) (App f (Var x')))
 unsafeEval e (Lam (Exp (x, t)) m)                                        = Lam (Exp (x, unsafeEval e t)) (unsafeEval e m)
 unsafeEval e (Lam (Imp x) m)                                             = Lam (Imp x) (unsafeEval e m)
 unsafeEval e (Pi (x, t) m)                                               = Pi (x, unsafeEval e t) (unsafeEval e m)
+unsafeEval e (Sigma (x, t) m)                                            = Sigma (x, unsafeEval e t) (unsafeEval e m)
 unsafeEval e (App m n)
   | isNeutral e f = App f (unsafeEval e n)
   | otherwise   = unsafeEval e (beta e (App f n))
@@ -302,10 +276,10 @@ unsafeEval e (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b)) = sub e
 unsafeEval e m                                                           = m
 
 -- Judgemental equality of terms/types is alpha-beta-eta equivalence
-instance JudgementalEquality Term where
+instance JudgementalEq Term where
   (===) m n e = isAlphaEquiv e (unsafeEval e m) (unsafeEval e n)
 
-instance JudgementalEquality BoundTerm where
+instance JudgementalEq BoundTerm where
   (===) m n e = isAlphaEquivInBound e (unsafeEvalBoundTerm m) (unsafeEvalBoundTerm n)
     where
       unsafeEvalBoundTerm :: BoundTerm -> BoundTerm
