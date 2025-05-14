@@ -1,8 +1,8 @@
 {
 module Lexing.Lexer where
 
-import Lexing.Tokens
 import Core.Error
+import Lexing.Tokens
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 import qualified Data.ByteString.Lazy.Char8 as BS

@@ -1,15 +1,33 @@
-module Core.Execution where
+module Core.Program where
 
-import Core.Data
+import Core.Term
 import Core.Error
 import Core.Judgement
 
+import Control.Monad.Reader
 import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
-run :: Program -> IO (CanError ())
-run = runWithContexts [] []
+newtype Pragma
+  = Check Term
+
+data Declaration
+  = Def Alias
+  | Signature Assumption
+  | Pragma Pragma
+
+type Program = [Declaration]
+
+run :: Program -> CanError ()
+run p = runReader (runProgram p) ([], [])
   where
-    runWithContexts :: Environment -> Context -> Program -> IO (CanError ())
+    runProgram :: Program -> Reader (Environment, Context) (CanError ())
+    runProgram [] = return (Result ())
+
+{-
+oldRun :: Program -> CanError ()
+oldRun = runWithContexts [] []
+  where
+    runWithContexts :: Environment -> Context -> Program -> CanError ()
     runWithContexts e g []     = return (Result ())
     runWithContexts e g (d:ds) = case d of
         Def (x, m)       -> case (lookup x e, lookup x g) of
@@ -27,9 +45,9 @@ run = runWithContexts [] []
         Pragma (Check m) ->
           case inferType e g m of
             Result t    -> do
-              putStrLn (show m ++ " := " ++ show (unsafeEval e m) ++ " : " ++ show t)
               runWithContexts e g ds
             Error err s -> return (Error err s)
+-}
 
 instance Show Declaration where
   show (Signature (x, t)) = unpack x ++ " : " ++ show t

@@ -1,54 +1,47 @@
 module Lingo (main) where
 
-import Lexing.Tokens
-import Core.Data
 import Core.Error
-import Lexing.Lexer
-import Parsing.Parser
-import Core.Judgement
-import Core.Execution
+import IO.Args
+import IO.Source
+import Core.Program ( run )
+import Parsing.Parser ( parse )
 
-import Data.ByteString.Lazy.Char8 (ByteString, unpack)
-import qualified Data.ByteString.Lazy.Char8 as BS
 import System.Environment (getArgs)
-import Control.Exception (catch, IOException)
-
-data Args = Args
-  { sourceFile :: FilePath
-  }
 
 main :: IO ()
 main = do
   -- Get command line args
-  args <- getArgs >>= \ma -> case parseArgs ma of
+  rawArgs <- getArgs
+  args <- case parseArgs rawArgs of
     Result a -> return a
-    err      -> outputError err
+    err      -> exitWith err
   
-  -- Read source code
-  source <- getSource (sourceFile args) >>= \ms -> case ms of
+  case args of
+    Source f -> runFile f
+    Help     -> showHelp
+
+runFile :: FilePath -> IO ()
+runFile s = do
+  -- Read source
+  msource <- readSource s
+  source <- case msource of
     Result s -> return s
-    err      -> outputError err
+    err      -> exitWith err
 
   -- Parse
   program <- case parse source of
-    Result s -> return s
-    err      -> outputError err
-
-  --putStrLn $ unlines $ map show program
+    Result p -> return p
+    err      -> exitWith err
 
   -- Run
-  result <- run program >>= \mr -> case mr of
-    Result a -> return (Result a)
-    err      -> outputError err
+  let result = run program
+  
+  -- Output result
+  exitWith result
 
-  putStrLn ("Program exited with: " ++ show result)
-
-parseArgs :: [String] -> CanError Args
-parseArgs []     = Error NoCommandLineArgsSupplied Nothing
-parseArgs (x:xs) = Result $ Args { sourceFile = x }
-
-getSource :: FilePath -> IO (CanError ByteString)
-getSource f = catch (Result <$> BS.readFile f) handler
-  where
-    handler :: IOException -> IO (CanError ByteString)
-    handler _ = return $ Error FailedToReadSourceFile Nothing
+showHelp :: IO ()
+showHelp = do
+  putStrLn "Run Lingo with the following arguments:\n\
+  \  <filename>.lingo - Executes the given Lingo program\n\
+  \  -h               - Displays help information"
+  exitWith (Result ())

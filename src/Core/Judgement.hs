@@ -1,6 +1,6 @@
 module Core.Judgement where
 
-import Core.Data
+import Core.Term
 import Core.Error
 
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)

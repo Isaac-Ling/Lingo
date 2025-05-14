@@ -3,8 +3,9 @@ module Parsing.Parser where
 
 import Lexing.Lexer
 import Lexing.Tokens
-import Core.Data
+import Core.Term
 import Core.Error
+import Core.Program
 import Core.Judgement
 
 import Data.Char
@@ -130,7 +131,7 @@ parseError :: PositionedToken -> Alex a
 parseError t = alexError ("Parsing error at line " ++ show (fst (ptPosition t)) ++ ", column " ++ show (snd (ptPosition t)))
 
 outputParseError :: PositionedToken -> a
-outputParseError t = outputError (Error (SyntaxError) (Just ("Parsing error at line " ++ show (fst (ptPosition t)) ++ ", column " ++ show (snd (ptPosition t)))))
+outputParseError t = exitWith (Error (SyntaxError) (Just ("Parsing error at line " ++ show (fst (ptPosition t)) ++ ", column " ++ show (snd (ptPosition t)))))
 
 lexer :: (PositionedToken -> Alex a) -> Alex a
 lexer = (=<< alexMonadScan)

@@ -1,24 +1,15 @@
-module Core.Data where
+module Core.Term where
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 
--- Typing context
 type Assumption = (ByteString, Term)
+
+-- Typing context
 type Context = [Assumption]
 
 -- Evaluation environment
 type Alias = (ByteString, Term)
 type Environment = [Alias]
-
-newtype Pragma
-  = Check Term
-
-data Declaration
-  = Def Alias
-  | Signature Assumption
-  | Pragma Pragma
-
-type Program = [Declaration]
 
 data LambdaBinding
   = Imp ByteString
