@@ -17,11 +17,53 @@ data Declaration
 
 type Program = [Declaration]
 
+-- TODO: Use IO in runtime to print out #checks
+type Runtime a = ReaderT (Environment, Context) CanError a
+
+success :: Runtime ()
+success = lift $ Result ()
+
+abort :: ErrorCode -> Maybe String -> Runtime ()
+abort errc ms = lift $ Error errc ms
+
+addToEnv :: Alias -> ((Environment, Context) -> (Environment, Context))
+addToEnv def (env, ctx) = (def : env, ctx)
+
+addToCtx :: Assumption -> ((Environment, Context) -> (Environment, Context))
+addToCtx sig (env, ctx) = (env, sig : ctx)
+
+addToRuntime :: Alias -> Assumption -> ((Environment, Context) -> (Environment, Context))
+addToRuntime def sig = addToCtx sig . addToEnv def
+
 run :: Program -> CanError ()
-run p = runReader (runProgram p) ([], [])
+run p = runReaderT (runProgram p) ([], [])
   where
-    runProgram :: Program -> Reader (Environment, Context) (CanError ())
-    runProgram [] = return (Result ())
+    runProgram :: Program -> Runtime ()
+    runProgram []                    = success
+
+    runProgram (Def (x, m):ds)       = do
+      (env, ctx) <- ask
+
+      case lookup x env of
+        Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
+        _      -> success
+
+      t <- case lookup x ctx of
+        Just t -> lift $ checkType env ctx m t
+        _      -> lift $ inferType env ctx m
+
+      local (addToRuntime (x, m) (x, t)) (runProgram ds)
+
+    runProgram (Signature (x, t):ds) = do
+      (env, ctx) <- ask
+      
+      let p = local (addToCtx (x, t)) (runProgram ds)
+
+      case lookup x ctx of
+        Just t' -> if t === t' $ env 
+          then p 
+          else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t' ++ " but expected " ++ show t))
+        _       -> p
 
 {-
 oldRun :: Program -> CanError ()

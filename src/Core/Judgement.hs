@@ -52,7 +52,7 @@ inferType e g (Lam (Exp (x, t)) m)                                              
 inferType e g (Lam (Imp x) m)                                                           = Error FailedToInferType (Just ("Cannot infer type of implicit lambda " ++ show (Lam (Imp x) m)))
 inferType e g (App m n)                                                                 = case (inferType e g m, inferType e g n) of
   (Result (Pi (x, t) t'), Result t'') -> if t === t'' $ e then Result (sub e n x t') else Error TypeMismatch (Just ("Type " ++ show (unsafeEval e (Pi (x, t) t')) ++ " cannot be applied to type " ++ show (unsafeEval e t'')))
-  (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not of type Pi") )
+  (Result _, Result _)                -> Error TypeMismatch (Just (show m ++ " is not a term of a Pi type") )
   (Error errc s, _)                   -> Error errc s
   (_, Error errc s)                   -> Error errc s
 inferType e g (Pair m n)                    = case (inferType e g m, inferType e g n) of
