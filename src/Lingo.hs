@@ -34,7 +34,7 @@ runFile s = do
     err      -> exitWith err
 
   -- Run
-  let result = run program
+  result <- run program
   
   -- Output result
   exitWith result

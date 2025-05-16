@@ -1,4 +1,5 @@
 module Core.Error where
+import Control.Monad.Trans
 
 data ErrorCode
   = NoCommandLineArgsSupplied
@@ -29,6 +30,33 @@ instance Monad CanError where
   (Result t) >>= f     = f t
   (Error errc s) >>= _ = Error errc s
   return = pure
+
+newtype CanErrorT m a = CanErrorT { runCanErrorT :: m (CanError a) }
+
+instance Monad m => Functor (CanErrorT m) where
+  fmap f (CanErrorT mca) = CanErrorT (fmap (fmap f) mca)
+
+instance Monad m => Applicative (CanErrorT m) where
+  pure x                          = CanErrorT (pure $ pure x)
+  CanErrorT mcf <*> CanErrorT mca = CanErrorT $ do
+    cf <- mcf
+    ca <- mca
+    return (cf <*> ca)
+
+instance Monad m => Monad (CanErrorT m) where
+  return              = pure
+  CanErrorT mca >>= f = CanErrorT $ do
+    ca <- mca
+    case ca of
+      Result a     -> runCanErrorT $ f a
+      Error errc s -> return $ Error errc s
+
+instance MonadTrans CanErrorT where
+  lift ma = CanErrorT $ do
+    return <$> ma
+
+instance MonadIO m => MonadIO (CanErrorT m) where
+  liftIO io = CanErrorT (liftIO (Result <$> io))
 
 instance Show ErrorCode where
   show NoCommandLineArgsSupplied      = "No command line arguments supplied"
