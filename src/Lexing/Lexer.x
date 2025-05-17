@@ -17,7 +17,7 @@ $upper     = [ A-Z ]
 $newLine   = [ \n ]
 $whiteNoNL = [ \ \t\f\v\r ]
 
-@id   = ($lower | $upper | \_) ($lower | $upper | \_ | $digit)* (\')*
+@var   = ($lower | $upper | \_) ($lower | $upper | \_ | $digit)* (\')*
 @int  = $digit+
 @univ = \U $digit+
 
@@ -44,7 +44,7 @@ lingo :-
 <0> "#check"    { createTk TkCheck }
 <0> @univ       { createUnivTk }
 <0> \U          { createTk $ TkUniv 0 }
-<0> @id         { createIDTk }
+<0> @var        { createVarTk }
 <0> @int        { createIntTk }
 
 {
@@ -53,10 +53,10 @@ alexEOF = do
   ((AlexPn _ line col), _, _, _) <- alexGetInput
   return $ PositionedToken TkEOF (line, col)
 
-createIDTk :: AlexAction PositionedToken
-createIDTk (start@(AlexPn _ line col), _, str, _) len =
+createVarTk :: AlexAction PositionedToken
+createVarTk (start@(AlexPn _ line col), _, str, _) len =
   return PositionedToken 
-    { ptToken = TkID $ BS.take len str
+    { ptToken = TkVar $ BS.take len str
     , ptPosition = (line, col)
     }
 

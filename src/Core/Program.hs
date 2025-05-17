@@ -17,7 +17,6 @@ data Declaration
 
 type Program = [Declaration]
 
--- TODO: Use IO in runtime to print out #checks
 type Runtime a = ReaderT (Environment, Context) (CanErrorT IO) a
 
 run :: Program -> IO (CanError ())
@@ -41,7 +40,7 @@ run p = runCanErrorT $ runReaderT (runProgram p) ([], [])
 
     runProgram (Signature (x, t):ds) = do
       (env, ctx) <- ask
-      
+
       let p = local (addToCtx (x, t)) (runProgram ds)
 
       case lookup x ctx of
@@ -49,12 +48,12 @@ run p = runCanErrorT $ runReaderT (runProgram p) ([], [])
           then p 
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t' ++ " but expected " ++ show t))
         _       -> p
-      
+
     runProgram (Pragma (Check m):ds) = do
       (env, ctx) <- ask
-      
+
       case inferType env ctx m of
-        Result t     -> liftIO $ putStrLn (show m ++ " : " ++ show t)
+        Result t     -> liftIO $ putStrLn (show m ++ " : " ++ show (unsafeEval env t))
         Error errc s -> abort errc s
 
       runProgram ds

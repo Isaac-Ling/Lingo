@@ -15,7 +15,7 @@ main = do
   args <- case parseArgs rawArgs of
     Result a -> return a
     err      -> exitWith err
-  
+
   case args of
     Source f -> runFile f
     Help     -> showHelp
@@ -35,7 +35,7 @@ runFile s = do
 
   -- Run
   result <- run program
-  
+
   -- Output result
   exitWith result
 

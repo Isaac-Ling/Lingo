@@ -38,7 +38,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
   univ    { PositionedToken (TkUniv $$) _ }
-  var     { PositionedToken (TkID $$) _ }
+  var     { PositionedToken (TkVar $$) _ }
   int     { PositionedToken (TkInt $$) _ }
 
 %nonassoc ':='
