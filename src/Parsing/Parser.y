@@ -6,7 +6,6 @@ import Lexing.Tokens
 import Core.Term
 import Core.Error
 import Core.Program
-import Core.Judgement
 
 import Data.Char
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
@@ -57,8 +56,8 @@ Declarations :: { Program }
   :                         { [] }
   | '\n' Declarations       { $2 }
   | Definition Declarations { $1 : $2 }
-  | Assumption Declarations { (Signature $1) : $2 }
-  | Pragma     Declarations { (Pragma $1) : $2 }
+  | Assumption Declarations { Signature $1 : $2 }
+  | Pragma     Declarations { Pragma $1 : $2 }
 
 Definition :: { Declaration }
   : var ':=' Term { Def ($1, $3) }
@@ -66,64 +65,63 @@ Definition :: { Declaration }
 Pragma :: { Pragma }
   : 'check' Term { Check $2 }
 
-Term :: { Term }
-  : var          { Var $1 }
-  | '0'          { Zero }
-  | '1'          { One }
-  | univ         { Univ $1 }
+Term :: { NamedTerm }
+  : var          { NVar $1 }
+  | '0'          { NZero }
+  | '1'          { NOne }
+  | univ         { NUniv $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
   | PiType       { $1 }
   | SigmaType    { $1 }
   | Pair         { $1 }
   | Induction    { $1 }
-  | '*'          { Star }
+  | '*'          { NStar }
   | '(' Term ')' { $2 }
 
-Assumption :: { Assumption }
+Assumption :: { NamedAssumption }
   : var ':' Term { ($1, $3) }
 
-Application :: { Term }
-  : Term Term %prec APP { App $1 $2 }
+Application :: { NamedTerm }
+  : Term Term %prec APP { NApp $1 $2 }
 
-Abstraction :: { Term }
-  : '\\' '(' Assumption ')' '.' Term { Lam (Exp $3) $6 }
-  | '\\' var '.' Term                { Lam (Imp $2) $4 }
+Abstraction :: { NamedTerm }
+  : '\\' '(' Assumption ')' '.' Term { NLam (NExp $3) $6 }
+  | '\\' var '.' Term                { NLam (NImp $2) $4 }
 
--- TODO: Need to carry along environment when parsing to pass to getFreshVar
-PiType :: { Term }
-  : '(' Assumption ')' '->' Term { Pi $2 $5 }
-  | Term '->' Term               { Pi (getFreshVar [] $3, $1) $3 }
+PiType :: { NamedTerm }
+  : '(' Assumption ')' '->' Term { NPi $2 $5 }
+  | Term '->' Term               { NArr $1 $3 }
 
-SigmaType :: { Term }
-  : '(' Assumption ')' 'x' Term { Sigma $2 $5 }
-  | Term 'x' Term               { Sigma (getFreshVar [] $3, $1) $3 }
+SigmaType :: { NamedTerm }
+  : '(' Assumption ')' 'x' Term { NSigma $2 $5 }
+  | Term 'x' Term               { NProd $1 $3 }
 
-Pair :: { Term }
-  : '(' Term ',' Term ')' { Pair $2 $4 }
+Pair :: { NamedTerm }
+  : '(' Term ',' Term ')' { NPair $2 $4 }
 
-BoundTerm :: { BoundTerm }
-  : Term              { NoBind $1 }
-  | var '.' BoundTerm { Bind $1 $3 }
+BoundTerm :: { NamedBoundTerm }
+  : Term              { NNoBind $1 }
+  | var '.' BoundTerm { NBind $1 $3 }
 
-BoundTerms :: { [BoundTerm] }
+BoundTerms :: { [NamedBoundTerm] }
   :                          { [] }
   | BoundTerm                { [$1] }
   | BoundTerm ',' BoundTerms { $1 : $3 }
 
-BoundTermsList :: { [BoundTerm] }
+BoundTermsList :: { [NamedBoundTerm] }
   :                { [] }
   | ',' BoundTerms { $2 }
 
-Induction :: { Term }
+Induction :: { NamedTerm }
   : 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ')' 
   {
     case $7 of
       []     -> outputParseError $8
       (_:[]) -> outputParseError $8
       (_:xs) -> case last xs of
-        Bind _ _ -> outputParseError $8
-        NoBind a -> Ind $3 $6 (init $7) a 
+        NBind _ _ -> outputParseError $8
+        NNoBind a -> NInd $3 $6 (init $7) a 
   }
 
 {

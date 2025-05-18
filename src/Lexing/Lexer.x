@@ -72,7 +72,7 @@ createUnivTk ((AlexPn _ line col), _, str, _) len = return PositionedToken
   , ptPosition = (line, col)
   }
   where
-    getUnivLevel :: String -> Integer
+    getUnivLevel :: String -> Int
     getUnivLevel []     = 0
     getUnivLevel (u:i) = case i of
       []    -> 0

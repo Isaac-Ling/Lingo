@@ -21,9 +21,9 @@ data Token
   | TkColonEqual
   | TkStar
   -- Numbers
-  | TkInt Integer
+  | TkInt Int
   -- Keywords
-  | TkUniv Integer
+  | TkUniv Int
   | TkInd
   | TkCheck
   -- Misc
