@@ -1,3 +1,8 @@
+id : 1 -> 1
+id := \a. a
+
+#check id *
+
 -- Projections
 fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A
 fst := \A. \B. \p. ind[(a : A) x B a](A, a. b. a, p)

@@ -55,26 +55,13 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))
         _       -> p
 
-    go (Pragma (Check (NVar x)):ds) = do
-      (env, ctx) <- ask
-
-      m <- case lookup x env of
-        Just n  -> return n
-        Nothing -> return $ Var $ Free x
-
-      case inferType ctx m of
-        Result t     -> liftIO $ putStrLn (show (eval m) ++ " : " ++ show (eval t))
-        Error errc s -> abort errc s
-
-      go ds
-
     go (Pragma (Check m'):ds) = do
       (env, ctx) <- ask
 
-      let m = toDeBruijn m'
+      let m = eval $ resolve env (toDeBruijn m')
 
       case inferType ctx m of
-        Result t     -> liftIO $ putStrLn (show (eval m) ++ " : " ++ show (eval t))
+        Result t     -> liftIO $ putStrLn (show m ++ " : " ++ show (eval $ resolve env t))
         Error errc s -> abort errc s
 
       go ds

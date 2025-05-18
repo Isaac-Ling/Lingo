@@ -35,7 +35,7 @@ data NamedTerm
 data Var
   = Free ByteString
   | Bound Int
-  deriving (Show, Eq)
+  deriving Eq
 
 type Assumption = (ByteString, Term)
 type Context = [Assumption]
@@ -46,7 +46,7 @@ type Environment = [Alias]
 data BoundTerm
   = NoBind Term
   | Bind BoundTerm
-  deriving (Show, Eq)
+  deriving Eq
 
 data Term
   = Var Var
@@ -61,7 +61,7 @@ data Term
   | Sigma Term Term
   -- Induction principle is of the form: Ind <What am I inducting over?> <Motive> <Required evidence> <Antecedent>
   | Ind Term BoundTerm [BoundTerm] Term
-  deriving (Show, Eq)
+  deriving Eq
 
 class JudgementalEq a where
   (===) :: a -> a -> Environment -> Bool
