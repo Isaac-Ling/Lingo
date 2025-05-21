@@ -1,8 +1,3 @@
-id : 1 -> 1
-id := \a. a
-
-#check id *
-
 -- Projections
 fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A
 fst := \A. \B. \p. ind[(a : A) x B a](A, a. b. a, p)
@@ -14,6 +9,6 @@ snd := \A. \B. \p. ind[(a : A) x B a](p. B (fst A B p), a. b. b, p)
 ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> (R a (f a))))
 --ac := \A. \B. \R. \g. (\(a : A). fst B (\(b : B). R a b) (g a), \(a : A). snd B (\(b : B). R a b) (g a))
 
-#check fst 1 (\(B : 1). 1) (1, 1)
+#check fst
 #check snd
 --#check ac

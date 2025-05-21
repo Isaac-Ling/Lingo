@@ -92,6 +92,7 @@ instance Eq Term where
 instance Show Term where
   show = go []
     where
+      -- TODO: Ensure names all work
       go :: [String] -> Term -> String
       go xs (Var (Free x))               = unpack x
       go xs (Var (Bound i))
@@ -113,7 +114,7 @@ instance Show Term where
       go xs Zero                         = "0"
       go xs One                          = "1"
       go xs (Pi (x, Pi (y, t) m) n)      = "(" ++ go xs (Pi (x, t) m) ++ ") -> " ++ go (unpack x : xs) n
-      go xs (Pi (x, t) m)                = "(" ++ unpack x ++ ", " ++ go xs t ++ ") -> " ++ go (unpack x : xs) m
+      go xs (Pi (x, t) m)                = "(" ++ unpack x ++ " : " ++ go xs t ++ ") -> " ++ go (unpack x : xs) m
       go xs (Sigma (x, t) (Sigma yt' m)) = "(" ++ unpack x ++ " : " ++ go xs t ++ ") x (" ++ go (unpack x : xs) (Sigma yt' m) ++ show ")"
       go xs (Sigma (x, t) m)             = "(" ++ unpack x ++ " : " ++ go xs t ++ ") x " ++ showSigmaOperarands (unpack x : xs) m
       go xs (Ind t m c a)                = "ind[" ++ go xs t ++ "](" ++ showBoundTerm xs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen xs c ++ ", " ++ go xs a ++ ")"

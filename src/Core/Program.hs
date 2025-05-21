@@ -58,7 +58,7 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
     go (Pragma (Check m'):ds) = do
       (env, ctx) <- ask
 
-      let m = eval $ resolve env (toDeBruijn m')
+      let m = eval $ toDeBruijn m'
 
       case inferType ctx m of
         Result t     -> liftIO $ putStrLn (show m ++ " : " ++ show (eval $ resolve env t))
