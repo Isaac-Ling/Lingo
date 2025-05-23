@@ -37,30 +37,8 @@ isNeutral One       = True
 isNeutral _         = False
 
 beta :: Term -> Term
-beta (App (Lam _ m) n) = open n m
+beta (App (Lam _ m) n) = shift (-1) $ open (bump n) m
 beta m                 = m
-
--- Opening a term with another term refers to substituting the latter term for bound variables
--- of index 0 in the former term
-open :: Term -> Term -> Term
-open m = go m 0
-  where
-    go :: Term -> Int -> Term -> Term
-    go m k (Var (Bound i))
-      | i == k    = m
-      | otherwise = Var $ Bound i
-    go m k (Lam (x, Just t) n)  = Lam (x, Just $ go m k t) (go m (k + 1) n)
-    go m k (Lam (x, Nothing) n) = Lam (x, Nothing) (go m (k + 1) n)
-    go m k (Pi (x, t) n)        = Pi (x, go m k t) (go m (k + 1) n)
-    go m k (Sigma (x, t) n)     = Sigma (x, go m k t) (go m (k + 1) n)
-    go m k (Pair t n)           = Pair (go m k t) (go m k n)
-    go m k (App t n)            = App (go m k t) (go m k n)
-    go m k (Ind t m' c a)       = Ind (go m k t) (openInBoundTerm m k m') (map (openInBoundTerm m k) c) (go m k a)
-    go m k n                    = n
-
-    openInBoundTerm :: Term -> Int -> BoundTerm -> BoundTerm
-    openInBoundTerm m k (NoBind n) = NoBind (go m k n)
-    openInBoundTerm m k (Bind x n) = Bind x (openInBoundTerm m (k + 1) n)
 
 -- Judgemental equality of terms/types is alpha-beta-eta equivalence
 instance JudgementalEq Term where

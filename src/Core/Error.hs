@@ -1,4 +1,6 @@
 module Core.Error where
+
+import System.Exit
 import Control.Monad.Trans
 
 data ErrorCode
@@ -81,5 +83,13 @@ getErrorCode FailedToInferType              = 5
 getErrorCode TypeMismatch                   = 6
 getErrorCode DuplicateDefinitions           = 7
 
-exitWith :: CanError a -> b
-exitWith e = errorWithoutStackTrace ("Program exited with: " ++ show e)
+errorWith :: CanError a -> b
+errorWith e = errorWithoutStackTrace ("Program exited with: " ++ show e)
+
+exitWith :: CanError a -> IO b
+exitWith (Result a) = do
+  putStrLn ("Program exited with: " ++ show (Result a))
+  exitSuccess
+exitWith e          = do
+  putStrLn ("Program exited with: " ++ show e)
+  exitFailure
