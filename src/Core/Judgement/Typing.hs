@@ -30,7 +30,29 @@ inferType ctx m = runReaderT (runInferType m) ([], ctx)
         Just t  -> return t
         Nothing -> typeError FailedToInferType (Just ("Unknown variable " ++ show x))
     
-    runInferType m        = return m
+    runInferType (Pi (x, t) m)  = do
+      (_, ctx) <- ask
+
+      tt <- runInferType t
+      mt <- runInferType m
+
+      case (tt, mt) of
+        (Univ i, Univ j) -> return $ Univ $ max i j
+        (Univ i, _)      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
+        (_, _)           -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
+
+    runInferType (Sigma (x, t) m)  = do
+      (_, ctx) <- ask
+
+      tt <- runInferType t
+      mt <- runInferType m
+
+      case (tt, mt) of
+        (Univ i, Univ j) -> return $ Univ $ max i j
+        (Univ i, _)      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
+        (_, _)           -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
+
+    runInferType m               = return m
 
 checkType :: Context -> Term -> Term -> CanError Term
 checkType ctx m t = runReaderT (runCheckType m t) ([], ctx)
