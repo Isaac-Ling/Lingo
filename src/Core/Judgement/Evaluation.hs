@@ -8,8 +8,8 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 
 eval :: Term -> Term
 eval (Lam _ (App f (Var (Bound 0))))                             = eval f -- Eta conversion
-eval (Lam (Exp (x, t)) m)                                        = Lam (Exp (x, eval t)) (eval m)
-eval (Lam (Imp x) m)                                             = Lam (Imp x) (eval m)
+eval (Lam (x, Just t) m)                                         = Lam (x, Just $ eval t) (eval m)
+eval (Lam (x, Nothing) m)                                        = Lam (x, Nothing) (eval m)
 eval (Pi (x, t) m)                                               = Pi (x, eval t) (eval m)
 eval (Sigma (x, t) m)                                            = Sigma (x, eval t) (eval m)
 eval (App m n)
@@ -19,7 +19,7 @@ eval (App m n)
     f :: Term
     f = eval m
 eval (Ind One _ [NoBind c] _)                                    = c
-eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b)) = eval (App (App (Lam (Imp w) $ Lam (Imp y) f) a) b)
+eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b)) = eval (App (App (Lam (w, Nothing) $ Lam (y, Nothing) f) a) b)
 eval m                                                           = m
 
 isValue :: Term -> Bool
@@ -49,8 +49,8 @@ open m = go m 0
     go m k (Var (Bound i))
       | i == k    = m
       | otherwise = Var $ Bound i
-    go m k (Lam (Exp (x, t)) n) = Lam (Exp (x, go m k t)) (go m (k + 1) n)
-    go m k (Lam (Imp x) n)      = Lam (Imp x) (go m (k + 1) n)
+    go m k (Lam (x, Just t) n)  = Lam (x, Just $ go m k t) (go m (k + 1) n)
+    go m k (Lam (x, Nothing) n) = Lam (x, Nothing) (go m (k + 1) n)
     go m k (Pi (x, t) n)        = Pi (x, go m k t) (go m (k + 1) n)
     go m k (Sigma (x, t) n)     = Sigma (x, go m k t) (go m (k + 1) n)
     go m k (Pair t n)           = Pair (go m k t) (go m k n)

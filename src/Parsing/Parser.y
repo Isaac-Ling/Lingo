@@ -56,17 +56,21 @@ Declarations :: { Program }
   :                         { [] }
   | '\n' Declarations       { $2 }
   | Definition Declarations { $1 : $2 }
-  | Assumption Declarations { Signature $1 : $2 }
+  | Signature Declarations  { Signature $1 : $2 }
   | Pragma     Declarations { Pragma $1 : $2 }
 
 Definition :: { Declaration }
   : var ':=' Term { Def ($1, $3) }
 
+Signature :: { NamedAssumption }
+  : var ':' Term { ($1, $3) }
+
 Pragma :: { Pragma }
   : 'check' Term { Check $2 }
 
 Term :: { NamedTerm }
-  : var          { NVar $1 }
+  : '(' Term ')' { $2 }
+  | var          { NVar $1 }
   | '0'          { NZero }
   | '1'          { NOne }
   | univ         { NUniv $1 }
@@ -77,25 +81,21 @@ Term :: { NamedTerm }
   | Pair         { $1 }
   | Induction    { $1 }
   | '*'          { NStar }
-  | '(' Term ')' { $2 }
-
-Assumption :: { NamedAssumption }
-  : var ':' Term { ($1, $3) }
 
 Application :: { NamedTerm }
   : Term Term %prec APP { NApp $1 $2 }
 
 Abstraction :: { NamedTerm }
-  : '\\' '(' Assumption ')' '.' Term { NLam (NExp $3) $6 }
-  | '\\' var '.' Term                { NLam (NImp $2) $4 }
+  : '\\' '(' var ':' Term ')' '.' Term { NLam ($3, Just $5) $8 }
+  | '\\' var '.' Term                  { NLam ($2, Nothing) $4 }
 
 PiType :: { NamedTerm }
-  : '(' Assumption ')' '->' Term { NPi $2 $5 }
-  | Term '->' Term               { NArr $1 $3 }
+  : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4) $7 }
+  | Term '->' Term                 { NPi (Nothing, $1) $3 }
 
 SigmaType :: { NamedTerm }
-  : '(' Assumption ')' 'x' Term { NSigma $2 $5 }
-  | Term 'x' Term               { NProd $1 $3 }
+  : '(' var ':' Term ')' 'x' Term { NSigma (Just $2, $4) $7 }
+  | Term 'x' Term                 { NSigma (Nothing, $1) $3 }
 
 Pair :: { NamedTerm }
   : '(' Term ',' Term ')' { NPair $2 $4 }

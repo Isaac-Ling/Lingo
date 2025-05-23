@@ -7,9 +7,8 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 type NamedAssumption = (ByteString, NamedTerm)
 type NamedAlias = (ByteString, NamedTerm)
 
-data NamedLambdaBinding
-  = NImp ByteString
-  | NExp NamedAssumption
+type NamedLambdaBinding = (ByteString, Maybe NamedTerm)
+type NamedAnonBinder = (Maybe ByteString, NamedTerm)
 
 data NamedBoundTerm
   = NNoBind NamedTerm
@@ -24,10 +23,8 @@ data NamedTerm
   | NUniv Int
   | NZero
   | NOne
-  | NPi NamedAssumption NamedTerm
-  | NArr NamedTerm NamedTerm
-  | NSigma NamedAssumption NamedTerm
-  | NProd NamedTerm NamedTerm
+  | NPi NamedAnonBinder NamedTerm
+  | NSigma NamedAnonBinder NamedTerm
   | NInd NamedTerm NamedBoundTerm [NamedBoundTerm] NamedTerm
 
 -- De Bruijn Terms --
@@ -42,9 +39,8 @@ type Context = [Assumption]
 type Alias = (ByteString, Term)
 type Environment = [Alias]
 
-data LambdaBinding
-  = Imp ByteString
-  | Exp Assumption
+type LambdaBinding = (ByteString, Maybe Term)
+type AnonBinder = (Maybe ByteString, Term)
 
 data BoundTerm
   = NoBind Term
@@ -59,8 +55,8 @@ data Term
   | Univ Int
   | Zero
   | One
-  | Pi Assumption Term
-  | Sigma Assumption Term
+  | Pi AnonBinder Term
+  | Sigma AnonBinder Term
   -- Induction principle is of the form: Ind <What am I inducting over?> <Motive> <Required evidence> <Antecedent>
   | Ind Term BoundTerm [BoundTerm] Term
 
