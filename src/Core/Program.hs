@@ -59,10 +59,8 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
       (env, ctx) <- ask
 
       let m = eval $ toDeBruijn m'
-
-      case inferType ctx m of
-        Result t     -> liftIO $ putStrLn (show m ++ " : " ++ show (eval $ resolve env t))
-        Error errc s -> abort errc s
+      t <- tryRun $ inferType ctx m
+      liftIO $ putStrLn (show m ++ " : " ++ show (eval $ resolve env t))
 
       go ds
 
@@ -75,11 +73,11 @@ success = return ()
 abort :: ErrorCode -> Maybe String -> Runtime ()
 abort errc ms = lift $ CanErrorT $ return $ Error errc ms
 
-addToEnv :: Alias -> ((Environment, Context) -> (Environment, Context))
-addToEnv def (env, ctx) = (def : env, ctx)
+addToEnv :: Alias -> ((Environment, a) -> (Environment, a))
+addToEnv def (env, a) = (def : env, a)
 
-addToCtx :: Assumption -> ((Environment, Context) -> (Environment, Context))
-addToCtx sig (env, ctx) = (env, sig : ctx)
+addToCtx :: Assumption -> ((a, Context) -> (a, Context))
+addToCtx sig (a, ctx) = (a, sig : ctx)
 
 addToRuntime :: Alias -> Assumption -> ((Environment, Context) -> (Environment, Context))
 addToRuntime def sig = addToCtx sig . addToEnv def

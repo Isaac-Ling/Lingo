@@ -8,12 +8,6 @@ import Data.Maybe (fromMaybe)
 import Control.Monad.Reader
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 
--- This context records the type of bound variables, where the ith type in the
--- context is the type of the ith binder away from the current term
-type BoundContext = [Term]
-
-type TypeCheck a = ReaderT (BoundContext, Context) CanError a
-
 -- A list of binders, where the ith element is the ith binder away from the
 -- current term. Nothing is used if we should never match against that binder
 type Binders = [Maybe ByteString]

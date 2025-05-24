@@ -1,11 +1,10 @@
 -- Identity
-id : (A : U) -> A
-id := \A. \a. a
+id := \(A : U). \(a : A). a
 
-#check id
+#check id 1
 
 -- Projections
-fst : (A : U -> U) -> (B : A -> U) -> (a : A) x B a -> A
+fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A
 fst := \A. \B. \p. ind[(a : A) x B a](A, a. b. a, p)
 
 snd : (A : U) -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst A B p)
