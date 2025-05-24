@@ -62,6 +62,8 @@ inferType ctx m = runReaderT (runInferType m) ([], ctx)
         Univ i -> return $ Pi (if isBinderUsed mt then Just x else Nothing, t) mt
         _      -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
 
+    runInferType (Lam (x, Nothing) m) = typeError FailedToInferType (Just ("Cannot infer type of implicit lambda " ++ show (Lam (x, Nothing) m)))
+
     runInferType (App m n) = do
       mt <- runInferType m
       nt <- runInferType n
@@ -71,6 +73,12 @@ inferType ctx m = runReaderT (runInferType m) ([], ctx)
           then return $ shift (-1) $ open (bump n) t'
           else typeError TypeMismatch (Just (show m ++ " cannot be applied to a term of type " ++ show nt))
         _            -> typeError TypeMismatch (Just (show m ++ " is not a term of a Pi type") )
+
+    runInferType (Pair m n) = do
+      mt <- runInferType m
+      nt <- runInferType n
+
+      return $ Sigma (Nothing, mt) nt
 
     runInferType m                   = return m
 

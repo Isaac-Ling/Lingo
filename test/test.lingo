@@ -1,7 +1,7 @@
 -- Identity
 id := \(A : U). \(a : A). a
 
-#check id 1
+#check id (1 x 1) (*, *)
 
 -- Projections
 fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A

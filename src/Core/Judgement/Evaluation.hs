@@ -12,6 +12,7 @@ eval (Lam (x, Just t) m)                                         = Lam (x, Just 
 eval (Lam (x, Nothing) m)                                        = Lam (x, Nothing) (eval m)
 eval (Pi (x, t) m)                                               = Pi (x, eval t) (eval m)
 eval (Sigma (x, t) m)                                            = Sigma (x, eval t) (eval m)
+eval (Pair m n)                                                  = Pair (eval m) (eval n)
 eval (App m n)
   | isNeutral f = App f (eval n)
   | otherwise   = eval (beta (App f n))
@@ -24,7 +25,6 @@ eval m                                                           = m
 
 isValue :: Term -> Bool
 isValue (Lam _ _) = True
-isValue (Var x)   = True
 isValue m         = isNeutral m
 
 isNeutral :: Term -> Bool

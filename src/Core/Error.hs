@@ -1,7 +1,7 @@
 module Core.Error where
 
-import System.Exit
 import Control.Monad.Trans
+import qualified System.Exit as Sys ( ExitCode(ExitFailure), exitWith, exitSuccess)
 
 data ErrorCode
   = NoCommandLineArgsSupplied
@@ -89,7 +89,7 @@ errorWith e = errorWithoutStackTrace ("Program exited with: " ++ show e)
 exitWith :: CanError a -> IO b
 exitWith (Result a) = do
   putStrLn ("Program exited with: " ++ show (Result a))
-  exitSuccess
-exitWith e          = do
-  putStrLn ("Program exited with: " ++ show e)
-  exitFailure
+  Sys.exitSuccess
+exitWith (Error errc s)          = do
+  putStrLn ("Program exited with: " ++ show (Error errc s))
+  Sys.exitWith $ Sys.ExitFailure $ getErrorCode errc

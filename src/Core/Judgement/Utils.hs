@@ -132,7 +132,6 @@ instance Show Term where
       -- TODO: Ensure names all work
       go :: Binders -> Term -> String
       go bs (Var (Free x))               = unpack x
-      --go bs (Var (Bound i)) = show i
       go bs (Var (Bound i))
         | i >= 0 && i < length bs = unpack $ fromMaybe (pack "ERROR") (bs !! i)
         | otherwise               = "ERROR"
