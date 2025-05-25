@@ -1,4 +1,5 @@
 -- Identity
+id : (A : U) -> A -> A
 id := \(A : U). \(a : A). a
 
 #check id (1 x 1) (*, *)

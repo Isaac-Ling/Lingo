@@ -105,14 +105,20 @@ open m = go m 0
     openInBoundTerm m k (Bind x n) = Bind x (openInBoundTerm (bumpUp m) (k + 1) n)
 
 instance Show Term where
-  show = go []
+  show = go binders
     where
+      binders :: [Maybe ByteString]
+      binders = [Just $ pack ("a" ++ show i) | i <- [1..]]
+
+      errorString :: String
+      errorString = "ERROR"
+
       -- TODO: Ensure names all work
       go :: Binders -> Term -> String
       go bs (Var (Free x))               = unpack x
       go bs (Var (Bound i))
-        | i >= 0 && i < length bs = unpack $ fromMaybe (pack "ERROR") (bs !! i)
-        | otherwise               = "ERROR"
+        | i >= 0    = unpack $ fromMaybe (pack errorString) (bs !! i)
+        | otherwise = errorString
       go bs Star                        = "*"
       go bs (App (Lam xt m) (Lam yt n)) = "(" ++ go bs (Lam xt m) ++ ") " ++ "(" ++ go bs (Lam yt n) ++ ")"
       go bs (App m (Lam xt n))          = go bs m ++ " (" ++ go bs (Lam xt n) ++ ")"
