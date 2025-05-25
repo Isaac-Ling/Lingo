@@ -15,7 +15,7 @@ build-type:          Simple
 extra-source-files:  README.md
                      CHANGELOG.md
 
-executable Lingo
+executable lingo
   hs-source-dirs:      src
   main-is:             Lingo.hs
   other-modules:       Lexing.Lexer

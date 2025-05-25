@@ -117,11 +117,12 @@ Induction :: { NamedTerm }
   : 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ')' 
   {
     case $7 of
-      []     -> outputParseError $8
-      (_:[]) -> outputParseError $8
-      (_:xs) -> case last xs of
+      []          -> outputParseError $8
+      [NNoBind a] -> NInd $3 $6 [] a
+      (_:xs)      -> case last xs of
         NBind _ _ -> outputParseError $8
         NNoBind a -> NInd $3 $6 (init $7) a 
+      _           -> outputParseError $8
   }
 
 {

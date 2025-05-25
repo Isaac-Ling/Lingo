@@ -50,8 +50,8 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
       let p = local (addToCtx (x, t)) (go ds)
 
       case lookup x ctx of
-        Just t2 -> if t === t2 $ env
-          then p 
+        Just t2 -> if t == t2
+          then p
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))
         _       -> p
 

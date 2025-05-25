@@ -3,6 +3,7 @@ module Core.Judgement.Typing where
 import Core.Term
 import Core.Error
 import Core.Judgement.Utils
+import Core.Judgement.Evaluation
 
 import Control.Monad.Reader
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -17,26 +18,26 @@ inferType :: Context -> Term -> CanError Term
 inferType ctx m = runReaderT (runInferType m) ([], ctx)
   where
     runInferType :: Term -> TypeCheck Term
-    runInferType (Univ i)             = return $ Univ (i + 1)
-    runInferType Star                 = return One
-    runInferType Zero                 = return $ Univ 0
-    runInferType One                  = return $ Univ 0
+    runInferType (Univ i)                            = return $ Univ (i + 1)
+    runInferType Star                                = return One
+    runInferType Zero                                = return $ Univ 0
+    runInferType One                                 = return $ Univ 0
 
-    runInferType (Var (Bound i))      = do
+    runInferType (Var (Bound i))                     = do
       (bctx, _) <- ask
 
       if i >= 0 && i < length bctx
       then return $ bctx !! i
       else typeError FailedToInferType (Just ("Invalid index for bound term \"" ++ show i ++ "\""))
 
-    runInferType (Var (Free x))      = do
+    runInferType (Var (Free x))                      = do
       (_, ctx) <- ask
 
       case lookup x ctx of
         Just t  -> return t
         Nothing -> typeError FailedToInferType (Just ("Unknown variable " ++ show x))
 
-    runInferType (Pi (x, t) m)       = do
+    runInferType (Pi (x, t) m)                       = do
       tt <- runInferType t
       mt <- local (addToBoundCtx tt) (runInferType m)
 
@@ -45,7 +46,7 @@ inferType ctx m = runReaderT (runInferType m) ([], ctx)
         (Univ i, _)      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
         (_, _)           -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
 
-    runInferType (Sigma (x, t) m)    = do
+    runInferType (Sigma (x, t) m)                    = do
       tt <- runInferType t
       mt <- local (addToBoundCtx t) (runInferType m)
 
@@ -54,7 +55,7 @@ inferType ctx m = runReaderT (runInferType m) ([], ctx)
         (Univ i, _)      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
         (_, _)           -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
 
-    runInferType (Lam (x, Just t) m) = do
+    runInferType (Lam (x, Just t) m)                 = do
       tt <- runInferType t
       mt <- local (addToBoundCtx t) (runInferType m)
 
@@ -64,23 +65,34 @@ inferType ctx m = runReaderT (runInferType m) ([], ctx)
 
     runInferType (Lam (x, Nothing) m) = typeError FailedToInferType (Just ("Cannot infer type of implicit lambda " ++ show (Lam (x, Nothing) m)))
 
-    runInferType (App m n) = do
+    runInferType (App m n)                           = do
       mt <- runInferType m
       nt <- runInferType n
 
       case mt of
         Pi (x, t) t' -> if nt == t
-          then return $ shift (-1) $ open (bump n) t'
+          then return $ shift (-1) $ open (bumpUp n) t'
           else typeError TypeMismatch (Just (show m ++ " cannot be applied to a term of type " ++ show nt))
         _            -> typeError TypeMismatch (Just (show m ++ " is not a term of a Pi type") )
 
-    runInferType (Pair m n) = do
+    runInferType (Pair m n)                          = do
       mt <- runInferType m
       nt <- runInferType n
 
       return $ Sigma (Nothing, mt) nt
 
-    runInferType m                   = return m
+    runInferType (Ind Zero (NoBind m) [] a) = runInferType (Ind Zero (Bind Nothing (NoBind $ bumpUp m)) [] a)
+      
+    runInferType (Ind Zero (Bind x (NoBind m)) [] a) = do
+      mt <- local (addToBoundCtx Zero) (runInferType m)
+      at <- runInferType a
+
+      case (mt, at) of
+        (Univ _, Zero) -> return $ bumpDown $ open a m
+        (_, Zero)      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
+        (_, _)         -> typeError TypeMismatch (Just (show a ++ " is not of the type " ++ show Zero))
+
+    runInferType m                                   = return m
 
 -- Returns True if there is a variable bound to a 0 index binder
 -- in the given term
@@ -111,7 +123,7 @@ checkType ctx m t = runReaderT (runCheckType m t) ([], ctx)
     runCheckType m = return
 
 addToBoundCtx :: Term -> ((BoundContext, a) -> (BoundContext, a))
-addToBoundCtx t (bs, a) = (bump t : map bump bs, a)
+addToBoundCtx t (bs, a) = (bumpUp t : map bumpUp bs, a)
 
 typeError :: ErrorCode -> Maybe String -> TypeCheck a
 typeError errc ms = lift $ Error errc ms

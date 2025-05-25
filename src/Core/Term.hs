@@ -44,7 +44,7 @@ type AnonBinder = (Maybe ByteString, Term)
 
 data BoundTerm
   = NoBind Term
-  | Bind ByteString BoundTerm
+  | Bind (Maybe ByteString) BoundTerm
 
 data Term
   = Var Var
@@ -59,6 +59,3 @@ data Term
   | Sigma AnonBinder Term
   -- Induction principle is of the form: Ind <What am I inducting over?> <Motive> <Required evidence> <Antecedent>
   | Ind Term BoundTerm [BoundTerm] Term
-
-class JudgementalEq a where
-  (===) :: a -> a -> Environment -> Bool

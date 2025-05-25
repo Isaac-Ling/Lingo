@@ -33,7 +33,7 @@ toDeBruijn = go []
 
     boundTermToDeBruijn :: Binders -> NamedBoundTerm -> BoundTerm
     boundTermToDeBruijn bs (NNoBind m) = NoBind $ go bs m
-    boundTermToDeBruijn bs (NBind x m) = Bind x $ boundTermToDeBruijn (Just x : bs) m
+    boundTermToDeBruijn bs (NBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
 
 resolve :: Environment -> Term -> Term
 resolve env (Var (Free x))       = case lookup x env of
@@ -76,8 +76,11 @@ shift k = go k 0
     shiftInBoundTerm k l (NoBind m) = NoBind $ go k l m
     shiftInBoundTerm k l (Bind a m) = Bind a $ shiftInBoundTerm k (l + 1) m
 
-bump :: Term -> Term
-bump = shift 1
+bumpUp :: Term -> Term
+bumpUp = shift 1
+
+bumpDown :: Term -> Term
+bumpDown = shift (-1)
 
 -- Opening a term with another term refers to substituting the former term for bound variables
 -- of index 0 in the latter term
@@ -88,10 +91,10 @@ open m = go m 0
     go m k (Var (Bound i))
       | i == k    = m
       | otherwise = Var $ Bound i
-    go m k (Lam (x, Just t) n)  = Lam (x, Just $ go m k t) (go (bump m) (k + 1) n)
-    go m k (Lam (x, Nothing) n) = Lam (x, Nothing) (go (bump m) (k + 1) n)
-    go m k (Pi (x, t) n)        = Pi (x, go m k t) (go (bump m) (k + 1) n)
-    go m k (Sigma (x, t) n)     = Sigma (x, go m k t) (go (bump m) (k + 1) n)
+    go m k (Lam (x, Just t) n)  = Lam (x, Just $ go m k t) (go (bumpUp m) (k + 1) n)
+    go m k (Lam (x, Nothing) n) = Lam (x, Nothing) (go (bumpUp m) (k + 1) n)
+    go m k (Pi (x, t) n)        = Pi (x, go m k t) (go (bumpUp m) (k + 1) n)
+    go m k (Sigma (x, t) n)     = Sigma (x, go m k t) (go (bumpUp m) (k + 1) n)
     go m k (Pair t n)           = Pair (go m k t) (go m k n)
     go m k (App t n)            = App (go m k t) (go m k n)
     go m k (Ind t m' c a)       = Ind (go m k t) (openInBoundTerm m k m') (map (openInBoundTerm m k) c) (go m k a)
@@ -99,32 +102,7 @@ open m = go m 0
 
     openInBoundTerm :: Term -> Int -> BoundTerm -> BoundTerm
     openInBoundTerm m k (NoBind n) = NoBind (go m k n)
-    openInBoundTerm m k (Bind x n) = Bind x (openInBoundTerm (bump m) (k + 1) n)
-
-instance Eq BoundTerm where
-  NoBind m == NoBind n = m == n
-  Bind _ m == Bind _ n = m == n
-  _ == _               = False
-
-instance Eq Var where
-  Free x == Free y   = x == y
-  Bound i == Bound j = i == j
-  _ == _             = False
-
-instance Eq Term where
-  Var x == Var y                           = x == y
-  Lam (_, Nothing) m == Lam (_, Nothing) n = m == n
-  Lam (_, Just t) m == Lam (_, Just t') n  = t == t' && m == n
-  App m n == App m' n'                     = m == m' && n == n'
-  Star == Star                             = True
-  Pair m n == Pair m' n'                   = m == m' && n == n'
-  Univ i == Univ j                         = i == j
-  Zero == Zero                             = True
-  One == One                               = True
-  Pi (_, t) m == Pi (_, t') n              = t == t' && m == n
-  Sigma (_, t) m == Sigma (_, t') n        = t == t' && m == n
-  Ind t m c a == Ind t' m' c' a'           = t == t' && m == m' && c == c' && a == a' 
-  _ == _                                   = False
+    openInBoundTerm m k (Bind x n) = Bind x (openInBoundTerm (bumpUp m) (k + 1) n)
 
 instance Show Term where
   show = go []
@@ -139,6 +117,7 @@ instance Show Term where
       go bs (App (Lam xt m) (Lam yt n)) = "(" ++ go bs (Lam xt m) ++ ") " ++ "(" ++ go bs (Lam yt n) ++ ")"
       go bs (App m (Lam xt n))          = go bs m ++ " (" ++ go bs (Lam xt n) ++ ")"
       go bs (App m (App p n))           = go bs m ++ " (" ++ go bs (App p n) ++ ")"
+      go bs (App m (Sigma xt n))        = go bs m ++ " (" ++ go bs (Sigma xt n) ++ ")"
       go bs (App (Lam xt m) n)          = "(" ++ go bs (Lam xt m) ++ ") " ++ go bs n
       go bs (App (Pi xt m) n)           = "(" ++ go bs (Pi xt m) ++ ") " ++ go bs n
       go bs (App (Sigma xt m) n)        = "(" ++ go bs (Sigma xt m) ++ ") " ++ go bs n
@@ -158,8 +137,9 @@ instance Show Term where
       go bs (Ind t m c a)               = "ind[" ++ go bs t ++ "](" ++ showBoundTerm bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen bs c ++ ", " ++ go bs a ++ ")"
 
       showBoundTerm :: Binders -> BoundTerm -> String
-      showBoundTerm bs (NoBind m) = go bs m
-      showBoundTerm bs (Bind x m) = unpack x ++ ". " ++ showBoundTerm (Just x : bs) m
+      showBoundTerm bs (NoBind m)        = go bs m
+      showBoundTerm bs (Bind (Just x) m) = unpack x ++ ". " ++ showBoundTerm (Just x : bs) m
+      showBoundTerm bs (Bind Nothing m)  = showBoundTerm (Nothing : bs) m
 
       showBoundTermsNoParen :: Binders -> [BoundTerm] -> String
       showBoundTermsNoParen bs []     = ""
