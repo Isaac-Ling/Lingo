@@ -104,7 +104,9 @@ runCheckType (Lam (x, Just t) m) (Pi (x', t') n) = do
   mt  <- local (addToBoundCtx t) (runCheckType m n)
 
   case (tt, t't) of
-    (Univ i, Univ j) -> if i == j then return $ Pi (x', t) mt else typeError TypeMismatch (Just ("The type of " ++ show t ++ " is " ++ show (Univ i) ++ " but expected " ++ show (Univ j)))
+    (Univ i, Univ j) -> if i == j 
+      then return $ Pi (x', t) mt 
+      else typeError TypeMismatch (Just ("The type of " ++ show t ++ " is " ++ show (Univ i) ++ " but expected " ++ show (Univ j)))
     (Univ _, _)      -> typeError TypeMismatch (Just (show t' ++ " is not a term of a universe"))
     (_, _)           -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
 
@@ -115,6 +117,17 @@ runCheckType (Lam (x, Nothing) m) (Pi (x', t) n) = do
   case tt of
     Univ _ -> return $ Pi (x', t) mt
     _      -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
+
+runCheckType (Pair m n) (Sigma (x, t) t') = do
+  tt  <- runInferType t
+  t't <- local (addToBoundCtx t) (runInferType t')
+  mt  <- runCheckType m t
+  nt  <- runCheckType n (bumpDown $ open (bumpUp m) t')
+
+  case (tt, t't) of
+    (Univ _, Univ _) -> return $ Sigma (x, t) t'
+    (Univ _, _)      -> typeError TypeMismatch (Just (show t' ++ " is not a term of a universe: " ++ show t't))
+    (_, _)           -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
 
 runCheckType m t                                 = checkInferredTypeMatch m t
 

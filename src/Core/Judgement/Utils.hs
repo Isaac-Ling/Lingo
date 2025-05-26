@@ -107,8 +107,9 @@ open m = go m 0
 instance Show Term where
   show = go binders
     where
+      -- TODO: Ensure these are fresh
       binders :: [Maybe ByteString]
-      binders = [Just $ pack ("a" ++ show i) | i <- [1..]]
+      binders = [Just $ pack ("a" ++ show i) | i <- [0..]]
 
       errorString :: String
       errorString = "ERROR"
