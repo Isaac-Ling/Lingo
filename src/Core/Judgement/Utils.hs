@@ -85,24 +85,24 @@ bumpDown = shift (-1)
 -- Opening a term with another term refers to substituting the former term for bound variables
 -- of index 0 in the latter term
 open :: Term -> Term -> Term
-open m = go m 0
-  where
-    go :: Term -> Int -> Term -> Term
-    go m k (Var (Bound i))
-      | i == k    = m
-      | otherwise = Var $ Bound i
-    go m k (Lam (x, Just t) n)  = Lam (x, Just $ go m k t) (go (bumpUp m) (k + 1) n)
-    go m k (Lam (x, Nothing) n) = Lam (x, Nothing) (go (bumpUp m) (k + 1) n)
-    go m k (Pi (x, t) n)        = Pi (x, go m k t) (go (bumpUp m) (k + 1) n)
-    go m k (Sigma (x, t) n)     = Sigma (x, go m k t) (go (bumpUp m) (k + 1) n)
-    go m k (Pair t n)           = Pair (go m k t) (go m k n)
-    go m k (App t n)            = App (go m k t) (go m k n)
-    go m k (Ind t m' c a)       = Ind (go m k t) (openInBoundTerm m k m') (map (openInBoundTerm m k) c) (go m k a)
-    go m k n                    = n
+open m = openFor m 0
 
+openFor :: Term -> Int -> Term -> Term
+openFor m k (Var (Bound i))
+  | i == k    = m
+  | otherwise = Var $ Bound i
+openFor m k (Lam (x, Just t) n)  = Lam (x, Just $ openFor m k t) (openFor (bumpUp m) (k + 1) n)
+openFor m k (Lam (x, Nothing) n) = Lam (x, Nothing) (openFor (bumpUp m) (k + 1) n)
+openFor m k (Pi (x, t) n)        = Pi (x, openFor m k t) (openFor (bumpUp m) (k + 1) n)
+openFor m k (Sigma (x, t) n)     = Sigma (x, openFor m k t) (openFor (bumpUp m) (k + 1) n)
+openFor m k (Pair t n)           = Pair (openFor m k t) (openFor m k n)
+openFor m k (App t n)            = App (openFor m k t) (openFor m k n)
+openFor m k (Ind t m' c a)       = Ind (openFor m k t) (openInBoundTerm m k m') (map (openInBoundTerm m k) c) (openFor m k a)
+  where
     openInBoundTerm :: Term -> Int -> BoundTerm -> BoundTerm
-    openInBoundTerm m k (NoBind n) = NoBind (go m k n)
+    openInBoundTerm m k (NoBind n) = NoBind (openFor m k n)
     openInBoundTerm m k (Bind x n) = Bind x (openInBoundTerm (bumpUp m) (k + 1) n)
+openFor m k n                    = n
 
 instance Show Term where
   show = go binders

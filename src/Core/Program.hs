@@ -34,19 +34,18 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
         Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
         _      -> success
 
-      -- TODO: Resolving before evaluating means that recursion isn't possible
-      let m = eval $ resolve env (toDeBruijn m')
+      let m = toDeBruijn m'
 
       t <- case lookup x ctx of
-        Just t -> tryRun $ checkType ctx m t
-        _      -> tryRun $ inferType ctx m
+        Just t -> tryRun $ checkType env ctx m t
+        _      -> tryRun $ inferType env ctx m
 
       local (addToRuntime (x, m) (x, t)) (go ds)
 
     go (Signature (x, t'):ds) = do
       (env, ctx) <- ask
 
-      let t = eval $ resolve env (toDeBruijn t')
+      let t = toDeBruijn t'
       let p = local (addToCtx (x, t)) (go ds)
 
       case lookup x ctx of
@@ -59,7 +58,7 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
       (env, ctx) <- ask
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType ctx m
+      t <- tryRun $ inferType env ctx m
       liftIO $ putStrLn (show m ++ " =>* " ++ show (eval $ resolve env m) ++ " : " ++ show t)
 
       go ds

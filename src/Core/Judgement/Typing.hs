@@ -12,13 +12,13 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 -- context is the type of the ith binder away from the current term
 type BoundContext = [Term]
 
-type TypeCheck a = ReaderT (BoundContext, Context) CanError a
+type TypeCheck a = ReaderT (Environment, BoundContext, Context) CanError a
 
-inferType :: Context -> Term -> CanError Term
-inferType ctx m = runReaderT (runInferType m) ([], ctx)
+inferType :: Environment -> Context -> Term -> CanError Term
+inferType env ctx m = runReaderT (runInferType m) (env, [], ctx)
 
-checkType :: Context -> Term -> Term -> CanError Term
-checkType ctx m t = runReaderT (runCheckType m t) ([], ctx)
+checkType :: Environment-> Context -> Term -> Term -> CanError Term
+checkType env ctx m t = runReaderT (runCheckType m t) (env, [], ctx)
 
 runInferType :: Term -> TypeCheck Term
 runInferType (Univ i)                                                                  = return $ Univ (i + 1)
@@ -27,14 +27,14 @@ runInferType Zero                                                               
 runInferType One                                                                       = return $ Univ 0
 
 runInferType (Var (Bound i))                                                           = do
-  (bctx, _) <- ask
+  (_, bctx, _) <- ask
 
   if i >= 0 && i < length bctx
   then return $ bctx !! i
   else typeError FailedToInferType (Just ("Invalid index for bound term \"" ++ show i ++ "\""))
 
 runInferType (Var (Free x))                                                            = do
-  (_, ctx) <- ask
+  (_, _, ctx) <- ask
 
   case lookup x ctx of
     Just t  -> return t
@@ -69,11 +69,13 @@ runInferType (Lam (x, Just t) m)                                                
 runInferType (Lam (x, Nothing) m) = typeError FailedToInferType (Just ("Cannot infer type of implicit lambda " ++ show (Lam (x, Nothing) m)))
 
 runInferType (App m n)                                                                 = do
+  (env, _, _) <- ask
+
   mt <- runInferType m
   nt <- runInferType n
 
   case mt of
-    Pi (x, t) t' -> if nt == t
+    Pi (x, t) t' -> if resolve env nt == resolve env t
       then return $ shift (-1) $ open (bumpUp n) t'
       else typeError TypeMismatch (Just (show m ++ " cannot be applied to a term of type " ++ show nt))
     _            -> typeError TypeMismatch (Just (show m ++ " is not a term of a Pi type") )
@@ -88,29 +90,33 @@ runInferType (Ind Zero (NoBind m) [] a) = runInferType (Ind Zero (Bind Nothing (
 
 runInferType (Ind Zero (Bind x (NoBind m)) [] a)                                       = do
   mt <- local (addToBoundCtx Zero) (runInferType m)
-  at <- runInferType a
+  at <- runCheckType a Zero
 
-  case (mt, at) of
-    (Univ _, Zero) -> return $ bumpDown $ open a m
-    (_, Zero)      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
-    (_, _)         -> typeError TypeMismatch (Just (show a ++ " is not of the type " ++ show Zero))
+  case mt of
+    Univ _ -> return $ bumpDown $ open a m
+    _      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
 
 runInferType (Ind One (NoBind m) [NoBind c] a)                                         = runInferType (Ind One (Bind Nothing (NoBind $ bumpUp m)) [NoBind c] a)
 
 runInferType (Ind One (Bind x (NoBind m)) [NoBind c] a)                                = do
   mt <- local (addToBoundCtx One) (runInferType m)
-  ct <- runInferType c
-  at <- runInferType a
+  ct <- runCheckType c $ bumpDown (open Star m)
+  at <- runCheckType a One
 
-  case (mt, at) of
-    (Univ _, One) -> if ct == bumpDown (open Star m)
-      then return $ bumpDown $ open a m
-      else typeError TypeMismatch (Just ("The term " ++ show c ++ " does not have the type of the motive " ++ show m))
-    (_, One)      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
-    (_, _)        -> typeError TypeMismatch (Just (show a ++ " is not of the type " ++ show One))
+  case mt of
+    Univ _ -> return $ bumpDown $ open a m
+    _      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
 
---runInferType (Ind (Sigma (x, t) n) (NoBind m) [Bind w (Bind y (NoBind f))] a)          = undefined
---runInferType (Ind (Sigma (x, t) n) (Bind z (NoBind m)) [Bind w (Bind y (NoBind f))] a) = undefined
+runInferType (Ind (Sigma (x, t) n) (NoBind m) [Bind w (Bind y (NoBind f))] a)          = runInferType (Ind (Sigma (x, t) n) (Bind Nothing (NoBind $ bumpUp m)) [Bind w (Bind y (NoBind f))] a)
+
+runInferType (Ind (Sigma (x, t) n) (Bind z (NoBind m)) [Bind w (Bind y (NoBind f))] a) = do
+  mt <- local (addToBoundCtx $ Sigma (x, t) n) (runInferType m)
+  ft <- local (addToBoundCtx n . addToBoundCtx t) (runCheckType f $ openFor (Pair (Var $ Bound 1) (Var $ Bound 0)) 1 (bumpUp m))
+  at <- runCheckType a (Sigma (x, t) n)
+
+  case mt of
+    Univ _ -> return $ bumpDown $ open (bumpUp a) m
+    _      -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
 
 runInferType (Ind t m c a)                                                             = typeError FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
 
@@ -150,9 +156,11 @@ runCheckType m t                                 = checkInferredTypeMatch m t
 
 checkInferredTypeMatch :: Term -> Term -> TypeCheck Term
 checkInferredTypeMatch m t = do
+  (env, _, _) <- ask
+
   t' <- runInferType m
 
-  if t == t'
+  if resolve env t == resolve env t'
   then return t
   else typeError TypeMismatch (Just ("The type of " ++ show m ++ " is " ++ show t' ++ " but expected " ++ show t))
 
@@ -178,8 +186,8 @@ isBinderUsed = go 0
     isBinderUsedInBoundTerm k (NoBind n) = go k n
     isBinderUsedInBoundTerm k (Bind x n) = isBinderUsedInBoundTerm (k + 1) n
 
-addToBoundCtx :: Term -> ((BoundContext, a) -> (BoundContext, a))
-addToBoundCtx t (bs, a) = (bumpUp t : map bumpUp bs, a)
+addToBoundCtx :: Term -> ((a, BoundContext, b) -> (a, BoundContext, b))
+addToBoundCtx t (a, bs, b) = (a, bumpUp t : map bumpUp bs, b)
 
 typeError :: ErrorCode -> Maybe String -> TypeCheck a
 typeError errc ms = lift $ Error errc ms
