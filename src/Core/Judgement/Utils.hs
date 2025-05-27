@@ -5,7 +5,6 @@ import Core.Error
 
 import Data.List (elemIndex)
 import Data.Maybe (fromMaybe)
-import Control.Monad.Reader
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 
 -- A list of binders, where the ith element is the ith binder away from the
@@ -104,58 +103,57 @@ openFor m k (Ind t m' c a)       = Ind (openFor m k t) (openInBoundTerm m k m') 
     openInBoundTerm m k (Bind x n) = Bind x (openInBoundTerm (bumpUp m) (k + 1) n)
 openFor m k n                    = n
 
+showTermWithBinders :: Binders -> Term -> String
+showTermWithBinders bs (Var (Free x))              = unpack x
+showTermWithBinders bs (Var (Bound i))
+  | i >= 0    = unpack $ fromMaybe (pack errorString) (bs !! i)
+  | otherwise = errorString
+  where
+    errorString :: String
+    errorString = "ERROR"
+showTermWithBinders bs Star                        = "*"
+showTermWithBinders bs (App (Lam xt m) (Lam yt n)) = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ "(" ++ showTermWithBinders bs (Lam yt n) ++ ")"
+showTermWithBinders bs (App m (Lam xt n))          = showTermWithBinders bs m ++ " (" ++ showTermWithBinders bs (Lam xt n) ++ ")"
+showTermWithBinders bs (App m (App p n))           = showTermWithBinders bs m ++ " (" ++ showTermWithBinders bs (App p n) ++ ")"
+showTermWithBinders bs (App m (Sigma xt n))        = showTermWithBinders bs m ++ " (" ++ showTermWithBinders bs (Sigma xt n) ++ ")"
+showTermWithBinders bs (App (Lam xt m) n)          = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showTermWithBinders bs n
+showTermWithBinders bs (App (Pi xt m) n)           = "(" ++ showTermWithBinders bs (Pi xt m) ++ ") " ++ showTermWithBinders bs n
+showTermWithBinders bs (App (Sigma xt m) n)        = "(" ++ showTermWithBinders bs (Sigma xt m) ++ ") " ++ showTermWithBinders bs n
+showTermWithBinders bs (App m n)                   = showTermWithBinders bs m ++ " " ++ showTermWithBinders bs n
+showTermWithBinders bs (Pair m n)                  = "(" ++ showTermWithBinders bs m ++ ", " ++ showTermWithBinders bs n ++ ")"
+showTermWithBinders bs (Lam (x, Just t) m)         = "\\(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ "). " ++ showTermWithBinders (Just x : bs) m
+showTermWithBinders bs (Lam (x, Nothing) m)        = "\\" ++ unpack x ++ ". " ++ showTermWithBinders (Just x : bs) m
+showTermWithBinders bs (Univ 0)                    = "U"
+showTermWithBinders bs (Univ i)                    = "U" ++ show i
+showTermWithBinders bs Zero                        = "0"
+showTermWithBinders bs One                         = "1"
+showTermWithBinders bs (Pi (Nothing, Pi (y, t) m) n) = "(" ++ showTermWithBinders bs (Pi (y, t) m) ++ ") -> " ++ showTermWithBinders (Nothing : bs) n
+showTermWithBinders bs (Pi (Just x, t) m)          = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") -> " ++ showTermWithBinders (Just x : bs) m
+showTermWithBinders bs (Pi (Nothing, t) m)         = showTermWithBinders bs t ++ " -> " ++ showTermWithBinders (Nothing : bs) m
+showTermWithBinders bs (Sigma (Just x, t) m)       = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") x " ++ showSigmaOperarands (Just x : bs) m
+showTermWithBinders bs (Sigma (Nothing, t) m)      = showTermWithBinders bs t ++ " x " ++ showSigmaOperarands (Nothing : bs) m
+showTermWithBinders bs (Ind t m c a)               = "ind[" ++ showTermWithBinders bs t ++ "](" ++ showBoundTerm bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen bs c ++ ", " ++ showTermWithBinders bs a ++ ")"
+  where
+    showBoundTerm :: Binders -> BoundTerm -> String
+    showBoundTerm bs (NoBind m)        = showTermWithBinders bs m
+    showBoundTerm bs (Bind (Just x) m) = unpack x ++ ". " ++ showBoundTerm (Just x : bs) m
+    showBoundTerm bs (Bind Nothing m)  = showBoundTerm (Nothing : bs) m
+
+    showBoundTermsNoParen :: Binders -> [BoundTerm] -> String
+    showBoundTermsNoParen bs []     = ""
+    showBoundTermsNoParen bs [y]    = showBoundTerm bs y
+    showBoundTermsNoParen bs (y:ys) = showBoundTerm bs y ++ ", " ++ showBoundTermsNoParen bs ys
+
+-- TODO: Generalise this to support arbitrary terms with any precedence
+showSigmaOperarands :: Binders -> Term -> String
+showSigmaOperarands bs (App m n)   = "(" ++ showTermWithBinders bs (App m n) ++ ")"
+showSigmaOperarands bs (Pi t m)    = "(" ++ showTermWithBinders bs (Pi t m) ++ ")"
+showSigmaOperarands bs (Sigma t m) = "(" ++ showTermWithBinders bs (Sigma t m) ++ ")"
+showSigmaOperarands bs m           = showTermWithBinders bs m
+
 instance Show Term where
-  show = go binders
+  show = showTermWithBinders binders
     where
       -- TODO: Ensure these are fresh
       binders :: [Maybe ByteString]
       binders = [Just $ pack ("a" ++ show i) | i <- [0..]]
-
-      errorString :: String
-      errorString = "ERROR"
-
-      -- TODO: Ensure names all work
-      go :: Binders -> Term -> String
-      go bs (Var (Free x))               = unpack x
-      go bs (Var (Bound i))
-        | i >= 0    = unpack $ fromMaybe (pack errorString) (bs !! i)
-        | otherwise = errorString
-      go bs Star                        = "*"
-      go bs (App (Lam xt m) (Lam yt n)) = "(" ++ go bs (Lam xt m) ++ ") " ++ "(" ++ go bs (Lam yt n) ++ ")"
-      go bs (App m (Lam xt n))          = go bs m ++ " (" ++ go bs (Lam xt n) ++ ")"
-      go bs (App m (App p n))           = go bs m ++ " (" ++ go bs (App p n) ++ ")"
-      go bs (App m (Sigma xt n))        = go bs m ++ " (" ++ go bs (Sigma xt n) ++ ")"
-      go bs (App (Lam xt m) n)          = "(" ++ go bs (Lam xt m) ++ ") " ++ go bs n
-      go bs (App (Pi xt m) n)           = "(" ++ go bs (Pi xt m) ++ ") " ++ go bs n
-      go bs (App (Sigma xt m) n)        = "(" ++ go bs (Sigma xt m) ++ ") " ++ go bs n
-      go bs (App m n)                   = go bs m ++ " " ++ go bs n
-      go bs (Pair m n)                  = "(" ++ go bs m ++ ", " ++ go bs n ++ ")"
-      go bs (Lam (x, Just t) m)         = "\\(" ++ unpack x ++ " : " ++ go bs t ++ "). " ++ go (Just x : bs) m
-      go bs (Lam (x, Nothing) m)        = "\\" ++ unpack x ++ ". " ++ go (Just x : bs) m
-      go bs (Univ 0)                    = "U"
-      go bs (Univ i)                    = "U" ++ show i
-      go bs Zero                        = "0"
-      go bs One                         = "1"
-      go bs (Pi (Nothing, Pi (y, t) m) n) = "(" ++ go bs (Pi (y, t) m) ++ ") -> " ++ go (Nothing : bs) n
-      go bs (Pi (Just x, t) m)          = "(" ++ unpack x ++ " : " ++ go bs t ++ ") -> " ++ go (Just x : bs) m
-      go bs (Pi (Nothing, t) m)         = go bs t ++ " -> " ++ go (Nothing : bs) m
-      go bs (Sigma (Just x, t) m)       = "(" ++ unpack x ++ " : " ++ go bs t ++ ") x " ++ showSigmaOperarands (Just x : bs) m
-      go bs (Sigma (Nothing, t) m)      = go bs t ++ " x " ++ showSigmaOperarands (Nothing : bs) m
-      go bs (Ind t m c a)               = "ind[" ++ go bs t ++ "](" ++ showBoundTerm bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen bs c ++ ", " ++ go bs a ++ ")"
-
-      showBoundTerm :: Binders -> BoundTerm -> String
-      showBoundTerm bs (NoBind m)        = go bs m
-      showBoundTerm bs (Bind (Just x) m) = unpack x ++ ". " ++ showBoundTerm (Just x : bs) m
-      showBoundTerm bs (Bind Nothing m)  = showBoundTerm (Nothing : bs) m
-
-      showBoundTermsNoParen :: Binders -> [BoundTerm] -> String
-      showBoundTermsNoParen bs []     = ""
-      showBoundTermsNoParen bs [y]    = showBoundTerm bs y
-      showBoundTermsNoParen bs (y:ys) = showBoundTerm bs y ++ ", " ++ showBoundTermsNoParen bs ys
-
-      -- TODO: Generalise this to support arbitrary terms with any precedence
-      showSigmaOperarands :: Binders -> Term -> String
-      showSigmaOperarands bs (App m n)   = "(" ++ go bs (App m n) ++ ")"
-      showSigmaOperarands bs (Pi t m)    = "(" ++ go bs (Pi t m) ++ ")"
-      showSigmaOperarands bs (Sigma t m) = "(" ++ go bs (Sigma t m) ++ ")"
-      showSigmaOperarands bs m           = go bs m
