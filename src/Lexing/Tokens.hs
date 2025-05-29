@@ -4,7 +4,7 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 
 data Token
   -- Identifiers
-  = TkID ByteString
+  = TkVar ByteString
   -- Punctuation
   | TkBackslash
   | TkDot
@@ -21,9 +21,9 @@ data Token
   | TkColonEqual
   | TkStar
   -- Numbers
-  | TkInt Integer
+  | TkInt Int
   -- Keywords
-  | TkUniv Integer
+  | TkUniv Int
   | TkInd
   | TkCheck
   -- Misc

@@ -3,9 +3,9 @@ module Parsing.Parser where
 
 import Lexing.Lexer
 import Lexing.Tokens
-import Core.Data
+import Core.Term
 import Core.Error
-import Core.Judgement
+import Core.Program
 
 import Data.Char
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
@@ -37,7 +37,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
   univ    { PositionedToken (TkUniv $$) _ }
-  var     { PositionedToken (TkID $$) _ }
+  var     { PositionedToken (TkVar $$) _ }
   int     { PositionedToken (TkInt $$) _ }
 
 %nonassoc ':='
@@ -56,81 +56,81 @@ Declarations :: { Program }
   :                         { [] }
   | '\n' Declarations       { $2 }
   | Definition Declarations { $1 : $2 }
-  | Assumption Declarations { (Signature $1) : $2 }
-  | Pragma     Declarations { (Pragma $1) : $2 }
+  | Signature Declarations  { Signature $1 : $2 }
+  | Pragma     Declarations { Pragma $1 : $2 }
 
 Definition :: { Declaration }
   : var ':=' Term { Def ($1, $3) }
 
+Signature :: { NamedAssumption }
+  : var ':' Term { ($1, $3) }
+
 Pragma :: { Pragma }
   : 'check' Term { Check $2 }
 
-Term :: { Term }
-  : var          { Var $1 }
-  | '0'          { Zero }
-  | '1'          { One }
-  | univ         { Univ $1 }
+Term :: { NamedTerm }
+  : '(' Term ')' { $2 }
+  | var          { NVar $1 }
+  | '0'          { NZero }
+  | '1'          { NOne }
+  | univ         { NUniv $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
   | PiType       { $1 }
   | SigmaType    { $1 }
   | Pair         { $1 }
   | Induction    { $1 }
-  | '*'          { Star }
-  | '(' Term ')' { $2 }
+  | '*'          { NStar }
 
-Assumption :: { Assumption }
-  : var ':' Term { ($1, $3) }
+Application :: { NamedTerm }
+  : Term Term %prec APP { NApp $1 $2 }
 
-Application :: { Term }
-  : Term Term %prec APP { App $1 $2 }
+Abstraction :: { NamedTerm }
+  : '\\' '(' var ':' Term ')' '.' Term { NLam ($3, Just $5) $8 }
+  | '\\' var '.' Term                  { NLam ($2, Nothing) $4 }
 
-Abstraction :: { Term }
-  : '\\' '(' Assumption ')' '.' Term { Lam (Exp $3) $6 }
-  | '\\' var '.' Term                { Lam (Imp $2) $4 }
+PiType :: { NamedTerm }
+  : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4) $7 }
+  | Term '->' Term                 { NPi (Nothing, $1) $3 }
 
--- TODO: Need to carry along environment when parsing to pass to getFreshVar
-PiType :: { Term }
-  : '(' Assumption ')' '->' Term { Pi $2 $5 }
-  | Term '->' Term               { Pi (getFreshVar [] $3, $1) $3 }
+SigmaType :: { NamedTerm }
+  : '(' var ':' Term ')' 'x' Term { NSigma (Just $2, $4) $7 }
+  | Term 'x' Term                 { NSigma (Nothing, $1) $3 }
 
-SigmaType :: { Term }
-  : '(' Assumption ')' 'x' Term { Sigma $2 $5 }
-  | Term 'x' Term               { Sigma (getFreshVar [] $3, $1) $3 }
+Pair :: { NamedTerm }
+  : '(' Term ',' Term ')' { NPair $2 $4 }
 
-Pair :: { Term }
-  : '(' Term ',' Term ')' { Pair $2 $4 }
+BoundTerm :: { NamedBoundTerm }
+  : Term              { NNoBind $1 }
+  | var '.' BoundTerm { NBind $1 $3 }
 
-BoundTerm :: { BoundTerm }
-  : Term              { NoBind $1 }
-  | var '.' BoundTerm { Bind $1 $3 }
-
-BoundTerms :: { [BoundTerm] }
+BoundTerms :: { [NamedBoundTerm] }
   :                          { [] }
   | BoundTerm                { [$1] }
   | BoundTerm ',' BoundTerms { $1 : $3 }
 
-BoundTermsList :: { [BoundTerm] }
+BoundTermsList :: { [NamedBoundTerm] }
   :                { [] }
   | ',' BoundTerms { $2 }
 
-Induction :: { Term }
+Induction :: { NamedTerm }
   : 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ')' 
   {
     case $7 of
-      []     -> outputParseError $8
-      (_:[]) -> outputParseError $8
-      (_:xs) -> case last xs of
-        Bind _ _ -> outputParseError $8
-        NoBind a -> Ind $3 $6 (init $7) a 
+      []          -> outputParseError $8
+      [NNoBind a] -> NInd $3 $6 [] a
+      (_:xs)      -> case last xs of
+        NBind _ _ -> outputParseError $8
+        NNoBind a -> NInd $3 $6 (init $7) a 
+      _           -> outputParseError $8
   }
 
 {
 parseError :: PositionedToken -> Alex a
-parseError t = alexError ("Parsing error at line " ++ show (fst (ptPosition t)) ++ ", column " ++ show (snd (ptPosition t)))
+parseError t = alexError ("Parsing error at line " ++ show (fst $ ptPosition t) ++ ", column " ++ show (snd $ ptPosition t))
 
 outputParseError :: PositionedToken -> a
-outputParseError t = outputError (Error (SyntaxError) (Just ("Parsing error at line " ++ show (fst (ptPosition t)) ++ ", column " ++ show (snd (ptPosition t)))))
+outputParseError t = errorWith (Error SyntaxError (Just ("Parsing error at line " ++ show (fst $ ptPosition t) ++ ", column " ++ show (snd $ ptPosition t))))
 
 lexer :: (PositionedToken -> Alex a) -> Alex a
 lexer = (=<< alexMonadScan)

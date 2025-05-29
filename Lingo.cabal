@@ -15,20 +15,25 @@ build-type:          Simple
 extra-source-files:  README.md
                      CHANGELOG.md
 
-executable Lingo
+executable lingo
   hs-source-dirs:      src
   main-is:             Lingo.hs
   other-modules:       Lexing.Lexer
                      , Lexing.Tokens
                      , Parsing.Parser
-                     , Core.Data
+                     , Core.Term
                      , Core.Error
-                     , Core.Judgement
-                     , Core.Execution
+                     , Core.Program
+                     , Core.Judgement.Utils
+                     , Core.Judgement.Evaluation
+                     , Core.Judgement.Typing
+                     , IO.Args
+                     , IO.Source
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
                      , array >= 0.5 && < 0.6
                      , bytestring >= 0.12.1.0
+                     , mtl >= 2.3.1
   build-tool-depends:  alex:alex   >= 3.2.4 && < 4.0
                      , happy:happy >= 1.19.2 && < 2.2.0
   ghc-options:         -main-is Lingo
