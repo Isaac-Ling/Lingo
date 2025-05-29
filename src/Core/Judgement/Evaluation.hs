@@ -7,7 +7,7 @@ import Core.Judgement.Utils
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 eval :: Term -> Term
-eval (Lam _ (App f (Var (Bound 0))))                             = eval f -- Eta conversion
+eval (Lam _ (App f (Var (Bound 0))))                             = eval $ bumpDown f -- Eta conversion
 eval (Lam (x, Just t) m)                                         = Lam (x, Just $ eval t) (eval m)
 eval (Lam (x, Nothing) m)                                        = Lam (x, Nothing) (eval m)
 eval (Pi (x, t) m)                                               = Pi (x, eval t) (eval m)
@@ -22,6 +22,11 @@ eval (App m n)
 eval (Ind One _ [NoBind c] _)                                    = c
 -- TODO: Don't turn bound terms into lambdas to evaluate
 eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b)) = eval (App (App (Lam (pack "BLAH", Nothing) $ Lam (pack "BLAH", Nothing) f) a) b)
+eval (Ind t m c a)                                               = Ind (eval t) (evalBoundTerm m) (map evalBoundTerm c) (eval a)
+  where
+    evalBoundTerm :: BoundTerm -> BoundTerm
+    evalBoundTerm (NoBind m) = NoBind $ eval m
+    evalBoundTerm (Bind x m) = Bind x $ evalBoundTerm m
 eval m                                                           = m
 
 isValue :: Term -> Bool

@@ -85,9 +85,9 @@ runInferType (App m n)                                                          
   nt <- runInferType n
 
   case mt of
-    Pi (x, t) t' -> if resolve env nt == resolve env t
+    Pi (x, t) t' -> if resolve env t == resolve env nt
       then return $ shift (-1) $ open (bumpUp n) t'
-      else typeError TypeMismatch (Just (showTermWithContext bctx m ++ " cannot be applied to " ++ showTermWithContext bctx n ++ " as it has type " ++ showTermWithContext bctx nt))
+      else typeError TypeMismatch (Just (showTermWithContext bctx (eval $ resolve env m) ++ " of type " ++ showTermWithContext bctx (eval mt) ++ " cannot be applied to " ++ showTermWithContext bctx n ++ " of type " ++ showTermWithContext bctx nt))
     _            -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a Pi type") )
 
 runInferType (Pair m n)                                                                = do
