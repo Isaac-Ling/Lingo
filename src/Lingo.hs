@@ -1,61 +1,47 @@
 module Lingo (main) where
 
-import Lexing.Lexer
-import Lexing.Tokens
-import Parsing.Parser
-import Core.Data
 import Core.Error
-import Core.Evaluation
-import Core.TypeChecking
+import IO.Args
+import IO.Source
+import Core.Program ( run )
+import Parsing.Parser ( parse )
 
-import Data.ByteString.Lazy.Char8 (ByteString)
-import qualified Data.ByteString.Lazy.Char8 as BS
 import System.Environment (getArgs)
-import Control.Exception (catch, IOException)
-
-data Args = Args
-  { sourceFile :: FilePath
-  }
 
 main :: IO ()
 main = do
   -- Get command line args
-  args <- getArgs >>= \ma -> case parseArgs ma of
+  rawArgs <- getArgs
+  args <- case parseArgs rawArgs of
     Result a -> return a
-    Error er -> showError er
-  
-  -- Read source code
-  source <- getSource (sourceFile args) >>= \ms -> case ms of
-    Result s -> return s
-    Error er -> showError er
+    err      -> exitWith err
 
-  -- Lex
-  let tokens = alexScanTokens source
+  case args of
+    Source f -> runFile f
+    Help     -> showHelp
+
+runFile :: FilePath -> IO ()
+runFile s = do
+  -- Read source
+  msource <- readSource s
+  source <- case msource of
+    Result s -> return s
+    err      -> exitWith err
 
   -- Parse
-  let ast = parseExpr tokens
+  program <- case parse source of
+    Result p -> return p
+    err      -> exitWith err
 
-  -- Execute
-  result <- execute ast >>= \mr -> case mr of
-    Result a -> return a
-    Error er -> showError er
+  -- Run
+  result <- run program
 
-  print result
+  -- Output result
+  exitWith result
 
-parseArgs :: [String] -> CanError Args
-parseArgs []     = Error NoCommandLineArgsSupplied
-parseArgs (x:xs) = Result $ Args { sourceFile = x }
-
-getSource :: FilePath -> IO (CanError ByteString)
-getSource f = catch (Result <$> BS.readFile f) handler
-  where
-    handler :: IOException -> IO (CanError ByteString)
-    handler _ = return (Error FailedToReadSourceFile)
-
-execute :: Term -> IO (CanError Term)
-execute e = case mt of
-  Error er -> return (Error er)
-  Result t        -> do 
-    return (Result (Anno (eval e) t))
-  where
-    mt = typeCheck e
+showHelp :: IO ()
+showHelp = do
+  putStrLn "Run Lingo with the following arguments:\n\
+  \  <filename>.lingo - Executes the given Lingo program\n\
+  \  -h               - Displays help information"
+  exitWith (Result ())

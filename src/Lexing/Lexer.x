@@ -1,27 +1,92 @@
 {
 module Lexing.Lexer where
 
+import Core.Error
 import Lexing.Tokens
+
+import Data.ByteString.Lazy.Char8 (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as BS
 }
 
 %encoding "latin1"
-%wrapper "basic-bytestring"
+%wrapper "monad-bytestring"
 
-$digit = [ 0-9 ]
-$lower = [ a-z ]
-$upper = [ A-Z ]
+$digit     = [ 0-9 ]
+$lower     = [ a-z ]
+$upper     = [ A-Z ]
+$newLine   = [ \n ]
+$whiteNoNL = [ \ \t\f\v\r ]
 
-@id = ($lower | $upper | \_) ($lower | $upper | \_ | \')*
+@var   = ($lower | $upper | \_) ($lower | $upper | \_ | $digit)* (\')*
+@int  = $digit+
+@univ = \U $digit+
 
-tokens :-
+lingo :-
 
-$white+ ;
-<0> \\   { \s -> Backslash }
-<0> \.   { \s -> Dot }
-<0> \(   { \s -> LParen }
-<0> \)   { \s -> RParen }
-<0> @id  { \s -> Id s }
-<0> \:   { \s -> Colon }
-<0> "->" { \s -> RArrow }
-<0> "*"  { \s -> Asterisk }
-<0> "1"  { \s -> Int 1 }
+<0> "--"\-*.*$newLine*   { skip }
+<0> $whiteNoNL+ ;
+<0> $newLine    { createTk TkNewL }
+
+<0> \\          { createTk TkBackslash }
+<0> \.          { createTk TkDot }
+<0> \,          { createTk TkComma }
+<0> \x          { createTk TkCross }
+<0> \(          { createTk TkLParen }
+<0> \)          { createTk TkRParen }
+<0> \)          { createTk TkRParen }
+<0> \[          { createTk TkLSqParen }
+<0> \]          { createTk TkRSqParen }
+<0> ":="        { createTk TkColonEqual }
+<0> \:          { createTk TkColon }
+<0> "->"        { createTk TkRArrow }
+<0> \*          { createTk TkStar }
+<0> "ind"       { createTk TkInd }
+<0> "#check"    { createTk TkCheck }
+<0> @univ       { createUnivTk }
+<0> \U          { createTk $ TkUniv 0 }
+<0> @var        { createVarTk }
+<0> @int        { createIntTk }
+
+{
+alexEOF :: Alex PositionedToken
+alexEOF = do
+  ((AlexPn _ line col), _, _, _) <- alexGetInput
+  return $ PositionedToken TkEOF (line, col)
+
+createVarTk :: AlexAction PositionedToken
+createVarTk (start@(AlexPn _ line col), _, str, _) len =
+  return PositionedToken 
+    { ptToken = TkVar $ BS.take len str
+    , ptPosition = (line, col)
+    }
+
+createIntTk :: AlexAction PositionedToken
+createIntTk ((AlexPn _ line col), _, str, _) len = return PositionedToken 
+  { ptToken = TkInt $ read $ BS.unpack $ BS.take len str
+  , ptPosition = (line, col)
+  }
+
+createUnivTk :: AlexAction PositionedToken
+createUnivTk ((AlexPn _ line col), _, str, _) len = return PositionedToken 
+  { ptToken = TkUniv $ getUnivLevel $ BS.unpack $ BS.take len str
+  , ptPosition = (line, col)
+  }
+  where
+    getUnivLevel :: String -> Int
+    getUnivLevel []     = 0
+    getUnivLevel (u:i) = case i of
+      []    -> 0
+      level -> read level
+
+createTk :: Token -> AlexAction PositionedToken
+createTk tk ((AlexPn _ line col), _, _, _) len = return PositionedToken { ptToken = tk, ptPosition = (line, col) }
+
+scan :: ByteString -> Either String [PositionedToken]
+scan s = runAlex s $ loop
+  where 
+  loop = do
+    tk <- alexMonadScan
+    if ptToken tk == TkEOF
+      then return [tk]
+      else (tk : ) <$> loop
+}

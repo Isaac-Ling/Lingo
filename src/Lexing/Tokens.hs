@@ -1,23 +1,37 @@
-module Lexing.Tokens (Token (..)) where
+module Lexing.Tokens where
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 
 data Token
-  -- Variables
-  = Id ByteString
-  -- Lambda abstractions
-  | Backslash
-  | Dot
-  -- Types
-  | Colon
-  | RArrow
-  -- Parentheses
-  | LParen
-  | RParen
+  -- Identifiers
+  = TkVar ByteString
+  -- Punctuation
+  | TkBackslash
+  | TkDot
+  | TkComma
+  | TkHash
+  | TkCross
+  | TkColon
+  | TkLParen
+  | TkRParen
+  | TkLSqParen
+  | TkRSqParen
+  -- Symbols
+  | TkRArrow
+  | TkColonEqual
+  | TkStar
   -- Numbers
-  | Int Integer
-  -- Other
-  | Asterisk
-  -- EOF
-  | EOF
+  | TkInt Int
+  -- Keywords
+  | TkUniv Int
+  | TkInd
+  | TkCheck
+  -- Misc
+  | TkNewL
+  | TkEOF
   deriving (Eq, Show)
+
+data PositionedToken = PositionedToken
+  { ptToken    :: Token
+  , ptPosition :: (Int, Int)
+  } deriving (Eq, Show)
