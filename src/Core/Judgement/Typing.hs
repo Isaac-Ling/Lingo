@@ -96,6 +96,17 @@ runInferType (Pair m n)                                                         
 
   return $ Sigma (Nothing, mt) nt
 
+runInferType (Sum m n)                                                                 = do
+  (_, bctx, _) <- ask
+
+  mt <- runInferType m
+  nt <- runInferType n
+
+  case (mt, nt) of
+    (Univ i, Univ j) -> return $ Univ $ max i j
+    (Univ i, _)      -> typeError TypeMismatch (Just (showTermWithContext bctx n ++ " is not a term of a universe"))
+    (_, _)           -> typeError TypeMismatch (Just (show m ++ " is not a term of a universe"))
+
 runInferType (Ind Zero (NoBind m) [] a) = runInferType (Ind Zero (Bind Nothing (NoBind $ bumpUp m)) [] a)
 
 runInferType (Ind Zero (Bind x (NoBind m)) [] a)                                       = do

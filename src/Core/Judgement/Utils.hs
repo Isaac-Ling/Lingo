@@ -24,6 +24,7 @@ toDeBruijn = go []
     go bs (NSigma (x, t) m)     = Sigma (x, go bs t) (go (x : bs) m)
     go bs (NApp m n)            = App (go bs m) (go bs n)
     go bs (NPair m n)           = Pair (go bs m) (go bs n)
+    go bs (NSum m n)            = Sum (go bs m) (go bs n)
     go bs (NInd t m c a)        = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
     go bs (NUniv i)             = Univ i
     go bs NZero                 = Zero
@@ -45,6 +46,7 @@ resolve env (Pi (x, t) m)        = Pi (x, resolve env t) (resolve env m)
 resolve env (Sigma (x, t) m)     = Sigma (x, resolve env t) (resolve env m)
 resolve env (App m n)            = App (resolve env m) (resolve env n)
 resolve env (Pair m n)           = Pair (resolve env m) (resolve env n)
+resolve env (Sum m n)            = Sum (resolve env m) (resolve env n)
 resolve env (Ind t m c a)        = Ind (resolve env t) (resolveBoundTerm env m) (map (resolveBoundTerm env) c) (resolve env a)
   where
     resolveBoundTerm :: Environment -> BoundTerm -> BoundTerm
@@ -68,6 +70,7 @@ shift k = go k 0
     go k l (Sigma (x, t) m)     = Sigma (x, go k l t) (go k (l + 1) m)
     go k l (App m n)            = App (go k l m) (go k l n)
     go k l (Pair m n)           = Pair (go k l m) (go k l n)
+    go k l (Sum m n)            = Sum (go k l m) (go k l n)
     go k l (Ind t m c a)        = Ind (go k l t) (shiftInBoundTerm k l m) (map (shiftInBoundTerm k l) c) (go k l a)
     go k l m                    = m
 
@@ -95,6 +98,7 @@ openFor m k (Lam (x, Nothing) n) = Lam (x, Nothing) (openFor (bumpUp m) (k + 1) 
 openFor m k (Pi (x, t) n)        = Pi (x, openFor m k t) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Sigma (x, t) n)     = Sigma (x, openFor m k t) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Pair t n)           = Pair (openFor m k t) (openFor m k n)
+openFor m k (Sum t n)            = Sum (openFor m k t) (openFor m k n)
 openFor m k (App t n)            = App (openFor m k t) (openFor m k n)
 openFor m k (Ind t m' c a)       = Ind (openFor m k t) (openInBoundTerm m k m') (map (openInBoundTerm m k) c) (openFor m k a)
   where
@@ -121,6 +125,7 @@ showTermWithBinders bs (App (Pi xt m) n)           = "(" ++ showTermWithBinders 
 showTermWithBinders bs (App (Sigma xt m) n)        = "(" ++ showTermWithBinders bs (Sigma xt m) ++ ") " ++ showTermWithBinders bs n
 showTermWithBinders bs (App m n)                   = showTermWithBinders bs m ++ " " ++ showTermWithBinders bs n
 showTermWithBinders bs (Pair m n)                  = "(" ++ showTermWithBinders bs m ++ ", " ++ showTermWithBinders bs n ++ ")"
+showTermWithBinders bs (Sum m n)                   = showTermWithBinders bs m ++ " + " ++ showTermWithBinders bs n
 showTermWithBinders bs (Lam (x, Just t) m)         = "\\(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ "). " ++ showTermWithBinders (Just x : bs) m
 showTermWithBinders bs (Lam (x, Nothing) m)        = "\\" ++ unpack x ++ ". " ++ showTermWithBinders (Just x : bs) m
 showTermWithBinders bs (Univ 0)                    = "U"
@@ -131,7 +136,7 @@ showTermWithBinders bs (Pi (Nothing, Pi (y, t) m) n) = "(" ++ showTermWithBinder
 showTermWithBinders bs (Pi (Just x, t) m)          = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") -> " ++ showTermWithBinders (Just x : bs) m
 showTermWithBinders bs (Pi (Nothing, t) m)         = showTermWithBinders bs t ++ " -> " ++ showTermWithBinders (Nothing : bs) m
 showTermWithBinders bs (Sigma (Just x, t) m)       = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") x " ++ showSigmaOperarands (Just x : bs) m
-showTermWithBinders bs (Sigma (Nothing, t) m)      = showTermWithBinders bs t ++ " x " ++ showSigmaOperarands (Nothing : bs) m
+showTermWithBinders bs (Sigma (Nothing, t) m)      = showSigmaOperarands bs t ++ " x " ++ showSigmaOperarands (Nothing : bs) m
 showTermWithBinders bs (Ind t m c a)               = "ind[" ++ showTermWithBinders bs t ++ "](" ++ showBoundTerm bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen bs c ++ ", " ++ showTermWithBinders bs a ++ ")"
   where
     showBoundTerm :: Binders -> BoundTerm -> String

@@ -9,7 +9,6 @@ data Token
   | TkBackslash
   | TkDot
   | TkComma
-  | TkHash
   | TkCross
   | TkColon
   | TkLParen
@@ -20,6 +19,8 @@ data Token
   | TkRArrow
   | TkColonEqual
   | TkStar
+  | TkHash
+  | TkPlus
   -- Numbers
   | TkInt Int
   -- Keywords

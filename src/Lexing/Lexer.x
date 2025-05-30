@@ -31,6 +31,7 @@ lingo :-
 <0> \.          { createTk TkDot }
 <0> \,          { createTk TkComma }
 <0> \x          { createTk TkCross }
+<0> \+          { createTk TkPlus }
 <0> \(          { createTk TkLParen }
 <0> \)          { createTk TkRParen }
 <0> \)          { createTk TkRParen }

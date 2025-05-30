@@ -20,3 +20,8 @@ ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -
 ac := \A. \B. \R. \g. (\(a : A). fst B (\(b : B). R a b) (g a), \(a : A). snd B (\(b : B). R a b) (g a))
 
 #check ac
+
+-- Boolean
+bool := 1 + 1
+
+#check bool

@@ -23,6 +23,7 @@ data NamedTerm
   | NUniv Int
   | NZero
   | NOne
+  | NSum NamedTerm NamedTerm
   | NPi NamedAnonBinder NamedTerm
   | NSigma NamedAnonBinder NamedTerm
   | NInd NamedTerm NamedBoundTerm [NamedBoundTerm] NamedTerm
@@ -55,6 +56,7 @@ data Term
   | Univ Int
   | Zero
   | One
+  | Sum Term Term
   | Pi AnonBinder Term
   | Sigma AnonBinder Term
   -- Induction principle is of the form: Ind <What am I inducting over?> <Motive> <Required evidence> <Antecedent>
