@@ -27,6 +27,8 @@ data Token
   | TkUniv Int
   | TkInd
   | TkCheck
+  | TkInr
+  | TkInl
   -- Misc
   | TkNewL
   | TkEOF

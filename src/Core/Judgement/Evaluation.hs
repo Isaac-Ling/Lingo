@@ -46,6 +46,9 @@ beta :: Term -> Term
 beta (App (Lam _ m) n) = bumpDown $ open (bumpUp n) m
 beta m                 = m
 
+equal :: Environment -> Term -> Term -> Bool
+equal env m n = elaborate env m == elaborate env n
+
 -- Equality of terms is alpha-beta-eta equivalence
 instance Eq Term where
   m == n = eval m === eval n
@@ -59,6 +62,7 @@ instance Eq Term where
       Univ i === Univ j                         = i == j
       Zero === Zero                             = True
       One === One                               = True
+      Sum m n === Sum m' n'                     = m == m && n' == n'
       Pi (_, t) m === Pi (_, t') n              = t == t' && m == n
       Sigma (_, t) m === Sigma (_, t') n        = t == t' && m == n
       Ind t m c a === Ind t' m' c' a'           = t == t' && m == m' && c == c' && a == a' 
