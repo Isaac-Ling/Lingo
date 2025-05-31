@@ -24,7 +24,9 @@ eval (Ind One _ [NoBind c] _)                                         = c
 eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))      = eval $ App (App (Lam (pack "w", Nothing) $ Lam (pack "y", Nothing) f) a) b
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a)) = eval $ App (Lam (pack "x", Nothing) c) a
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b)) = eval $ App (Lam (pack "y", Nothing) d) b
-eval (Ind t m c a)                                                    = Ind (eval t) (evalBoundTerm m) (map evalBoundTerm c) (eval a)
+eval (Ind t m c a)
+  | isValue $ Ind t m c a = Ind t m c a
+  | otherwise             = eval $ Ind (eval t) (evalBoundTerm m) (map evalBoundTerm c) (eval a)
   where
     evalBoundTerm :: BoundTerm -> BoundTerm
     evalBoundTerm (NoBind m) = NoBind $ eval m
@@ -36,13 +38,24 @@ isValue (Lam _ _) = True
 isValue m         = isNeutral m
 
 isNeutral :: Term -> Bool
-isNeutral (Var x)   = True
-isNeutral (App m n) = isNeutral m && isValue n
-isNeutral Star      = True
-isNeutral (Univ _)  = True
-isNeutral Zero      = True
-isNeutral One       = True
-isNeutral _         = False
+isNeutral (Var x)          = True
+isNeutral (App m n)        = isNeutral m && isValue n
+isNeutral (Pi (_, t) m)    = isValue t && isValue m
+isNeutral (Sigma (_, t) m) = isValue t && isValue m
+isNeutral (Sum m n)        = isValue m && isValue n
+isNeutral (Pair m n)       = isValue m && isValue n
+isNeutral Star             = True
+isNeutral (Univ _)         = True
+isNeutral Zero             = True
+isNeutral One              = True
+isNeutral (Inl m)          = isValue m
+isNeutral (Inr m)          = isValue m
+isNeutral (Ind t m c a)    = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
+  where
+    isBoundTermValue :: BoundTerm -> Bool
+    isBoundTermValue (NoBind m) = isValue m
+    isBoundTermValue (Bind _ m) = isBoundTermValue m
+isNeutral _                = False
 
 beta :: Term -> Term
 beta (App (Lam _ m) n) = bumpDown $ open (bumpUp n) m
