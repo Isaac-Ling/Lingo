@@ -7,27 +7,29 @@ import Core.Judgement.Utils
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 eval :: Term -> Term
-eval (Lam _ (App f (Var (Bound 0))))                             = eval $ bumpDown f -- Eta conversion
-eval (Lam (x, Just t) m)                                         = Lam (x, Just $ eval t) (eval m)
-eval (Lam (x, Nothing) m)                                        = Lam (x, Nothing) (eval m)
-eval (Pi (x, t) m)                                               = Pi (x, eval t) (eval m)
-eval (Sigma (x, t) m)                                            = Sigma (x, eval t) (eval m)
-eval (Pair m n)                                                  = Pair (eval m) (eval n)
+eval (Lam _ (App f (Var (Bound 0))))                                  = eval $ bumpDown f -- Eta conversion
+eval (Lam (x, Just t) m)                                              = Lam (x, Just $ eval t) (eval m)
+eval (Lam (x, Nothing) m)                                             = Lam (x, Nothing) (eval m)
+eval (Pi (x, t) m)                                                    = Pi (x, eval t) (eval m)
+eval (Sigma (x, t) m)                                                 = Sigma (x, eval t) (eval m)
+eval (Pair m n)                                                       = Pair (eval m) (eval n)
 eval (App m n)
   | isNeutral f = App f (eval n)
   | otherwise   = eval (beta (App f n))
   where
     f :: Term
     f = eval m
-eval (Ind One _ [NoBind c] _)                                    = c
+eval (Ind One _ [NoBind c] _)                                         = c
 -- TODO: Don't turn bound terms into lambdas to evaluate
-eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b)) = eval (App (App (Lam (pack "BLAH", Nothing) $ Lam (pack "BLAH", Nothing) f) a) b)
-eval (Ind t m c a)                                               = Ind (eval t) (evalBoundTerm m) (map evalBoundTerm c) (eval a)
+eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))      = eval $ App (App (Lam (pack "w", Nothing) $ Lam (pack "y", Nothing) f) a) b
+eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a)) = eval $ App (Lam (pack "x", Nothing) c) a
+eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b)) = eval $ App (Lam (pack "y", Nothing) d) b
+eval (Ind t m c a)                                                    = Ind (eval t) (evalBoundTerm m) (map evalBoundTerm c) (eval a)
   where
     evalBoundTerm :: BoundTerm -> BoundTerm
     evalBoundTerm (NoBind m) = NoBind $ eval m
     evalBoundTerm (Bind x m) = Bind x $ evalBoundTerm m
-eval m                                                           = m
+eval m                                                                = m
 
 isValue :: Term -> Bool
 isValue (Lam _ _) = True

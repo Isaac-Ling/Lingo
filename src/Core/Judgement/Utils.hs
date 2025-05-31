@@ -39,7 +39,7 @@ toDeBruijn = go []
 
 elaborate :: Environment -> Term -> Term
 elaborate env (Var (Free x))       = case lookup x env of
-  Just m  -> m
+  Just m  -> elaborate env m
   Nothing -> Var $ Free x
 elaborate env (Var (Bound i))      = Var $ Bound i
 elaborate env (Lam (x, Nothing) m) = Lam (x, Nothing) (elaborate env m)

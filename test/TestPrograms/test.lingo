@@ -8,7 +8,7 @@ id := \A. \a. a
 fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A
 fst := \A. \B. \p. ind[(a : A) x B a](A, a. b. a, p)
 
---#check fst
+#check fst
 
 snd : (A : U) -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst A B p)
 snd := \A. \B. \p. ind[(a : A) x B a](p. B (fst A B p), a. b. b, p)
@@ -26,10 +26,22 @@ Bool := 1 + 1
 
 #check Bool
 
-true  : Bool
-true  := inl(*)
+true : Bool
+true := inl(*)
+
 false : Bool
 false := inr(*)
 
 #check true
 #check false
+
+-- Conditional
+ifThenElse : (C : U) -> Bool -> C -> C -> C
+ifThenElse := \C. \b. \c1. \c2. ind[Bool](C, a. c1, b. c2, b)
+
+#check ifThenElse
+
+not : Bool -> Bool
+not := \b. ifThenElse Bool b false true
+
+#check not false
