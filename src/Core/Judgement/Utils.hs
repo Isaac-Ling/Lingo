@@ -32,6 +32,7 @@ toDeBruijn = go []
     go bs NOne                  = One
     go bs (NInl m)              = Inl $ go bs m
     go bs (NInr m)              = Inr $ go bs m
+    go bs (NRefl m)             = Refl $ go bs m
     go bs NStar                 = Star
 
     boundTermToDeBruijn :: Binders -> NamedBoundTerm -> BoundTerm
@@ -52,6 +53,7 @@ elaborate env (Pair m n)           = Pair (elaborate env m) (elaborate env n)
 elaborate env (Sum m n)            = Sum (elaborate env m) (elaborate env n)
 elaborate env (Inl m)              = Inl (elaborate env m)
 elaborate env (Inr m)              = Inr (elaborate env m)
+elaborate env (Refl m)             = Refl (elaborate env m)
 elaborate env (Id m n)             = Id (elaborate env m) (elaborate env n)
 elaborate env (Ind t m c a)        = Ind (elaborate env t) (elaborateBoundTerm env m) (map (elaborateBoundTerm env) c) (elaborate env a)
   where
@@ -80,6 +82,7 @@ shift k = go k 0
     go k l (Id m n)             = Id (go k l m) (go k l n)
     go k l (Inl m)              = Inl $ go k l m
     go k l (Inr m)              = Inr $ go k l m
+    go k l (Refl m)             = Refl $ go k l m
     go k l (Ind t m c a)        = Ind (go k l t) (shiftInBoundTerm k l m) (map (shiftInBoundTerm k l) c) (go k l a)
     go k l m                    = m
 
@@ -112,6 +115,7 @@ openFor m k (Sum t n)            = Sum (openFor m k t) (openFor m k n)
 openFor m k (App t n)            = App (openFor m k t) (openFor m k n)
 openFor m k (Inl n)              = Inl (openFor m k n)
 openFor m k (Inr n)              = Inr (openFor m k n)
+openFor m k (Refl n)             = Refl (openFor m k n)
 openFor m k (Ind t m' c a)       = Ind (openFor m k t) (openInBoundTerm m k m') (map (openInBoundTerm m k) c) (openFor m k a)
   where
     openInBoundTerm :: Term -> Int -> BoundTerm -> BoundTerm
@@ -147,6 +151,7 @@ showTermWithBinders bs Zero                          = "0"
 showTermWithBinders bs One                           = "1"
 showTermWithBinders bs (Inl m)                       = "inl(" ++ showTermWithBinders bs m ++ ")"
 showTermWithBinders bs (Inr m)                       = "inr(" ++ showTermWithBinders bs m ++ ")"
+showTermWithBinders bs (Refl m)                      = "refl[" ++ showTermWithBinders bs m ++ "]"
 showTermWithBinders bs (Pi (Nothing, Pi (y, t) m) n) = "(" ++ showTermWithBinders bs (Pi (y, t) m) ++ ") -> " ++ showTermWithBinders (Nothing : bs) n
 showTermWithBinders bs (Pi (Just x, t) m)            = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") -> " ++ showTermWithBinders (Just x : bs) m
 showTermWithBinders bs (Pi (Nothing, t) m)           = showTermWithBinders bs t ++ " -> " ++ showTermWithBinders (Nothing : bs) m

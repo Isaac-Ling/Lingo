@@ -26,6 +26,7 @@ data NamedTerm
   | NSum NamedTerm NamedTerm
   | NInr NamedTerm
   | NInl NamedTerm
+  | NRefl NamedTerm
   | NPi NamedAnonBinder NamedTerm
   | NId NamedTerm NamedTerm
   | NSigma NamedAnonBinder NamedTerm
@@ -62,6 +63,7 @@ data Term
   | Sum Term Term
   | Inl Term
   | Inr Term
+  | Refl Term
   | Pi AnonBinder Term
   | Id Term Term
   | Sigma AnonBinder Term

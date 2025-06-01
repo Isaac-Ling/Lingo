@@ -30,6 +30,7 @@ data Token
   | TkCheck
   | TkInr
   | TkInl
+  | TkRefl
   -- Misc
   | TkNewL
   | TkEOF

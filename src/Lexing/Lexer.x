@@ -46,6 +46,7 @@ lingo :-
 <0> "#check"    { createTk TkCheck }
 <0> "inl"       { createTk TkInl }
 <0> "inr"       { createTk TkInr }
+<0> "refl"      { createTk TkRefl }
 <0> @univ       { createUnivTk }
 <0> \U          { createTk $ TkUniv 0 }
 <0> @var        { createVarTk }

@@ -50,6 +50,7 @@ isNeutral Zero             = True
 isNeutral One              = True
 isNeutral (Inl m)          = isValue m
 isNeutral (Inr m)          = isValue m
+isNeutral (Refl m)         = isValue m
 isNeutral (Ind t m c a)    = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
   where
     isBoundTermValue :: BoundTerm -> Bool
@@ -77,7 +78,9 @@ instance Eq Term where
       Univ i === Univ j                         = i == j
       Zero === Zero                             = True
       One === One                               = True
-      Sum m n === Sum m' n'                     = m == m && n' == n'
+      Sum m n === Sum m' n'                     = m == m' && n == n'
+      Id m n === Id m' n'                       = m == m' && n == n'
+      Refl m === Refl n                         = m == n
       Pi (_, t) m === Pi (_, t') n              = t == t' && m == n
       Sigma (_, t) m === Sigma (_, t') n        = t == t' && m == n
       Ind t m c a === Ind t' m' c' a'           = t == t' && m == m' && c == c' && a == a' 

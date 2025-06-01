@@ -128,6 +128,8 @@ runInferType (Id m n)                                                           
   then return mtt
   else typeError TypeMismatch (Just ("The type of m (" ++ showTermWithContext bctx mt ++ ") does not equal the type of n (" ++ showTermWithContext bctx nt ++ ")"))
 
+runInferType (Refl m)                                                                     = return $ Id m m
+  
 runInferType (Ind Zero (NoBind m) [] a)                                                   = runInferType (Ind Zero (Bind Nothing (NoBind $ bumpUp m)) [] a)
 
 runInferType (Ind Zero (Bind x (NoBind m)) [] a)                                          = do
@@ -261,6 +263,7 @@ runCheckType (Inr m) (Sum t t')                   = do
     (Univ _, _)      -> typeError TypeMismatch (Just (showTermWithContext bctx t' ++ " is not a term of a universe: " ++ showTermWithContext bctx t't))
     (_, _)           -> typeError TypeMismatch (Just (showTermWithContext bctx t ++ " is not a term of a universe"))
 
+-- TODO: Check type for inner terms (e.g. reflexivity on a sigma pair)
 runCheckType m t                                 = checkInferredTypeMatch m t
 
 checkInferredTypeMatch :: Term -> Term -> TypeCheck Term
@@ -288,6 +291,8 @@ isBinderUsed = go 0
     go k (Sigma (x, t) n)     = go k t || go (k + 1) n
     go k (Pair t n)           = go k t || go k n
     go k (App t n)            = go k t || go k n
+    go k (Id m n)             = go k m || go k n
+    go k (Refl m)             = go k m
     go k (Ind t m' c a)       = go k t || isBinderUsedInBoundTerm k m' || any (isBinderUsedInBoundTerm k) c || go k a
     go k n                    = False
 

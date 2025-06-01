@@ -38,6 +38,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   'check' { PositionedToken TkCheck _ }
   'inl'   { PositionedToken TkInl _ }
   'inr'   { PositionedToken TkInr _ }
+  'refl'  { PositionedToken TkRefl _ }
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
   univ    { PositionedToken (TkUniv $$) _ }
@@ -86,7 +87,6 @@ Term :: { NamedTerm }
   | Equality     { $1 }
   | SigmaType    { $1 }
   | CoProduct    { $1 }
-  | Injection    { $1 }
   | Pair         { $1 }
   | Induction    { $1 }
   | '*'          { NStar }
@@ -103,7 +103,8 @@ PiType :: { NamedTerm }
   | Term '->' Term                 { NPi (Nothing, $1) $3 }
 
 Equality :: { NamedTerm }
-  : Term '=' Term { NId $1 $3 }
+  : Term '=' Term       { NId $1 $3 }
+  | 'refl' '[' Term ']' { NRefl $3 }
 
 SigmaType :: { NamedTerm }
   : '(' var ':' Term ')' 'x' Term { NSigma (Just $2, $4) $7 }
@@ -111,9 +112,7 @@ SigmaType :: { NamedTerm }
 
 CoProduct :: { NamedTerm }
   : Term '+' Term { NSum $1 $3 }
-
-Injection :: { NamedTerm }
-  : 'inl' '(' Term ')' { NInl $3 }
+  | 'inl' '(' Term ')' { NInl $3 }
   | 'inr' '(' Term ')' { NInr $3 }
 
 Pair :: { NamedTerm }

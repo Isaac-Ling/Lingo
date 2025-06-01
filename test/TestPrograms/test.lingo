@@ -46,6 +46,8 @@ not := \b. ifThenElse Bool b false true
 
 #check not false
 
-starEq := * = *
+-- Equality
+starEq : * = *
+starEq := refl[*]
 
 #check starEq
