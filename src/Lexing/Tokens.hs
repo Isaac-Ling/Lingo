@@ -21,6 +21,7 @@ data Token
   | TkStar
   | TkHash
   | TkPlus
+  | TkEq
   -- Numbers
   | TkInt Int
   -- Keywords

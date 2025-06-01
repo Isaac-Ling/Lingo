@@ -39,6 +39,7 @@ lingo :-
 <0> \]          { createTk TkRSqParen }
 <0> ":="        { createTk TkColonEqual }
 <0> \:          { createTk TkColon }
+<0> \=          { createTk TkEq }
 <0> "->"        { createTk TkRArrow }
 <0> \*          { createTk TkStar }
 <0> "ind"       { createTk TkInd }

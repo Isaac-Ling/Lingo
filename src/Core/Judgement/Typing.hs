@@ -117,6 +117,17 @@ runInferType (Inr m)                                                            
 
   typeError FailedToInferType (Just ("Cannot infer type of ambiguous injection " ++ showTermWithContext bctx (Inr m)))
 
+runInferType (Id m n)                                                                     = do
+  (env, bctx, _) <- ask
+
+  mt  <- runInferType m
+  mtt <- runInferType m
+  nt  <- runInferType n
+
+  if equal env mt nt
+  then return mtt
+  else typeError TypeMismatch (Just ("The type of m (" ++ showTermWithContext bctx mt ++ ") does not equal the type of n (" ++ showTermWithContext bctx nt ++ ")"))
+
 runInferType (Ind Zero (NoBind m) [] a)                                                   = runInferType (Ind Zero (Bind Nothing (NoBind $ bumpUp m)) [] a)
 
 runInferType (Ind Zero (Bind x (NoBind m)) [] a)                                          = do

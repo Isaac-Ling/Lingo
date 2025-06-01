@@ -45,3 +45,7 @@ not : Bool -> Bool
 not := \b. ifThenElse Bool b false true
 
 #check not false
+
+starEq := * = *
+
+#check starEq

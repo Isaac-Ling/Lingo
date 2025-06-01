@@ -31,6 +31,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   ']'     { PositionedToken TkRSqParen _ }
   ':='    { PositionedToken TkColonEqual _ }
   ':'     { PositionedToken TkColon _ }
+  '='     { PositionedToken TkEq _ }
   '->'    { PositionedToken TkRArrow _ }
   '*'     { PositionedToken TkStar _ }
   'ind'   { PositionedToken TkInd pos }
@@ -43,6 +44,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   var     { PositionedToken (TkVar $$) _ }
   int     { PositionedToken (TkInt $$) _ }
 
+%nonassoc '='
 %nonassoc ':='
 %nonassoc ':' '.' ','
 %right '->'
@@ -81,6 +83,7 @@ Term :: { NamedTerm }
   | Abstraction  { $1 }
   | Application  { $1 }
   | PiType       { $1 }
+  | Equality     { $1 }
   | SigmaType    { $1 }
   | CoProduct    { $1 }
   | Injection    { $1 }
@@ -98,6 +101,9 @@ Abstraction :: { NamedTerm }
 PiType :: { NamedTerm }
   : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4) $7 }
   | Term '->' Term                 { NPi (Nothing, $1) $3 }
+
+Equality :: { NamedTerm }
+  : Term '=' Term { NId $1 $3 }
 
 SigmaType :: { NamedTerm }
   : '(' var ':' Term ')' 'x' Term { NSigma (Just $2, $4) $7 }
