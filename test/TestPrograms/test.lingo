@@ -47,7 +47,8 @@ not := \b. ifThenElse Bool b false true
 #check not false
 
 -- Equality
-starEq : * = *
-starEq := refl[*]
+uniq1 : (a : 1) -> (a = *)
+uniq1 := \b. ind[1](a. a = *, refl[*], b)
 
-#check starEq
+#check uniq1
+

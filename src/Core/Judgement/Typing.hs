@@ -121,7 +121,7 @@ runInferType (Id m n)                                                           
   (env, bctx, _) <- ask
 
   mt  <- runInferType m
-  mtt <- runInferType m
+  mtt <- runInferType mt
   nt  <- runInferType n
 
   if equal env mt nt
@@ -139,7 +139,7 @@ runInferType (Ind Zero (Bind x (NoBind m)) [] a)                                
   at <- runCheckType a Zero
 
   case mt of
-    Univ _ -> return $ bumpDown $ open a m
+    Univ _ -> return $ bumpDown $ open (bumpUp a) m
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
 
 runInferType (Ind One (NoBind m) [NoBind c] a)                                            = runInferType (Ind One (Bind Nothing (NoBind $ bumpUp m)) [NoBind c] a)
@@ -152,7 +152,7 @@ runInferType (Ind One (Bind x (NoBind m)) [NoBind c] a)                         
   at <- runCheckType a One
 
   case mt of
-    Univ _ -> return $ bumpDown $ open a m
+    Univ _ -> return $ bumpDown $ open (bumpUp a) (bumpUp m)
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
 
 runInferType (Ind (Sigma (x, t) n) (NoBind m) [Bind w (Bind y (NoBind f))] a)             = runInferType (Ind (Sigma (x, t) n) (Bind Nothing (NoBind $ bumpUp m)) [Bind w (Bind y (NoBind f))] a)
@@ -181,6 +181,24 @@ runInferType (Ind (Sum t n) (Bind z (NoBind m)) [Bind x (NoBind c), Bind y (NoBi
   case mt of
     Univ _ -> return $ bumpDown $ open (bumpUp a) m
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
+
+-- TODO: Finish path induction
+
+{-
+runInferType (Ind (Id n n') (NoBind m) [Bind x (NoBind c), Bind y (NoBind d)] a)          = runInferType (Ind (Id n n') (Bind Nothing (NoBind $ bumpUp m)) [Bind x (NoBind c), Bind y (NoBind d)] a)
+
+runInferType (Ind (Id n n') (Bind z (NoBind m)) [Bind x (NoBind c), Bind y (NoBind d)] a) = do
+  (_, bctx, _) <- ask
+
+  mt <- local (addToBoundCtx (z , Sum t n)) (runInferType m)
+  ct <- local (addToBoundCtx (x, t)) (runCheckType c $ bumpDown $ open (Inl $ Var $ Bound 0) (bumpUp m))
+  dt <- local (addToBoundCtx (y, n)) (runCheckType d $ bumpDown $ open (Inr $ Var $ Bound 0) (bumpUp m))
+  at <- runCheckType a (Sum t n)
+
+  case mt of
+    Univ _ -> return $ bumpDown $ open (bumpUp a) m
+    _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
+-}
 
 runInferType (Ind (Var (Free x)) m c a)                                                   = do
   (env, _, _) <- ask
@@ -270,11 +288,12 @@ checkInferredTypeMatch :: Term -> Term -> TypeCheck Term
 checkInferredTypeMatch m t = do
   (env, bctx, _) <- ask
 
-  t' <- runInferType m
+  t'  <- runInferType m
+  let et' = eval $ elaborate env t'
  
-  if equal env t t'
+  if equal env t et'
   then return t
-  else typeError TypeMismatch (Just ("The type of " ++ showTermWithContext bctx m ++ " is " ++ showTermWithContext bctx t' ++ " but expected " ++ showTermWithContext bctx t))
+  else typeError TypeMismatch (Just ("The type of " ++ showTermWithContext bctx m ++ " is " ++ showTermWithContext bctx et' ++ " but expected " ++ showTermWithContext bctx t))
 
 -- Returns True if there is a variable bound to a 0 index binder
 -- in the given term

@@ -13,6 +13,7 @@ eval (Lam (x, Nothing) m)                                             = Lam (x, 
 eval (Pi (x, t) m)                                                    = Pi (x, eval t) (eval m)
 eval (Sigma (x, t) m)                                                 = Sigma (x, eval t) (eval m)
 eval (Pair m n)                                                       = Pair (eval m) (eval n)
+eval (Id m n)                                                         = Id (eval m) (eval n)
 eval (App m n)
   | isNeutral f = App f (eval n)
   | otherwise   = eval (beta (App f n))
@@ -20,7 +21,6 @@ eval (App m n)
     f :: Term
     f = eval m
 eval (Ind One _ [NoBind c] _)                                         = c
--- TODO: Don't turn bound terms into lambdas to evaluate
 eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))      = eval $ App (App (Lam (pack "w", Nothing) $ Lam (pack "y", Nothing) f) a) b
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a)) = eval $ App (Lam (pack "x", Nothing) c) a
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b)) = eval $ App (Lam (pack "y", Nothing) d) b
