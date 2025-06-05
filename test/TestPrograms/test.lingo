@@ -46,9 +46,19 @@ not := \b. ifThenElse Bool b false true
 
 #check not false
 
--- Equality
+-- Uniqueness
 uniq1 : (a : 1) -> (a = *)
 uniq1 := \b. ind[1](a. a = *, refl[*], b)
 
 #check uniq1
 
+-- Initial and terminal
+initial : (A : U) -> 1
+initial := \A. *
+
+#check initial
+
+terminal : (A : U) -> 0 -> A
+terminal := \A. \a. ind[0](A, a)
+
+#check terminal
