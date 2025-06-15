@@ -17,6 +17,7 @@ eval (Sum m n)                                                            = Sum 
 eval (Inl m)                                                              = Inl $ eval m
 eval (Inr n)                                                              = Inr $ eval n
 eval (IdFam t)                                                            = IdFam $ eval t
+eval (App (App (IdFam t) m) n)                                            = eval $ Id (Just t) m n
 eval (Id mt m n)                                                          = Id (fmap eval mt) (eval m) (eval n)
 eval (App m n)
   | isNeutral f = App f (eval n)

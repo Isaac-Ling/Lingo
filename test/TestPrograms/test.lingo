@@ -70,4 +70,4 @@ idRefl := \A. \a. refl[a]
 idSymm : (A : U) -> (a : A) -> (b : A) -> a = b -> b = a
 --idSymm := \A. \a. \b. \p. ind[=[A]]()
 
-#check =[1]
+#check =[1] * *
