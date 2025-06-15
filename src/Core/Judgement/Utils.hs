@@ -25,7 +25,8 @@ toDeBruijn = go []
     go bs (NApp m n)            = App (go bs m) (go bs n)
     go bs (NPair m n)           = Pair (go bs m) (go bs n)
     go bs (NSum m n)            = Sum (go bs m) (go bs n)
-    go bs (NId m n)             = Id (go bs m) (go bs n)
+    go bs (NIdFam t)            = IdFam $ go bs t
+    go bs (NId t m n)           = Id (fmap (go bs) t) (go bs m) (go bs n)
     go bs (NInd t m c a)        = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
     go bs (NUniv i)             = Univ i
     go bs NZero                 = Zero
@@ -51,10 +52,11 @@ elaborate env (Sigma (x, t) m)     = Sigma (x, elaborate env t) (elaborate env m
 elaborate env (App m n)            = App (elaborate env m) (elaborate env n)
 elaborate env (Pair m n)           = Pair (elaborate env m) (elaborate env n)
 elaborate env (Sum m n)            = Sum (elaborate env m) (elaborate env n)
-elaborate env (Inl m)              = Inl (elaborate env m)
-elaborate env (Inr m)              = Inr (elaborate env m)
-elaborate env (Refl m)             = Refl (elaborate env m)
-elaborate env (Id m n)             = Id (elaborate env m) (elaborate env n)
+elaborate env (Inl m)              = Inl $ elaborate env m
+elaborate env (Inr m)              = Inr $ elaborate env m
+elaborate env (Refl m)             = Refl $ elaborate env m
+elaborate env (IdFam t)            = IdFam $ elaborate env t
+elaborate env (Id mt m n)          = Id (fmap (elaborate env) mt) (elaborate env m) (elaborate env n)
 elaborate env (Ind t m c a)        = Ind (elaborate env t) (elaborateBoundTerm env m) (map (elaborateBoundTerm env) c) (elaborate env a)
   where
     elaborateBoundTerm :: Environment -> BoundTerm -> BoundTerm
@@ -79,7 +81,8 @@ shift k = go k 0
     go k l (App m n)            = App (go k l m) (go k l n)
     go k l (Pair m n)           = Pair (go k l m) (go k l n)
     go k l (Sum m n)            = Sum (go k l m) (go k l n)
-    go k l (Id m n)             = Id (go k l m) (go k l n)
+    go k l (IdFam t)            = IdFam (go k l t)
+    go k l (Id mt m n)          = Id (fmap (go k l) mt) (go k l m) (go k l n)
     go k l (Inl m)              = Inl $ go k l m
     go k l (Inr m)              = Inr $ go k l m
     go k l (Refl m)             = Refl $ go k l m
@@ -110,12 +113,13 @@ openFor m k (Lam (x, Nothing) n) = Lam (x, Nothing) (openFor (bumpUp m) (k + 1) 
 openFor m k (Pi (x, t) n)        = Pi (x, openFor m k t) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Sigma (x, t) n)     = Sigma (x, openFor m k t) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Pair t n)           = Pair (openFor m k t) (openFor m k n)
-openFor m k (Id t n)             = Id (openFor m k t) (openFor m k n)
+openFor m k (IdFam t)            = IdFam $ openFor m k t
+openFor m k (Id mt t n)          = Id (fmap (openFor m k) mt) (openFor m k t) (openFor m k n)
 openFor m k (Sum t n)            = Sum (openFor m k t) (openFor m k n)
 openFor m k (App t n)            = App (openFor m k t) (openFor m k n)
-openFor m k (Inl n)              = Inl (openFor m k n)
-openFor m k (Inr n)              = Inr (openFor m k n)
-openFor m k (Refl n)             = Refl (openFor m k n)
+openFor m k (Inl n)              = Inl $ openFor m k n
+openFor m k (Inr n)              = Inr $ openFor m k n
+openFor m k (Refl n)             = Refl $ openFor m k n
 openFor m k (Ind t m' c a)       = Ind (openFor m k t) (openInBoundTerm m k m') (map (openInBoundTerm m k) c) (openFor m k a)
   where
     openInBoundTerm :: Term -> Int -> BoundTerm -> BoundTerm
@@ -141,7 +145,9 @@ showTermWithBinders bs (App (Pi xt m) n)             = "(" ++ showTermWithBinder
 showTermWithBinders bs (App (Sigma xt m) n)          = "(" ++ showTermWithBinders bs (Sigma xt m) ++ ") " ++ showTermWithBinders bs n
 showTermWithBinders bs (App m n)                     = showTermWithBinders bs m ++ " " ++ showTermWithBinders bs n
 showTermWithBinders bs (Pair m n)                    = "(" ++ showTermWithBinders bs m ++ ", " ++ showTermWithBinders bs n ++ ")"
-showTermWithBinders bs (Id m n)                      = showTermWithBinders bs m ++ " = " ++ showTermWithBinders bs n
+showTermWithBinders bs (IdFam t)                     = "=[" ++ showTermWithBinders bs t ++ "]"
+showTermWithBinders bs (Id (Just t) m n)             = showTermWithBinders bs m ++ " =[" ++ showTermWithBinders bs t ++ "] " ++ showTermWithBinders bs n
+showTermWithBinders bs (Id Nothing m n)              = showTermWithBinders bs m ++ " = " ++ showTermWithBinders bs n
 showTermWithBinders bs (Sum m n)                     = showTermWithBinders bs m ++ " + " ++ showTermWithBinders bs n
 showTermWithBinders bs (Lam (x, Just t) m)           = "\\(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ "). " ++ showTermWithBinders (Just x : bs) m
 showTermWithBinders bs (Lam (x, Nothing) m)          = "\\" ++ unpack x ++ ". " ++ showTermWithBinders (Just x : bs) m
@@ -175,6 +181,7 @@ showSigmaOperarands bs (App m n)   = "(" ++ showTermWithBinders bs (App m n) ++ 
 showSigmaOperarands bs (Pi t m)    = "(" ++ showTermWithBinders bs (Pi t m) ++ ")"
 showSigmaOperarands bs (Sigma t m) = "(" ++ showTermWithBinders bs (Sigma t m) ++ ")"
 showSigmaOperarands bs (Sum m n)   = "(" ++ showTermWithBinders bs (Sum m n) ++ ")"
+showSigmaOperarands bs (Id mt m n) = "(" ++ showTermWithBinders bs (Id mt m n) ++ ")"
 showSigmaOperarands bs m           = showTermWithBinders bs m
 
 instance Show Term where

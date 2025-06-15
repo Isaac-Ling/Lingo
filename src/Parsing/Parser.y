@@ -45,10 +45,10 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   var     { PositionedToken (TkVar $$) _ }
   int     { PositionedToken (TkInt $$) _ }
 
-%nonassoc '='
 %nonassoc ':='
 %nonassoc ':' '.' ','
 %right '->'
+%nonassoc '='
 %right 'x'
 %right '+'
 %nonassoc var univ '(' '[' '\\' '0' '1' 'U' '*' 'ind'
@@ -84,7 +84,7 @@ Term :: { NamedTerm }
   | Abstraction  { $1 }
   | Application  { $1 }
   | PiType       { $1 }
-  | Equality     { $1 }
+  | Identity     { $1 }
   | SigmaType    { $1 }
   | CoProduct    { $1 }
   | Pair         { $1 }
@@ -102,16 +102,18 @@ PiType :: { NamedTerm }
   : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4) $7 }
   | Term '->' Term                 { NPi (Nothing, $1) $3 }
 
-Equality :: { NamedTerm }
-  : Term '=' Term       { NId $1 $3 }
-  | 'refl' '[' Term ']' { NRefl $3 }
+Identity :: { NamedTerm }
+  : Term '=' Term              { NId Nothing $1 $3 }
+  | '=' '[' Term ']'           { NIdFam $3 }
+  | Term '=' '[' Term ']' Term { NId (Just $4) $1 $6 }
+  | 'refl' '[' Term ']'        { NRefl $3 }
 
 SigmaType :: { NamedTerm }
   : '(' var ':' Term ')' 'x' Term { NSigma (Just $2, $4) $7 }
   | Term 'x' Term                 { NSigma (Nothing, $1) $3 }
 
 CoProduct :: { NamedTerm }
-  : Term '+' Term { NSum $1 $3 }
+  : Term '+' Term      { NSum $1 $3 }
   | 'inl' '(' Term ')' { NInl $3 }
   | 'inr' '(' Term ')' { NInr $3 }
 

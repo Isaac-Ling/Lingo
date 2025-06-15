@@ -117,7 +117,15 @@ runInferType (Inr m)                                    = do
 
   typeError FailedToInferType (Just ("Cannot infer type of ambiguous injection " ++ showTermWithContext bctx (Inr m)))
 
-runInferType (Id m n)                                   = do
+runInferType (IdFam t)                                  = do
+  (_, bctx, _) <- ask
+
+  tt <- runInferType t
+  case tt of
+    Univ i -> return $ Pi (Nothing, t) $ Pi (Nothing, t) tt
+    _      -> typeError TypeMismatch (Just (showTermWithContext bctx t ++ " is not a term of a universe"))
+
+runInferType (Id Nothing m n)                           = do
   (env, bctx, _) <- ask
 
   mt  <- runInferType m
@@ -126,7 +134,9 @@ runInferType (Id m n)                                   = do
 
   return mtt
 
-runInferType (Refl m)                                   = return $ Id m m
+runInferType (Id (Just t) m n)                          = runCheckType (Id Nothing m n) t
+
+runInferType (Refl m)                                   = return $ Id Nothing m m
   
 runInferType (Ind Zero (NoBind m) [] a)                 = runInferType (Ind Zero (Bind Nothing $ NoBind $ bumpUp m) [] a)
 
@@ -196,6 +206,7 @@ runInferType (Ind
     Univ _ -> return $ bumpDown $ open (bumpUp a) m
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
 
+{-
 runInferType (Ind
   (Id n n')
   (NoBind m)
@@ -212,7 +223,6 @@ runInferType (Ind
   nt  <- runInferType n
   n't <- runCheckType n' nt
 
-  -- TODO: Ensure this works as expected
   mt  <- local (addToBoundCtx (p, Id (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, nt) . addToBoundCtx (x, nt)) (runInferType m)
   ct  <- local (addToBoundCtx (z, nt)) (runCheckType c $ open (bumpUp $ bumpUp $ bumpUp p') $ open (Var $ Bound 2) $ open (Var $ Bound 1) m)
   p't <- runCheckType p' (Id a b)
@@ -220,6 +230,7 @@ runInferType (Ind
   case mt of
     Univ _ -> return $ bumpDown $ open (bumpUp $ bumpUp $ bumpUp p') $ open (bumpUp $ bumpUp b) $ open (bumpUp a) m
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
+-}
 
 runInferType (Ind (Var (Free x)) m c a)                 = do
   (env, _, _) <- ask
@@ -228,7 +239,7 @@ runInferType (Ind (Var (Free x)) m c a)                 = do
     Just t  -> runInferType $ Ind t m c a
     Nothing -> typeError FailedToInferType (Just ("Unknown variable " ++ show x))
 
-runInferType (Ind t m c a)                                                                = typeError FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
+runInferType (Ind t m c a)                              = typeError FailedToInferType (Just ("Invalid induction " ++ show (Ind t m c a)))
 
 runCheckType :: Term -> Term -> TypeCheck Term
 runCheckType m (Var (Free x))                    = do
@@ -302,7 +313,7 @@ runCheckType (Inr m) (Sum t t')                  = do
     (Univ _, _)      -> typeError TypeMismatch (Just (showTermWithContext bctx t' ++ " is not a term of a universe: " ++ showTermWithContext bctx t't))
     (_, _)           -> typeError TypeMismatch (Just (showTermWithContext bctx t ++ " is not a term of a universe"))
 
--- TODO: Check type for inner terms (e.g. reflexivity on a sigma pair)
+-- TODO: Check type for inner terms (e.g. reflexivity in a sigma pair)
 runCheckType m t                                 = checkInferredTypeMatch m t
 
 checkInferredTypeMatch :: Term -> Term -> TypeCheck Term
@@ -311,7 +322,7 @@ checkInferredTypeMatch m t = do
 
   t'  <- runInferType m
   let et' = eval $ elaborate env t'
- 
+
   if equal env t et'
   then return t
   else typeError TypeMismatch (Just ("The type of " ++ showTermWithContext bctx m ++ " is " ++ showTermWithContext bctx et' ++ " but expected " ++ showTermWithContext bctx t))
@@ -331,7 +342,7 @@ isBinderUsed = go 0
     go k (Sigma (x, t) n)     = go k t || go (k + 1) n
     go k (Pair t n)           = go k t || go k n
     go k (App t n)            = go k t || go k n
-    go k (Id m n)             = go k m || go k n
+    go k (Id mt m n)          = maybe False (go k) mt || go k m || go k n
     go k (Refl m)             = go k m
     go k (Ind t m' c a)       = go k t || isBinderUsedInBoundTerm k m' || any (isBinderUsedInBoundTerm k) c || go k a
     go k n                    = False

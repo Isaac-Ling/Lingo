@@ -47,7 +47,7 @@ not := \b. ifThenElse Bool b false true
 #check not false
 
 -- Uniqueness
-uniq1 : (a : 1) -> (a = *)
+uniq1 : (a : 1) -> a = *
 uniq1 := \b. ind[1](a. a = *, refl[*], b)
 
 #check uniq1
@@ -62,3 +62,12 @@ terminal : (A : U) -> 0 -> A
 terminal := \A. \a. ind[0](A, a)
 
 #check terminal
+
+-- Identity Equivalence Relation
+idRefl : (A : U) -> (a : A) -> a = a
+idRefl := \A. \a. refl[a]
+
+idSymm : (A : U) -> (a : A) -> (b : A) -> a = b -> b = a
+--idSymm := \A. \a. \b. \p. ind[=[A]]()
+
+#check =[1]
