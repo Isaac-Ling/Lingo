@@ -206,31 +206,29 @@ runInferType (Ind
     Univ _ -> return $ bumpDown $ open (bumpUp a) m
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
 
-{-
 runInferType (Ind
-  (Id n n')
+  (IdFam t)
   (NoBind m)
   [Bind z (NoBind c), NoBind a, NoBind b]
-  p)                                                    = runInferType (Ind (Id n n') (Bind Nothing $ Bind Nothing $ Bind Nothing $ NoBind $ bumpUp $ bumpUp $ bumpUp m) [Bind z (NoBind c), NoBind a, NoBind b] p)
+  p)                                                    = runInferType (Ind (IdFam t) (Bind Nothing $ Bind Nothing $ Bind Nothing $ NoBind $ bumpUp $ bumpUp $ bumpUp m) [Bind z $ NoBind c, NoBind a, NoBind b] p)
 
 runInferType (Ind
-  (Id n n')
+  (IdFam t)
   (Bind x (Bind y (Bind p (NoBind m))))
   [Bind z (NoBind c), NoBind a, NoBind b]
   p')                                                   = do
   (_, bctx, _) <- ask
 
-  nt  <- runInferType n
-  n't <- runCheckType n' nt
+  at <- runInferType a
+  bt <- runCheckType b at
 
-  mt  <- local (addToBoundCtx (p, Id (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, nt) . addToBoundCtx (x, nt)) (runInferType m)
-  ct  <- local (addToBoundCtx (z, nt)) (runCheckType c $ open (bumpUp $ bumpUp $ bumpUp p') $ open (Var $ Bound 2) $ open (Var $ Bound 1) m)
-  p't <- runCheckType p' (Id a b)
+  mt  <- local (addToBoundCtx (p, Id (Just $ shift 2 at) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp at) . addToBoundCtx (x, at)) (runInferType m)
+  ct  <- local (addToBoundCtx (z, at)) (runCheckType c $ openFor (Var $ Bound 0) 2 $ openFor (Var $ Bound 0) 1 $ open (Refl $ Var $ Bound 0) m)
+  p't <- runCheckType p' (Id (Just at) a b)
 
   case mt of
-    Univ _ -> return $ bumpDown $ open (bumpUp $ bumpUp $ bumpUp p') $ open (bumpUp $ bumpUp b) $ open (bumpUp a) m
+    Univ _ -> return $ openFor a 2 $ openFor b 1 $ open p' m
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
--}
 
 runInferType (Ind (Var (Free x)) m c a)                 = do
   (env, _, _) <- ask

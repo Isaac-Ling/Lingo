@@ -29,9 +29,9 @@ eval (Ind One _ [NoBind c] _)                                             = c
 eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))          = eval $ App (App (Lam (pack "w", Nothing) $ Lam (pack "y", Nothing) f) a) b
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a))     = eval $ App (Lam (pack "x", Nothing) c) a
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b))     = eval $ App (Lam (pack "y", Nothing) d) b
---eval (Ind (Id x y) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl a''))
---  | a == a' && a' == a'' = eval $ App (Lam (pack "z", Nothing) c) a
---  | otherwise            = Ind (Id x y) m [Bind z $ NoBind c, NoBind a, NoBind a'] (Refl a'')
+eval (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl a''))
+  | a == a' && a' == a'' = eval $ App (Lam (pack "z", Nothing) c) a
+  | otherwise            = Ind (IdFam t) m [Bind z $ NoBind c, NoBind a, NoBind a'] (Refl a'')
 eval (Ind t m c a)
   | isValue $ Ind t m c a = Ind t m c a
   | otherwise             = eval $ Ind (eval t) (evalBoundTerm m) (map evalBoundTerm c) (eval a)

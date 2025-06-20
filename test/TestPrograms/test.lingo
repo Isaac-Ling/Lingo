@@ -67,7 +67,9 @@ terminal := \A. \a. ind[0](A, a)
 idRefl : (A : U) -> (a : A) -> a = a
 idRefl := \A. \a. refl[a]
 
-idSymm : (A : U) -> (a : A) -> (b : A) -> a = b -> b = a
---idSymm := \A. \a. \b. \p. ind[=[A]]()
+#check idRefl
 
-#check =[1] * *
+idSymm : (A : U) -> (a : A) -> (b : A) -> a = b -> b = a
+idSymm := \A. \a. \b. \p. ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p) 
+
+#check idSymm
