@@ -24,16 +24,21 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   '.'     { PositionedToken TkDot _ }
   ','     { PositionedToken TkComma _ }
   'x'     { PositionedToken TkCross _ }
+  '+'     { PositionedToken TkPlus _ }
   '('     { PositionedToken TkLParen _ }
   ')'     { PositionedToken TkRParen _ }
   '['     { PositionedToken TkLSqParen _ }
   ']'     { PositionedToken TkRSqParen _ }
   ':='    { PositionedToken TkColonEqual _ }
   ':'     { PositionedToken TkColon _ }
+  '='     { PositionedToken TkEq _ }
   '->'    { PositionedToken TkRArrow _ }
   '*'     { PositionedToken TkStar _ }
   'ind'   { PositionedToken TkInd pos }
   'check' { PositionedToken TkCheck _ }
+  'inl'   { PositionedToken TkInl _ }
+  'inr'   { PositionedToken TkInr _ }
+  'refl'  { PositionedToken TkRefl _ }
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
   univ    { PositionedToken (TkUniv $$) _ }
@@ -43,7 +48,9 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %nonassoc ':='
 %nonassoc ':' '.' ','
 %right '->'
+%nonassoc '='
 %right 'x'
+%right '+'
 %nonassoc var univ '(' '[' '\\' '0' '1' 'U' '*' 'ind'
 %nonassoc APP
 
@@ -77,7 +84,9 @@ Term :: { NamedTerm }
   | Abstraction  { $1 }
   | Application  { $1 }
   | PiType       { $1 }
+  | Identity     { $1 }
   | SigmaType    { $1 }
+  | CoProduct    { $1 }
   | Pair         { $1 }
   | Induction    { $1 }
   | '*'          { NStar }
@@ -93,9 +102,20 @@ PiType :: { NamedTerm }
   : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4) $7 }
   | Term '->' Term                 { NPi (Nothing, $1) $3 }
 
+Identity :: { NamedTerm }
+  : Term '=' Term              { NId Nothing $1 $3 }
+  | '=' '[' Term ']'           { NIdFam $3 }
+  | Term '=' '[' Term ']' Term { NId (Just $4) $1 $6 }
+  | 'refl' '[' Term ']'        { NRefl $3 }
+
 SigmaType :: { NamedTerm }
   : '(' var ':' Term ')' 'x' Term { NSigma (Just $2, $4) $7 }
   | Term 'x' Term                 { NSigma (Nothing, $1) $3 }
+
+CoProduct :: { NamedTerm }
+  : Term '+' Term      { NSum $1 $3 }
+  | 'inl' '(' Term ')' { NInl $3 }
+  | 'inr' '(' Term ')' { NInr $3 }
 
 Pair :: { NamedTerm }
   : '(' Term ',' Term ')' { NPair $2 $4 }

@@ -59,7 +59,7 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
 
       let m = toDeBruijn m'
       t <- tryRun $ inferType env ctx m
-      liftIO $ putStrLn (show m ++ " =>* " ++ show (eval $ resolve env m) ++ " : " ++ show t)
+      liftIO $ putStrLn (show m ++ " =>* " ++ show (eval $ elaborate env m) ++ " : " ++ show t)
 
       go ds
 

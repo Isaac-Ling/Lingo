@@ -20,3 +20,64 @@ ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -
 ac := \A. \B. \R. \g. (\(a : A). fst B (\(b : B). R a b) (g a), \(a : A). snd B (\(b : B). R a b) (g a))
 
 #check ac
+
+-- Boolean
+Bool := 1 + 1
+
+#check Bool
+
+true : Bool
+true := inl(*)
+
+false : Bool
+false := inr(*)
+
+#check true
+#check false
+
+-- Conditional
+ifThenElse : (C : U) -> Bool -> C -> C -> C
+ifThenElse := \C. \b. \c1. \c2. ind[Bool](C, a. c1, b. c2, b)
+
+#check ifThenElse
+
+not : Bool -> Bool
+not := \b. ifThenElse Bool b false true
+
+#check not false
+
+-- Uniqueness
+uniq1 : (a : 1) -> a = *
+uniq1 := \b. ind[1](a. a = *, refl[*], b)
+
+#check uniq1
+
+-- Initial and terminal
+initial : (A : U) -> 1
+initial := \A. *
+
+#check initial
+
+terminal : (A : U) -> 0 -> A
+terminal := \A. \a. ind[0](A, a)
+
+#check terminal
+
+-- Identity Equivalence Relation
+idRefl : (A : U) -> (a : A) -> a = a
+idRefl := \A. \a. refl[a]
+
+#check idRefl
+
+idSymm : (A : U) -> (a : A) -> (b : A) -> a = b -> b = a
+idSymm := \A. \a. \b. \p. ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p) 
+
+#check idSymm
+
+idTransLemma : (A : U) -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
+idTransLemma := \A. \a. \b. \p. ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
+
+idTrans : (A : U) -> (a : A) -> (b : A) -> (c : A) -> a = b -> b = c -> a = c
+idTrans := \A. \a. \b. \c. \p. idTransLemma A a b p c
+
+#check idTrans
