@@ -73,3 +73,8 @@ idSymm : (A : U) -> (a : A) -> (b : A) -> a = b -> b = a
 idSymm := \A. \a. \b. \p. ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p) 
 
 #check idSymm
+
+idTransLemma : (A : U) -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
+idTransLemma := \A. \a. \b. \p. ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. q, a, b, p)
+
+#check idTransLemma

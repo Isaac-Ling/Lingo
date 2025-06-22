@@ -219,15 +219,15 @@ runInferType (Ind
   p')                                                   = do
   (_, bctx, _) <- ask
 
-  at <- runInferType a
-  bt <- runCheckType b at
+  at <- runCheckType a t
+  bt <- runCheckType b t
 
-  mt  <- local (addToBoundCtx (p, Id (Just $ shift 2 at) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp at) . addToBoundCtx (x, at)) (runInferType m)
-  ct  <- local (addToBoundCtx (z, at)) (runCheckType c $ openFor (Var $ Bound 0) 2 $ openFor (Var $ Bound 0) 1 $ open (Refl $ Var $ Bound 0) m)
-  p't <- runCheckType p' (Id (Just at) a b)
+  mt  <- local (addToBoundCtx (p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp t) . addToBoundCtx (x, t)) (runInferType m)
+  ct  <- local (addToBoundCtx (z, t)) (runCheckType c $ shift (-2) $ openFor (Var $ Bound 2) 2 $ openFor (Var $ Bound 2) 1 $ open (Refl $ Var $ Bound 2) m)
+  p't <- runCheckType p' (Id (Just t) a b)
 
   case mt of
-    Univ _ -> return $ openFor a 2 $ openFor b 1 $ open p' m
+    Univ _ -> return $ shift (-3) $ openFor (shift 3 a) 2 $ openFor (shift 3 b) 1 $ open (shift 3 p') m
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
 
 runInferType (Ind (Var (Free x)) m c a)                 = do
