@@ -23,6 +23,7 @@ data NamedTerm
   | NUniv Int
   | NZero
   | NOne
+  | NNat
   | NSum NamedTerm NamedTerm
   | NInr NamedTerm
   | NInl NamedTerm
@@ -61,6 +62,7 @@ data Term
   | Univ Int
   | Zero
   | One
+  | Nat
   | Sum Term Term
   | Inl Term
   | Inr Term

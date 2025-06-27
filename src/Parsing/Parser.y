@@ -39,6 +39,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   'inl'   { PositionedToken TkInl _ }
   'inr'   { PositionedToken TkInr _ }
   'refl'  { PositionedToken TkRefl _ }
+  'Nat'   { PositionedToken TkNat _ }
   '0'     { PositionedToken (TkInt 0) _ }
   '1'     { PositionedToken (TkInt 1) _ }
   univ    { PositionedToken (TkUniv $$) _ }
@@ -51,7 +52,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ '(' '[' '\\' '0' '1' 'U' '*' 'ind'
+%nonassoc var univ '(' '[' '\\' '0' '1' 'U' 'Nat' '*' 'ind'
 %nonassoc APP
 
 %%
@@ -88,6 +89,7 @@ Term :: { NamedTerm }
   | SigmaType    { $1 }
   | CoProduct    { $1 }
   | Pair         { $1 }
+  | NatNums      { $1 }
   | Induction    { $1 }
   | '*'          { NStar }
 
@@ -119,6 +121,9 @@ CoProduct :: { NamedTerm }
 
 Pair :: { NamedTerm }
   : '(' Term ',' Term ')' { NPair $2 $4 }
+
+NatNums :: { NamedTerm }
+  : 'Nat' { NNat }
 
 BoundTerm :: { NamedBoundTerm }
   : Term              { NNoBind $1 }

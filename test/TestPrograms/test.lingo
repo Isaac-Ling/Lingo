@@ -81,3 +81,8 @@ idTrans : (A : U) -> (a : A) -> (b : A) -> (c : A) -> a = b -> b = c -> a = c
 idTrans := \A. \a. \b. \c. \p. idTransLemma A a b p c
 
 #check idTrans
+
+-- Natural Numbers
+a : Nat
+
+#check a

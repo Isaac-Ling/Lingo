@@ -31,6 +31,7 @@ data Token
   | TkInr
   | TkInl
   | TkRefl
+  | TkNat
   -- Misc
   | TkNewL
   | TkEOF
