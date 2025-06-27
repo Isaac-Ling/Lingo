@@ -22,16 +22,19 @@ data Token
   | TkHash
   | TkPlus
   | TkEq
+  | TkTop
+  | TkBot
   -- Numbers
-  | TkInt Int
+  | TkInt Integer
   -- Keywords
-  | TkUniv Int
+  | TkUniv Integer
   | TkInd
   | TkCheck
   | TkInr
   | TkInl
   | TkRefl
   | TkNat
+  | TkSucc
   -- Misc
   | TkNewL
   | TkEOF

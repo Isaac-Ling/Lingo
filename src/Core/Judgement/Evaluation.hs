@@ -25,7 +25,7 @@ eval (App m n)
   where
     f :: Term
     f = eval m
-eval (Ind One _ [NoBind c] _)                                             = c
+eval (Ind Top _ [NoBind c] _)                                             = c
 eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))          = eval $ App (App (Lam (pack "w", Nothing) $ Lam (pack "y", Nothing) f) a) b
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a))     = eval $ App (Lam (pack "x", Nothing) c) a
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b))     = eval $ App (Lam (pack "y", Nothing) d) b
@@ -54,8 +54,8 @@ isNeutral (Sum m n)        = isValue m && isValue n
 isNeutral (Pair m n)       = isValue m && isValue n
 isNeutral Star             = True
 isNeutral (Univ _)         = True
-isNeutral Zero             = True
-isNeutral One              = True
+isNeutral Bot             = True
+isNeutral Top              = True
 isNeutral (IdFam t)        = isValue t
 isNeutral (Id mt m n)      = maybe True isValue mt && isValue m && isValue n
 isNeutral (Inl m)          = isValue m
@@ -86,8 +86,8 @@ instance Eq Term where
       Star === Star                             = True
       Pair m n === Pair m' n'                   = m == m' && n == n'
       Univ i === Univ j                         = i == j
-      Zero === Zero                             = True
-      One === One                               = True
+      Bot === Bot                             = True
+      Top === Top                               = True
       Sum m n === Sum m' n'                     = m == m' && n == n'
       IdFam t === IdFam t'                      = t == t'
       Id _ m n === Id _ m' n'                   = m == m' && n == n'

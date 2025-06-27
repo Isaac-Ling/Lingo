@@ -23,9 +23,10 @@ checkType env ctx m t = runReaderT (runCheckType m t) (env, [], ctx)
 
 runInferType :: Term -> TypeCheck Term
 runInferType (Univ i)                                   = return $ Univ (i + 1)
-runInferType Star                                       = return One
-runInferType Zero                                       = return $ Univ 0
-runInferType One                                        = return $ Univ 0
+runInferType Star                                       = return Top
+runInferType Bot                                       = return $ Univ 0
+runInferType Top                                        = return $ Univ 0
+runInferType Nat                                        = return $ Univ 0
 
 runInferType (Var (Bound i))                            = do
   (_, bctx, _) <- ask
@@ -86,7 +87,7 @@ runInferType (App m n)                                  = do
 
   case mt of
     Pi (x, t) t' -> if equal env t nt
-      then return $ shift (-1) $ open (bumpUp n) t'
+      then return $ bumpDown $ open (bumpUp n) t'
       else typeError TypeMismatch (Just (showTermWithContext bctx m ++ " of type " ++ showTermWithContext bctx mt ++ " cannot be applied to " ++ showTermWithContext bctx n ++ " of type " ++ showTermWithContext bctx nt))
     _            -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a Pi type") )
 
@@ -117,6 +118,17 @@ runInferType (Inr m)                                    = do
 
   typeError FailedToInferType (Just ("Cannot infer type of ambiguous injection " ++ showTermWithContext bctx (Inr m)))
 
+runInferType (Num i)                                    = return Nat
+
+runInferType (Succ m)                                   = do
+  (_, bctx, _) <- ask
+
+  mt <- runInferType m
+
+  case mt of
+    Nat -> return Nat
+    _   -> typeError FailedToInferType (Just ("Cannot apply succ to a term of type " ++ showTermWithContext bctx mt))
+
 runInferType (IdFam t)                                  = do
   (_, bctx, _) <- ask
 
@@ -138,26 +150,26 @@ runInferType (Id (Just t) m n)                          = runCheckType (Id Nothi
 
 runInferType (Refl m)                                   = return $ Id Nothing m m
   
-runInferType (Ind Zero (NoBind m) [] a)                 = runInferType (Ind Zero (Bind Nothing $ NoBind $ bumpUp m) [] a)
+runInferType (Ind Bot (NoBind m) [] a)                 = runInferType (Ind Bot (Bind Nothing $ NoBind $ bumpUp m) [] a)
 
-runInferType (Ind Zero (Bind x (NoBind m)) [] a)        = do
+runInferType (Ind Bot (Bind x (NoBind m)) [] a)        = do
   (_, bctx, _) <- ask
 
-  mt <- local (addToBoundCtx (x, Zero)) (runInferType m)
-  at <- runCheckType a Zero
+  mt <- local (addToBoundCtx (x, Bot)) (runInferType m)
+  at <- runCheckType a Bot
 
   case mt of
     Univ _ -> return $ bumpDown $ open (bumpUp a) m
     _      -> typeError TypeMismatch (Just (showTermWithContext bctx m ++ " is not a term of a universe"))
 
-runInferType (Ind One (NoBind m) [NoBind c] a)          = runInferType (Ind One (Bind Nothing $ NoBind $ bumpUp m) [NoBind c] a)
+runInferType (Ind Top (NoBind m) [NoBind c] a)          = runInferType (Ind Top (Bind Nothing $ NoBind $ bumpUp m) [NoBind c] a)
 
-runInferType (Ind One (Bind x (NoBind m)) [NoBind c] a) = do
+runInferType (Ind Top (Bind x (NoBind m)) [NoBind c] a) = do
   (_, bctx, _) <- ask
 
-  mt <- local (addToBoundCtx (x, One)) (runInferType m)
+  mt <- local (addToBoundCtx (x, Top)) (runInferType m)
   ct <- runCheckType c (bumpDown $ open Star m)
-  at <- runCheckType a One
+  at <- runCheckType a Top
 
   case mt of
     Univ _ -> return $ bumpDown $ open (bumpUp a) m
@@ -311,7 +323,6 @@ runCheckType (Inr m) (Sum t t')                  = do
     (Univ _, _)      -> typeError TypeMismatch (Just (showTermWithContext bctx t' ++ " is not a term of a universe: " ++ showTermWithContext bctx t't))
     (_, _)           -> typeError TypeMismatch (Just (showTermWithContext bctx t ++ " is not a term of a universe"))
 
--- TODO: Check type for inner terms (e.g. reflexivity in a sigma pair)
 runCheckType m t                                 = checkInferredTypeMatch m t
 
 checkInferredTypeMatch :: Term -> Term -> TypeCheck Term

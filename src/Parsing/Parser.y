@@ -40,8 +40,9 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
   'inr'   { PositionedToken TkInr _ }
   'refl'  { PositionedToken TkRefl _ }
   'Nat'   { PositionedToken TkNat _ }
-  '0'     { PositionedToken (TkInt 0) _ }
-  '1'     { PositionedToken (TkInt 1) _ }
+  'succ'  { PositionedToken TkSucc _ }
+  'T'     { PositionedToken (TkTop) _ }
+  '_|_'   { PositionedToken (TkBot) _ }
   univ    { PositionedToken (TkUniv $$) _ }
   var     { PositionedToken (TkVar $$) _ }
   int     { PositionedToken (TkInt $$) _ }
@@ -52,7 +53,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ '(' '[' '\\' '0' '1' 'U' 'Nat' '*' 'ind'
+%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind'
 %nonassoc APP
 
 %%
@@ -79,8 +80,7 @@ Pragma :: { Pragma }
 Term :: { NamedTerm }
   : '(' Term ')' { $2 }
   | var          { NVar $1 }
-  | '0'          { NZero }
-  | '1'          { NOne }
+  | Terminal     { $1 }
   | univ         { NUniv $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
@@ -104,6 +104,10 @@ PiType :: { NamedTerm }
   : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4) $7 }
   | Term '->' Term                 { NPi (Nothing, $1) $3 }
 
+Terminal :: { NamedTerm }
+  : 'T'          { NTop }
+  | '_|_'        { NBot }
+
 Identity :: { NamedTerm }
   : Term '=' Term              { NId Nothing $1 $3 }
   | '=' '[' Term ']'           { NIdFam $3 }
@@ -123,7 +127,9 @@ Pair :: { NamedTerm }
   : '(' Term ',' Term ')' { NPair $2 $4 }
 
 NatNums :: { NamedTerm }
-  : 'Nat' { NNat }
+  : 'Nat'       { NNat }
+  | 'succ' Term { NSucc $2 }
+  | int         { NNum $1 }
 
 BoundTerm :: { NamedBoundTerm }
   : Term              { NNoBind $1 }
