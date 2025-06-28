@@ -118,7 +118,7 @@ runInferType (Inr m)                                    = do
 
   typeError FailedToInferType (Just ("Cannot infer type of ambiguous injection " ++ showTermWithContext bctx (Inr m)))
 
-runInferType (Num i)                                    = return Nat
+runInferType Zero                                       = return Nat
 
 runInferType (Succ m)                                   = do
   (_, bctx, _) <- ask

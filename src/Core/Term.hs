@@ -24,7 +24,7 @@ data NamedTerm
   | NBot
   | NTop
   | NNat
-  | NNum Integer
+  | NZero
   | NSucc NamedTerm
   | NSum NamedTerm NamedTerm
   | NInr NamedTerm
@@ -65,7 +65,7 @@ data Term
   | Bot
   | Top
   | Nat
-  | Num Integer
+  | Zero
   | Succ Term
   | Sum Term Term
   | Inl Term

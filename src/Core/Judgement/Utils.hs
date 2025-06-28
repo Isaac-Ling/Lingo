@@ -29,9 +29,10 @@ toDeBruijn = go []
     go bs (NId t m n)           = Id (fmap (go bs) t) (go bs m) (go bs n)
     go bs (NInd t m c a)        = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
     go bs (NUniv i)             = Univ i
-    go bs NBot                 = Bot
+    go bs NBot                  = Bot
     go bs NTop                  = Top
     go bs NNat                  = Nat
+    go bs NZero                 = Zero
     go bs (NSucc m)             = Succ $ go bs m
     go bs (NInl m)              = Inl $ go bs m
     go bs (NInr m)              = Inr $ go bs m
@@ -158,11 +159,10 @@ showTermWithBinders bs (Lam (x, Just t) m)           = "\\(" ++ unpack x ++ " : 
 showTermWithBinders bs (Lam (x, Nothing) m)          = "\\" ++ unpack x ++ ". " ++ showTermWithBinders (Just x : bs) m
 showTermWithBinders bs (Univ 0)                      = "U"
 showTermWithBinders bs (Univ i)                      = "U" ++ show i
-showTermWithBinders bs (Num i)                       = show i
 showTermWithBinders bs Bot                           = "_|_"
 showTermWithBinders bs Top                           = "T"
 showTermWithBinders bs Nat                           = "Nat"
-showTermWithBinders bs (Succ m)                      = "succ " ++ showTermWithBinders bs m
+showTermWithBinders bs Zero                          = "0"
 showTermWithBinders bs (Inl m)                       = "inl(" ++ showTermWithBinders bs m ++ ")"
 showTermWithBinders bs (Inr m)                       = "inr(" ++ showTermWithBinders bs m ++ ")"
 showTermWithBinders bs (Refl m)                      = "refl[" ++ showTermWithBinders bs m ++ "]"
@@ -171,6 +171,26 @@ showTermWithBinders bs (Pi (Just x, t) m)            = "(" ++ unpack x ++ " : " 
 showTermWithBinders bs (Pi (Nothing, t) m)           = showTermWithBinders bs t ++ " -> " ++ showTermWithBinders (Nothing : bs) m
 showTermWithBinders bs (Sigma (Just x, t) m)         = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") x " ++ showSigmaOperarands (Just x : bs) m
 showTermWithBinders bs (Sigma (Nothing, t) m)        = showSigmaOperarands bs t ++ " x " ++ showSigmaOperarands (Nothing : bs) m
+showTermWithBinders bs (Succ m)
+  | isNum m   = showNum (Succ m)
+  | otherwise = showNonNum bs (Succ m)
+  where
+    isNum :: Term -> Bool
+    isNum Zero     = True
+    isNum (Succ m) = isNum m
+    isNum _        = False
+
+    showNum :: Term -> String
+    showNum m = go m 0
+      where
+        go :: Term -> Integer -> String
+        go Zero     i = show i
+        go (Succ m) i = go m (i + 1)
+        go _        _ = "ERROR"
+
+    showNonNum :: Binders -> Term -> String
+    showNonNum bs (Succ m) = "succ(" ++ showTermWithBinders bs m ++ ")"
+    showNonNum bs _        = showNonNum bs m
 showTermWithBinders bs (Ind t m c a)                 = "ind[" ++ showTermWithBinders bs t ++ "](" ++ showBoundTerm bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen bs c ++ ", " ++ showTermWithBinders bs a ++ ")"
   where
     showBoundTerm :: Binders -> BoundTerm -> String

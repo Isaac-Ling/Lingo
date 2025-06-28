@@ -16,6 +16,7 @@ eval (Pair m n)                                                           = Pair
 eval (Sum m n)                                                            = Sum (eval m) (eval n)
 eval (Inl m)                                                              = Inl $ eval m
 eval (Inr n)                                                              = Inr $ eval n
+eval (Succ m)                                                             = Succ $ eval m
 eval (IdFam t)                                                            = IdFam $ eval t
 eval (App (App (IdFam t) m) n)                                            = eval $ Id (Just t) m n
 eval (Id mt m n)                                                          = Id (fmap eval mt) (eval m) (eval n)
@@ -86,8 +87,11 @@ instance Eq Term where
       Star === Star                             = True
       Pair m n === Pair m' n'                   = m == m' && n == n'
       Univ i === Univ j                         = i == j
-      Bot === Bot                             = True
+      Nat === Nat                               = True
+      Bot === Bot                               = True
       Top === Top                               = True
+      Zero === Zero                             = True
+      Succ m === Succ n                         = m == n
       Sum m n === Sum m' n'                     = m == m' && n == n'
       IdFam t === IdFam t'                      = t == t'
       Id _ m n === Id _ m' n'                   = m == m' && n == n'

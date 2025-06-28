@@ -127,9 +127,9 @@ Pair :: { NamedTerm }
   : '(' Term ',' Term ')' { NPair $2 $4 }
 
 NatNums :: { NamedTerm }
-  : 'Nat'       { NNat }
-  | 'succ' Term { NSucc $2 }
-  | int         { NNum $1 }
+  : 'Nat'               { NNat }
+  | 'succ' '(' Term ')' { NSucc $3 }
+  | int                 { parseNum $1 }
 
 BoundTerm :: { NamedBoundTerm }
   : Term              { NNoBind $1 }
@@ -172,4 +172,8 @@ parse s = case runAlex s parser of
   Left er -> case er of
     ""     -> Error SyntaxError Nothing
     (x:xs) -> Error SyntaxError (Just (toUpper x : xs))
+
+parseNum :: Integer -> NamedTerm
+parseNum 0 = NZero
+parseNum n = NSucc $ parseNum (n - 1)
 }

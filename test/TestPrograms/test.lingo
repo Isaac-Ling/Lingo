@@ -85,5 +85,6 @@ idTrans := \A. \a. \b. \c. \p. idTransLemma A a b p c
 -- Natural Numbers
 
 a : Nat
+a := 5
 
-#check succ a
+#check succ(a)
