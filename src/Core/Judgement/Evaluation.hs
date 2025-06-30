@@ -7,29 +7,31 @@ import Core.Judgement.Utils
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 eval :: Term -> Term
-eval (Lam _ (App f (Var (Bound 0))))                                      = eval $ bumpDown f -- Eta conversion
-eval (Lam (x, Just t) m)                                                  = Lam (x, Just $ eval t) (eval m)
-eval (Lam (x, Nothing) m)                                                 = Lam (x, Nothing) (eval m)
-eval (Pi (x, t) m)                                                        = Pi (x, eval t) (eval m)
-eval (Sigma (x, t) m)                                                     = Sigma (x, eval t) (eval m)
-eval (Pair m n)                                                           = Pair (eval m) (eval n)
-eval (Sum m n)                                                            = Sum (eval m) (eval n)
-eval (Inl m)                                                              = Inl $ eval m
-eval (Inr n)                                                              = Inr $ eval n
-eval (Succ m)                                                             = Succ $ eval m
-eval (IdFam t)                                                            = IdFam $ eval t
-eval (App (App (IdFam t) m) n)                                            = eval $ Id (Just t) m n
-eval (Id mt m n)                                                          = Id (fmap eval mt) (eval m) (eval n)
+eval (Lam _ (App f (Var (Bound 0))))                                  = eval $ bumpDown f -- Eta conversion
+eval (Lam (x, Just t) m)                                              = Lam (x, Just $ eval t) (eval m)
+eval (Lam (x, Nothing) m)                                             = Lam (x, Nothing) (eval m)
+eval (Pi (x, t) m)                                                    = Pi (x, eval t) (eval m)
+eval (Sigma (x, t) m)                                                 = Sigma (x, eval t) (eval m)
+eval (Pair m n)                                                       = Pair (eval m) (eval n)
+eval (Sum m n)                                                        = Sum (eval m) (eval n)
+eval (Inl m)                                                          = Inl $ eval m
+eval (Inr n)                                                          = Inr $ eval n
+eval (Succ m)                                                         = Succ $ eval m
+eval (IdFam t)                                                        = IdFam $ eval t
+eval (App (App (IdFam t) m) n)                                        = eval $ Id (Just t) m n
+eval (Id mt m n)                                                      = Id (fmap eval mt) (eval m) (eval n)
 eval (App m n)
   | isNeutral f = App f (eval n)
-  | otherwise   = eval (beta (App f n))
+  | otherwise   = eval $ beta $ App f n
   where
     f :: Term
     f = eval m
-eval (Ind Top _ [NoBind c] _)                                             = c
-eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))          = eval $ App (App (Lam (pack "w", Nothing) $ Lam (pack "y", Nothing) f) a) b
-eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a))     = eval $ App (Lam (pack "x", Nothing) c) a
-eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b))     = eval $ App (Lam (pack "y", Nothing) d) b
+eval (Ind Top _ [NoBind c] _)                                         = eval c
+eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))      = eval $ App (App (Lam (pack "w", Nothing) $ Lam (pack "y", Nothing) f) a) b
+eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a)) = eval $ App (Lam (pack "x", Nothing) c) a
+eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b)) = eval $ App (Lam (pack "y", Nothing) d) b
+eval (Ind Nat _ [NoBind c0, _] Zero)                                  = eval c0
+eval (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] (Succ n))           = eval $ App (App (Lam (pack "x", Nothing) $ Lam (pack "y", Nothing) cs) n) $ Ind Nat m [c0, Bind x (Bind y (NoBind cs))] n
 eval (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl a''))
   | a == a' && a' == a'' = eval $ App (Lam (pack "z", Nothing) c) a
   | otherwise            = Ind (IdFam t) m [Bind z $ NoBind c, NoBind a, NoBind a'] (Refl a'')
@@ -40,7 +42,7 @@ eval (Ind t m c a)
     evalBoundTerm :: BoundTerm -> BoundTerm
     evalBoundTerm (NoBind m) = NoBind $ eval m
     evalBoundTerm (Bind x m) = Bind x $ evalBoundTerm m
-eval m                                                                    = m
+eval m                                                                = m
 
 isValue :: Term -> Bool
 isValue (Lam _ _) = True
@@ -55,13 +57,16 @@ isNeutral (Sum m n)        = isValue m && isValue n
 isNeutral (Pair m n)       = isValue m && isValue n
 isNeutral Star             = True
 isNeutral (Univ _)         = True
-isNeutral Bot             = True
+isNeutral Bot              = True
 isNeutral Top              = True
+isNeutral Nat              = True
+isNeutral Zero             = True
 isNeutral (IdFam t)        = isValue t
 isNeutral (Id mt m n)      = maybe True isValue mt && isValue m && isValue n
 isNeutral (Inl m)          = isValue m
 isNeutral (Inr m)          = isValue m
 isNeutral (Refl m)         = isValue m
+isNeutral (Succ n)         = isValue n
 isNeutral (Ind t m c a)    = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
   where
     isBoundTermValue :: BoundTerm -> Bool

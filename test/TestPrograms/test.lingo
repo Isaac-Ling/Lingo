@@ -87,4 +87,9 @@ idTrans := \A. \a. \b. \c. \p. idTransLemma A a b p c
 a : Nat
 a := 5
 
-#check succ(a)
+#check a
+
+double : Nat -> Nat
+double := \n. ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
+
+#check double a
