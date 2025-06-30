@@ -93,3 +93,14 @@ double : Nat -> Nat
 double := \n. ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
 
 #check double a
+
+add : Nat -> Nat -> Nat
+add := \n. ind[Nat](Nat -> Nat, \n. n, n. g. \m. succ(g m), n)
+
+#check add
+#check add 2 2
+
+twoPlusTwoIsFour : add 2 2 = 4
+twoPlusTwoIsFour := refl[4]
+
+#check twoPlusTwoIsFour
