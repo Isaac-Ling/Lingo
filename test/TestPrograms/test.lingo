@@ -83,7 +83,6 @@ idTrans := \A. \a. \b. \c. \p. idTransLemma A a b p c
 #check idTrans
 
 -- Natural Numbers
-
 a : Nat
 a := 5
 
@@ -104,3 +103,12 @@ twoPlusTwoIsFour : add 2 2 = 4
 twoPlusTwoIsFour := refl[4]
 
 #check twoPlusTwoIsFour
+
+-- HoTT Ex 1.8
+multiply : Nat -> Nat -> Nat
+multiply := \n. ind[Nat](Nat -> Nat, \n. 0, n'. g. \m. add m (g m), n)
+
+lMul0 : (A : U) -> (a : A) -> multiply 0 a = 0
+lMul0 := \A. \a. refl[0]
+
+#check lMul0
