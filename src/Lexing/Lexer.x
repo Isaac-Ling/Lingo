@@ -47,8 +47,12 @@ lingo :-
 <0> "inl"       { createTk TkInl }
 <0> "inr"       { createTk TkInr }
 <0> "refl"      { createTk TkRefl }
+<0> "Nat"       { createTk TkNat }
+<0> "succ"      { createTk TkSucc }
 <0> @univ       { createUnivTk }
 <0> \U          { createTk $ TkUniv 0 }
+<0> \T          { createTk TkTop }
+<0> "_|_"       { createTk TkBot }
 <0> @var        { createVarTk }
 <0> @int        { createIntTk }
 
@@ -77,7 +81,7 @@ createUnivTk ((AlexPn _ line col), _, str, _) len = return PositionedToken
   , ptPosition = (line, col)
   }
   where
-    getUnivLevel :: String -> Int
+    getUnivLevel :: String -> Integer
     getUnivLevel []     = 0
     getUnivLevel (u:i) = case i of
       []    -> 0

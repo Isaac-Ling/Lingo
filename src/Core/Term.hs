@@ -20,9 +20,12 @@ data NamedTerm
   | NApp NamedTerm NamedTerm
   | NStar
   | NPair NamedTerm NamedTerm
-  | NUniv Int
+  | NUniv Integer
+  | NBot
+  | NTop
+  | NNat
   | NZero
-  | NOne
+  | NSucc NamedTerm
   | NSum NamedTerm NamedTerm
   | NInr NamedTerm
   | NInl NamedTerm
@@ -58,9 +61,12 @@ data Term
   | App Term Term
   | Star
   | Pair Term Term
-  | Univ Int
+  | Univ Integer
+  | Bot
+  | Top
+  | Nat
   | Zero
-  | One
+  | Succ Term
   | Sum Term Term
   | Inl Term
   | Inr Term
