@@ -108,7 +108,19 @@ twoPlusTwoIsFour := refl[4]
 multiply : Nat -> Nat -> Nat
 multiply := \n. ind[Nat](Nat -> Nat, \n. 0, n'. g. \m. add m (g m), n)
 
+#check multiply 2 4
+
 lMul0 : (A : U) -> (a : A) -> multiply 0 a = 0
 lMul0 := \A. \a. refl[0]
 
 #check lMul0
+
+powFlipped : Nat -> Nat -> Nat
+powFlipped := \n. ind[Nat](Nat -> Nat, \n. 1, n'. g. \m. multiply m (g m), n)
+
+flip : (A : U) -> (B : U) -> (C : U) -> (A -> B -> C) -> B -> A -> C
+flip := \A. \B. \C. \f. \b. \a. f a b
+
+pow := flip Nat Nat Nat powFlipped
+
+#check pow 2 5

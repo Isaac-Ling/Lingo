@@ -49,24 +49,31 @@ isValue (Lam _ _) = True
 isValue m         = isNeutral m
 
 isNeutral :: Term -> Bool
-isNeutral (Var x)          = True
-isNeutral (App m n)        = isNeutral m && isValue n
-isNeutral (Pi (_, t) m)    = isValue t && isValue m
-isNeutral (Sigma (_, t) m) = isValue t && isValue m
-isNeutral (Sum m n)        = isValue m && isValue n
-isNeutral (Pair m n)       = isValue m && isValue n
-isNeutral Star             = True
-isNeutral (Univ _)         = True
-isNeutral Bot              = True
-isNeutral Top              = True
-isNeutral Nat              = True
-isNeutral Zero             = True
-isNeutral (IdFam t)        = isValue t
-isNeutral (Id mt m n)      = maybe True isValue mt && isValue m && isValue n
-isNeutral (Inl m)          = isValue m
-isNeutral (Inr m)          = isValue m
-isNeutral (Refl m)         = isValue m
-isNeutral (Succ n)         = isValue n
+isNeutral (Var x)                                                               = True
+isNeutral (App m n)                                                             = isNeutral m && isValue n
+isNeutral (Pi (_, t) m)                                                         = isValue t && isValue m
+isNeutral (Sigma (_, t) m)                                                      = isValue t && isValue m
+isNeutral (Sum m n)                                                             = isValue m && isValue n
+isNeutral (Pair m n)                                                            = isValue m && isValue n
+isNeutral Star                                                                  = True
+isNeutral (Univ _)                                                              = True
+isNeutral Bot                                                                   = True
+isNeutral Top                                                                   = True
+isNeutral Nat                                                                   = True
+isNeutral Zero                                                                  = True
+isNeutral (IdFam t)                                                             = isValue t
+isNeutral (Id mt m n)                                                           = maybe True isValue mt && isValue m && isValue n
+isNeutral (Inl m)                                                               = isValue m
+isNeutral (Inr m)                                                               = isValue m
+isNeutral (Refl m)                                                              = isValue m
+isNeutral (Succ n)                                                              = isValue n
+isNeutral (Ind Top _ [NoBind _] _)                                              = False
+isNeutral (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))           = False
+isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a))      = False
+isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b))      = False
+isNeutral (Ind Nat _ [NoBind c0, _] Zero)                                       = False
+isNeutral (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] (Succ n))                = False
+isNeutral (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl a'')) = a == a' && a' == a''
 isNeutral (Ind t m c a)    = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
   where
     isBoundTermValue :: BoundTerm -> Bool
