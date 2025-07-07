@@ -74,7 +74,7 @@ isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b))      
 isNeutral (Ind Nat _ [NoBind c0, _] Zero)                                       = False
 isNeutral (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] (Succ n))                = False
 isNeutral (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl a'')) = a == a' && a' == a''
-isNeutral (Ind t m c a)    = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
+isNeutral (Ind t m c a)                                                         = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
   where
     isBoundTermValue :: BoundTerm -> Bool
     isBoundTermValue (NoBind m) = isValue m

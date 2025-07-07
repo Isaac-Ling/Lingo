@@ -3,7 +3,8 @@ module Core.Judgement.Utils where
 import Core.Term
 import Core.Error
 
-import Data.List (elemIndex)
+import Control.Monad ( join )
+import Data.List (elemIndex, (!?))
 import Data.Maybe (fromMaybe)
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 
@@ -136,9 +137,12 @@ openFor m k n                    = n
 showTermWithBinders :: Binders -> Term -> String
 showTermWithBinders bs (Var (Free x))                = unpack x
 showTermWithBinders bs (Var (Bound i))
-  | i >= 0    = unpack $ fromMaybe (pack errorString) (bs !! i)
+  | i >= 0    = unpack $ fromMaybe (pack errorString) a
   | otherwise = errorString
   where
+    a :: Maybe ByteString
+    a = join $ bs !? i
+
     errorString :: String
     errorString = "ERROR"
 showTermWithBinders bs Star                          = "*"
@@ -191,17 +195,12 @@ showTermWithBinders bs (Succ m)
     showNonNum :: Binders -> Term -> String
     showNonNum bs (Succ m) = "succ(" ++ showTermWithBinders bs m ++ ")"
     showNonNum bs _        = showNonNum bs m
-showTermWithBinders bs (Ind t m c a)                 = "ind[" ++ showTermWithBinders bs t ++ "](" ++ showBoundTerm bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen bs c ++ ", " ++ showTermWithBinders bs a ++ ")"
+showTermWithBinders bs (Ind t m c a)                 = "ind[" ++ showTermWithBinders bs t ++ "](" ++ showBoundTermWithBinders bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen bs c ++ ", " ++ showTermWithBinders bs a ++ ")"
   where
-    showBoundTerm :: Binders -> BoundTerm -> String
-    showBoundTerm bs (NoBind m)        = showTermWithBinders bs m
-    showBoundTerm bs (Bind (Just x) m) = unpack x ++ ". " ++ showBoundTerm (Just x : bs) m
-    showBoundTerm bs (Bind Nothing m)  = showBoundTerm (Nothing : bs) m
-
     showBoundTermsNoParen :: Binders -> [BoundTerm] -> String
     showBoundTermsNoParen bs []     = ""
-    showBoundTermsNoParen bs [y]    = showBoundTerm bs y
-    showBoundTermsNoParen bs (y:ys) = showBoundTerm bs y ++ ", " ++ showBoundTermsNoParen bs ys
+    showBoundTermsNoParen bs [y]    = showBoundTermWithBinders bs y
+    showBoundTermsNoParen bs (y:ys) = showBoundTermWithBinders bs y ++ ", " ++ showBoundTermsNoParen bs ys
 
 -- TODO: Generalise this to support arbitrary terms with any precedence
 showSigmaOperarands :: Binders -> Term -> String
@@ -212,8 +211,20 @@ showSigmaOperarands bs (Sum m n)   = "(" ++ showTermWithBinders bs (Sum m n) ++ 
 showSigmaOperarands bs (Id mt m n) = "(" ++ showTermWithBinders bs (Id mt m n) ++ ")"
 showSigmaOperarands bs m           = showTermWithBinders bs m
 
+showBoundTermWithBinders :: Binders -> BoundTerm -> String
+showBoundTermWithBinders bs (NoBind m)        = showTermWithBinders bs m
+showBoundTermWithBinders bs (Bind (Just x) m) = unpack x ++ ". " ++ showBoundTermWithBinders (Just x : bs) m
+showBoundTermWithBinders bs (Bind Nothing m)  = showBoundTermWithBinders (Nothing : bs) m
+
 instance Show Term where
   show = showTermWithBinders binders
+    where
+      -- TODO: Ensure these are fresh
+      binders :: [Maybe ByteString]
+      binders = [Just $ pack ("a" ++ show i) | i <- [0..]]
+
+instance Show BoundTerm where
+  show = showBoundTermWithBinders binders
     where
       -- TODO: Ensure these are fresh
       binders :: [Maybe ByteString]
