@@ -18,6 +18,7 @@ eval (Inl m)                                                          = Inl $ ev
 eval (Inr n)                                                          = Inr $ eval n
 eval (Succ m)                                                         = Succ $ eval m
 eval (IdFam t)                                                        = IdFam $ eval t
+eval (Refl m)                                                         = Refl $ eval m
 eval (App (App (IdFam t) m) n)                                        = eval $ Id (Just t) m n
 eval (Id mt m n)                                                      = Id (fmap eval mt) (eval m) (eval n)
 eval (App m n)
