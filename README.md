@@ -11,9 +11,9 @@ An implementation of Martin-Löf Type Theory, following closely to the Homotopy 
 | Singleton Term   | $\ast$               | `*`              |
 | Coproduct        | $A + B$              | `A + B`          |
 | Product          | $A \times B$         | `A x B`          |
-| Sigma            | $\sum_{a : A} B$     | `(a : A) x B`    |
+| Sigma            | $\sum_{a : A} B(a)$  | `(a : A) x B a`  |
 | Arrow            | $A \rightarrow B$    | `A -> B`         |
-| Pi               | $\prod_{a : A} B$    | `(a : A) -> B`   |
+| Pi               | $\prod_{a : A} B(a)$ | `(a : A) -> B a` |
 | Explicit Lambda  | $\lambda (a : A). b$ | `\a. b`          |
 | Implicit Lambda  | $\lambda a. b$       | `\a. b`          |
 | Left Injection   | $\text{inl}(a)$      | `inl(a)`         |
@@ -23,7 +23,7 @@ An implementation of Martin-Löf Type Theory, following closely to the Homotopy 
 | Successor        | $\text{succ}(4)$     | `succ(4)`        |
 | Identity         | $A = B$              | `A = B`          |
 | Reflexivity      | $\text{refl}$        | `refl`           |
-| Universe         | $#text{Univ}_2$      | `U2`             |
+| Universe         | $\text{Univ}_2$      | `U2`             |
 | Type annotation  | $a : A$              | `a : A`          |
 | Definition       | $a := \text{foo}$    | `a := foo`       |
 
