@@ -14,7 +14,7 @@ An implementation of Martin-Löf Type Theory, following closely to the Homotopy 
 | Sigma            | $\sum_{a : A} B(a)$  | `(a : A) x B a`  |
 | Arrow            | $A \rightarrow B$    | `A -> B`         |
 | Pi               | $\prod_{a : A} B(a)$ | `(a : A) -> B a` |
-| Explicit Lambda  | $\lambda (a : A). b$ | `\a. b`          |
+| Explicit Lambda  | $\lambda (a : A). b$ | `\(a : A). b`    |
 | Implicit Lambda  | $\lambda a. b$       | `\a. b`          |
 | Left Injection   | $\text{inl}(a)$      | `inl(a)`         |
 | Right Injection  | $\text{inr}(b)$      | `inr(b)`         |
