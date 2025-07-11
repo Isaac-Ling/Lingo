@@ -24,7 +24,7 @@ checkType env ctx m t = runReaderT (runCheckType m t) (env, [], ctx)
 runInferType :: Term -> TypeCheck Term
 runInferType (Univ i)                                   = return $ Univ (i + 1)
 runInferType Star                                       = return Top
-runInferType Bot                                       = return $ Univ 0
+runInferType Bot                                        = return $ Univ 0
 runInferType Top                                        = return $ Univ 0
 runInferType Nat                                        = return $ Univ 0
 
@@ -210,8 +210,8 @@ runInferType (Ind
   (_, bctx, _) <- ask
 
   mt <- local (addToBoundCtx (z , Sum t n)) (runInferType m)
-  ct <- local (addToBoundCtx (x, t)) (runCheckType c $ open (bumpUp $ Inl $ Var $ Bound 0) m)
-  dt <- local (addToBoundCtx (y, n)) (runCheckType d $ open (bumpUp $ Inr $ Var $ Bound 0) m)
+  ct <- local (addToBoundCtx (x, t)) (runCheckType c $ open (Inl $ Var $ Bound 1) m)
+  dt <- local (addToBoundCtx (y, n)) (runCheckType d $ open (Inr $ Var $ Bound 1) m)
   at <- runCheckType a (Sum t n)
 
   case mt of
@@ -222,13 +222,13 @@ runInferType (Ind
   (IdFam t)
   (NoBind m)
   [Bind z (NoBind c), NoBind a, NoBind b]
-  p)                                                    = runInferType (Ind (IdFam t) (Bind Nothing $ Bind Nothing $ Bind Nothing $ NoBind $ bumpUp $ bumpUp $ bumpUp m) [Bind z $ NoBind c, NoBind a, NoBind b] p)
+  p)                                                    = runInferType (Ind (IdFam t) (Bind Nothing $ Bind Nothing $ Bind Nothing $ NoBind $ shift 3 m) [Bind z $ NoBind c, NoBind a, NoBind b] p)
 
 runInferType (Ind
   (IdFam t)
   (NoBind m)
   [Bind z (NoBind c), NoBind a, NoBind b]
-  p)                                                    = runInferType (Ind (IdFam t) (Bind Nothing $ Bind Nothing $ Bind Nothing $ NoBind $ bumpUp $ bumpUp $ bumpUp m) [Bind z $ NoBind c, NoBind a, NoBind b] p)
+  p)                                                    = runInferType (Ind (IdFam t) (Bind Nothing $ Bind Nothing $ Bind Nothing $ NoBind $ shift 3 m) [Bind z $ NoBind c, NoBind a, NoBind b] p)
 
 runInferType (Ind
   (IdFam t)
@@ -271,7 +271,7 @@ runInferType (Ind
   nt  <- runCheckType n Nat
   mt  <- local (addToBoundCtx (x, Nat)) (runInferType m)
   c0t <- runCheckType c0 $ bumpDown $ open Zero m
-  cst <- local (addToBoundCtx (z, m) . addToBoundCtx (w, Nat)) (runCheckType cs $ bumpDown $ open (Succ $ Var $ Bound 2) m)
+  cst <- local (addToBoundCtx (z, m) . addToBoundCtx (w, Nat)) (runCheckType cs $ bumpUp $ open (Succ $ Var $ Bound 0) m)
 
   case mt of
     Univ _ -> return $ bumpDown $ open (bumpUp n) m

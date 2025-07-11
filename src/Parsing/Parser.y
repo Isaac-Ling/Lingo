@@ -53,7 +53,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind'
+%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ'
 %nonassoc APP
 
 %%
