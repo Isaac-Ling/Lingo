@@ -82,6 +82,12 @@ idTrans := \A. \a. \b. \c. \p. idTransLemma A a b p c
 
 #check idTrans
 
+-- Identity Lemmas
+cong : (A : U) -> (a : A) -> (b : A) -> a = b -> (B : U) -> (f : A -> B) -> f a = f b
+cong := \A. \a. \b. \p. \B. \f. ind[=[A]](a. b. p. f a = f b, z. refl[f z], a, b, p)
+
+#check cong
+
 -- Natural Numbers
 a : Nat
 a := 5
@@ -110,8 +116,8 @@ multiply := \n. ind[Nat](Nat -> Nat, \n. 0, n'. g. \m. add m (g m), n)
 
 #check multiply 2 4
 
-lMul0 : (A : U) -> (a : A) -> multiply 0 a = 0
-lMul0 := \A. \a. refl[0]
+lMul0 : (a : Nat) -> multiply 0 a = 0
+lMul0 := \a. refl[0]
 
 #check lMul0
 
@@ -124,3 +130,15 @@ flip := \A. \B. \C. \f. \b. \a. f a b
 pow := flip Nat Nat Nat powFlipped
 
 #check pow 2 5
+
+-- Nat results
+rAddId : (a : Nat) -> add a 0 = a
+rAddId := \a. ind[Nat](n. add n 0 = n, refl[0], m. g. cong Nat (add m 0) m g Nat (\(n : Nat). succ(n)), a)
+
+#check rAddId
+
+addCommLemma : (a : Nat) -> (b : Nat) -> add a succ(b) = add succ(a) b
+addCommLemma := \a. \b. ind[Nat](n. add n succ(b) = add succ(n) b, refl[succ(b)], m. g. cong Nat (add m succ(b)) (add succ(m) b) g Nat (\(n : Nat). succ(n)), a)
+
+addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
+addComm := \a. \b. ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans Nat (add a succ(m)) (add succ(a) m) (add succ(m) a) (addCommLemma a m) (cong Nat (add a m) (add m a) g Nat (\(n : Nat). succ(n))), b)

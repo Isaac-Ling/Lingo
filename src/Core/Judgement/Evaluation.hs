@@ -18,6 +18,7 @@ eval (Inl m)                                                          = Inl $ ev
 eval (Inr n)                                                          = Inr $ eval n
 eval (Succ m)                                                         = Succ $ eval m
 eval (IdFam t)                                                        = IdFam $ eval t
+eval (Refl m)                                                         = Refl $ eval m
 eval (App (App (IdFam t) m) n)                                        = eval $ Id (Just t) m n
 eval (Id mt m n)                                                      = Id (fmap eval mt) (eval m) (eval n)
 eval (App m n)
@@ -74,7 +75,7 @@ isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b))      
 isNeutral (Ind Nat _ [NoBind c0, _] Zero)                                       = False
 isNeutral (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] (Succ n))                = False
 isNeutral (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl a'')) = a == a' && a' == a''
-isNeutral (Ind t m c a)    = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
+isNeutral (Ind t m c a)                                                         = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
   where
     isBoundTermValue :: BoundTerm -> Bool
     isBoundTermValue (NoBind m) = isValue m

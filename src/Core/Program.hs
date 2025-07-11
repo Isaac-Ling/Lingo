@@ -46,10 +46,11 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
       (env, ctx) <- ask
 
       let t = toDeBruijn t'
+      tt <- tryRun $ inferType env ctx t
       let p = local (addToCtx (x, t)) (go ds)
 
       case lookup x ctx of
-        Just t2 -> if t == t2
+        Just t2 -> if equal env t t2
           then p
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))
         _       -> p
