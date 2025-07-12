@@ -5,19 +5,11 @@ import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Typing
 import Core.Judgement.Evaluation
+import IO.Source ( readSource )
+import Parsing.Parser
 
 import Control.Monad.Reader
 import Data.ByteString.Lazy.Char8 (ByteString, unpack)
-
-newtype Pragma
-  = Check NamedTerm
-
-data Declaration
-  = Def NamedAlias
-  | Signature NamedAssumption
-  | Pragma Pragma
-
-type Program = [Declaration]
 
 type Runtime a = ReaderT (Environment, Context) (CanErrorT IO) a
 
@@ -64,6 +56,22 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
       liftIO $ putStrLn (show m ++ " =>* " ++ show ert ++ " : " ++ show t)
 
       go ds
+
+    go (Pragma (Include f):ds) = do
+      (env, ctx) <- ask
+
+      let file = f ++ ".lingo"
+
+      msource <- liftIO $ readSource file
+      source <- case msource of
+        Result s -> return s
+        err      -> lift $ CanErrorT $ return err
+
+      program <- case parse source of
+        Result p -> return p
+        err      -> lift $ CanErrorT $ return err
+
+      go (program ++ ds)
 
 tryRun :: CanError a -> Runtime a
 tryRun = lift . CanErrorT . return

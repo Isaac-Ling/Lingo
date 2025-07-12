@@ -3,8 +3,11 @@ module Lexing.Lexer where
 
 import Core.Error
 import Lexing.Tokens
+import IO.Source (readSource)
 
+import Control.Monad.Trans
 import Data.ByteString.Lazy.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as BSStrict
 import qualified Data.ByteString.Lazy.Char8 as BS
 }
 
@@ -17,44 +20,46 @@ $upper     = [ A-Z ]
 $newLine   = [ \n ]
 $whiteNoNL = [ \ \t\f\v\r ]
 
-@var   = ($lower | $upper | \_) ($lower | $upper | \_ | $digit)* (\')*
-@int  = $digit+
-@univ = \U $digit+
+@var    = ($lower | $upper | \_) ($lower | $upper | \_ | $digit)* (\')*
+@int    = $digit+
+@string = \" [^ \" $newLine]* \"
+@univ   = \U $digit+
 
 lingo :-
 
-<0> "--"\-*.*$newLine*   { skip }
-<0> $whiteNoNL+ ;
-<0> $newLine    { createTk TkNewL }
-
-<0> \\          { createTk TkBackslash }
-<0> \.          { createTk TkDot }
-<0> \,          { createTk TkComma }
-<0> \x          { createTk TkCross }
-<0> \+          { createTk TkPlus }
-<0> \(          { createTk TkLParen }
-<0> \)          { createTk TkRParen }
-<0> \)          { createTk TkRParen }
-<0> \[          { createTk TkLSqParen }
-<0> \]          { createTk TkRSqParen }
-<0> ":="        { createTk TkColonEqual }
-<0> \:          { createTk TkColon }
-<0> \=          { createTk TkEq }
-<0> "->"        { createTk TkRArrow }
-<0> \*          { createTk TkStar }
-<0> "ind"       { createTk TkInd }
-<0> "#check"    { createTk TkCheck }
-<0> "inl"       { createTk TkInl }
-<0> "inr"       { createTk TkInr }
-<0> "refl"      { createTk TkRefl }
-<0> "Nat"       { createTk TkNat }
-<0> "succ"      { createTk TkSucc }
-<0> @univ       { createUnivTk }
-<0> \U          { createTk $ TkUniv 0 }
-<0> \T          { createTk TkTop }
-<0> "_|_"       { createTk TkBot }
-<0> @var        { createVarTk }
-<0> @int        { createIntTk }
+<0> $whiteNoNL+        ;
+<0> "--"\-*.*$newLine* { skip }
+<0> $newLine           { createTk TkNewL }
+<0> \\                 { createTk TkBackslash }
+<0> \.                 { createTk TkDot }
+<0> \,                 { createTk TkComma }
+<0> \x                 { createTk TkCross }
+<0> \+                 { createTk TkPlus }
+<0> \(                 { createTk TkLParen }
+<0> \)                 { createTk TkRParen }
+<0> \)                 { createTk TkRParen }
+<0> \[                 { createTk TkLSqParen }
+<0> \]                 { createTk TkRSqParen }
+<0> ":="               { createTk TkColonEqual }
+<0> \:                 { createTk TkColon }
+<0> \=                 { createTk TkEq }
+<0> "->"               { createTk TkRArrow }
+<0> \*                 { createTk TkStar }
+<0> "#check"           { createTk TkCheck }
+<0> "#include"         { createTk TkInclude }
+<0> "ind"              { createTk TkInd }
+<0> "inl"              { createTk TkInl }
+<0> "inr"              { createTk TkInr }
+<0> "refl"             { createTk TkRefl }
+<0> "Nat"              { createTk TkNat }
+<0> "succ"             { createTk TkSucc }
+<0> @univ              { createUnivTk }
+<0> \U                 { createTk $ TkUniv 0 }
+<0> \T                 { createTk TkTop }
+<0> "_|_"              { createTk TkBot }
+<0> @var               { createVarTk }
+<0> @int               { createIntTk }
+<0> @string            { createStringTk }
 
 {
 alexEOF :: Alex PositionedToken
@@ -86,6 +91,12 @@ createUnivTk ((AlexPn _ line col), _, str, _) len = return PositionedToken
     getUnivLevel (u:i) = case i of
       []    -> 0
       level -> read level
+
+createStringTk :: AlexAction PositionedToken
+createStringTk ((AlexPn _ line col), _, str, _) len = return PositionedToken 
+  { ptToken = TkString $ BS.tail $ BS.init $ BS.take len str
+  , ptPosition = (line, col)
+  }
 
 createTk :: Token -> AlexAction PositionedToken
 createTk tk ((AlexPn _ line col), _, _, _) len = return PositionedToken { ptToken = tk, ptPosition = (line, col) }

@@ -1,0 +1,16 @@
+-- Identity
+id : (A : U) -> A -> A
+id := \A. \a. a
+
+#check id (T x T) (*, *)
+
+-- Projections
+fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A
+fst := \A. \B. \p. ind[(a : A) x B a](A, a. b. a, p)
+
+#check fst
+
+snd : (A : U) -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst A B p)
+snd := \A. \B. \p. ind[(a : A) x B a](p. B (fst A B p), a. b. b, p)
+
+#check snd

@@ -1,19 +1,7 @@
--- Identity
-id : (A : U) -> A -> A
-id := \A. \a. a
+#include "test/TestPrograms/basic"
 
-#check id (T x T) (*, *)
-
--- Projections
-fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A
-fst := \A. \B. \p. ind[(a : A) x B a](A, a. b. a, p)
-
-#check fst
-
-snd : (A : U) -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst A B p)
-snd := \A. \B. \p. ind[(a : A) x B a](p. B (fst A B p), a. b. b, p)
-
-#check snd
+#check id
+#check id T *
 
 -- Type theoretic axiom of choice
 ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> (R a (f a))))
