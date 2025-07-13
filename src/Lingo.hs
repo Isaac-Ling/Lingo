@@ -5,6 +5,7 @@ import IO.Args
 import IO.Source
 import Core.Program ( run )
 import Parsing.Parser ( parse )
+import System.Directory ( makeAbsolute )
 
 import System.Environment (getArgs)
 
@@ -34,7 +35,8 @@ runFile s = do
     err      -> exitWith err
 
   -- Run
-  result <- run program
+  file <- makeAbsolute s
+  result <- run program file
 
   -- Output result
   exitWith result

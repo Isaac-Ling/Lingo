@@ -8,19 +8,23 @@ import Core.Judgement.Evaluation
 import IO.Source ( readSource )
 import Parsing.Parser
 
+import Control.Monad (when)
+import System.Directory ( makeAbsolute )
 import Control.Monad.Reader
-import Data.ByteString.Lazy.Char8 (ByteString, unpack)
+import Data.ByteString.Lazy.Char8 ( ByteString, unpack )
 
-type Runtime a = ReaderT (Environment, Context) (CanErrorT IO) a
+type Includes = [FilePath]
 
-run :: Program -> IO (CanError ())
-run p = runCanErrorT $ runReaderT (go p) ([], [])
+type Runtime a = ReaderT (Environment, Context, [FilePath]) (CanErrorT IO) a
+
+run :: Program -> FilePath -> IO (CanError ())
+run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
   where
     go :: Program -> Runtime ()
     go []                    = success
 
     go (Def (x, m'):ds)       = do
-      (env, ctx) <- ask
+      (env, ctx, is) <- ask
 
       case lookup x env of
         Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
@@ -35,7 +39,7 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
       local (addToRuntime (x, m) (x, t)) (go ds)
 
     go (Signature (x, t'):ds) = do
-      (env, ctx) <- ask
+      (env, ctx, _) <- ask
 
       let t = toDeBruijn t'
       tt <- tryRun $ inferType env ctx t
@@ -48,7 +52,7 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
         _       -> p
 
     go (Pragma (Check m'):ds) = do
-      (env, ctx) <- ask
+      (env, ctx, _) <- ask
 
       let m = toDeBruijn m'
       t <- tryRun $ inferType env ctx m
@@ -58,20 +62,26 @@ run p = runCanErrorT $ runReaderT (go p) ([], [])
       go ds
 
     go (Pragma (Include f):ds) = do
-      (env, ctx) <- ask
+      (_, _, inc) <- ask
 
-      let file = f ++ ".lingo"
+      let includeWithExtension = f ++ ".lingo"
 
-      msource <- liftIO $ readSource file
-      source <- case msource of
-        Result s -> return s
-        err      -> lift $ CanErrorT $ return err
+      file <- liftIO $ makeAbsolute includeWithExtension
 
-      program <- case parse source of
-        Result p -> return p
-        err      -> lift $ CanErrorT $ return err
+      -- Ensure file has not been included already
+      if file `elem` inc
+      then abort CircularDependency $ Just ("Circular dependency on the file " ++ file)
+      else do
+        msource <- liftIO $ readSource file
+        source <- case msource of
+          Result s -> return s
+          err      -> lift $ CanErrorT $ return err
 
-      go (program ++ ds)
+        program <- case parse source of
+          Result p -> return p
+          err      -> lift $ CanErrorT $ return err
+
+        local (addToIncludes file) (go (program ++ ds))
 
 tryRun :: CanError a -> Runtime a
 tryRun = lift . CanErrorT . return
@@ -82,13 +92,16 @@ success = return ()
 abort :: ErrorCode -> Maybe String -> Runtime ()
 abort errc ms = lift $ CanErrorT $ return $ Error errc ms
 
-addToEnv :: Alias -> ((Environment, a) -> (Environment, a))
-addToEnv def (env, a) = (def : env, a)
+addToEnv :: Alias -> ((Environment, a, b) -> (Environment, a, b))
+addToEnv def (env, a, b) = (def : env, a, b)
 
-addToCtx :: Assumption -> ((a, Context) -> (a, Context))
-addToCtx sig (a, ctx) = (a, sig : ctx)
+addToCtx :: Assumption -> ((a, Context, c) -> (a, Context, c))
+addToCtx sig (a, ctx, c) = (a, sig : ctx, c)
 
-addToRuntime :: Alias -> Assumption -> ((Environment, Context) -> (Environment, Context))
+addToIncludes :: FilePath -> ((a, b, Includes) -> (a, b, Includes))
+addToIncludes f (a, b, inc) = (a, b, f : inc)
+
+addToRuntime :: Alias -> Assumption -> ((Environment, Context, a) -> (Environment, Context, a))
 addToRuntime def sig = addToCtx sig . addToEnv def
 
 instance Show Declaration where
@@ -98,3 +111,4 @@ instance Show Declaration where
 
 instance Show Pragma where
   show (Check m') = "#check " ++ show (toDeBruijn m')
+  show (Include f) = "#include " ++ f
