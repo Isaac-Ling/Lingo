@@ -39,3 +39,11 @@ double := \n. ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
 # Pragmas
 
 Use the `#check` pragma to print out the normal form of the term supplied, along with it's type.
+
+Use the `#include` pragma to include another Lingo source file. For example,
+
+```
+#include "foo"
+```
+
+Will mean that the source of `foo.lingo` is included at the location of the include statement.
