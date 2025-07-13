@@ -1,0 +1,24 @@
+-- Boolean
+Bool := T + T
+
+#check Bool
+
+true : Bool
+true := inl(*)
+
+false : Bool
+false := inr(*)
+
+#check true
+#check false
+
+-- Conditional
+ifThenElse : (C : U) -> Bool -> C -> C -> C
+ifThenElse := \C. \b. \cT. \c2. ind[Bool](C, a. cT, b. c2, b)
+
+#check ifThenElse
+
+not : Bool -> Bool
+not := \b. ifThenElse Bool b false true
+
+#check not false

@@ -5,6 +5,8 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 data Token
   -- Identifiers
   = TkVar ByteString
+  -- Strings
+  | TkString ByteString
   -- Punctuation
   | TkBackslash
   | TkDot
@@ -30,6 +32,7 @@ data Token
   | TkUniv Integer
   | TkInd
   | TkCheck
+  | TkInclude
   | TkInr
   | TkInl
   | TkRefl

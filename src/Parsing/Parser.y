@@ -5,10 +5,9 @@ import Lexing.Lexer
 import Lexing.Tokens
 import Core.Term
 import Core.Error
-import Core.Program
 
 import Data.Char
-import Data.ByteString.Lazy.Char8 (ByteString, pack)
+import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 }
 
 %name parser
@@ -19,33 +18,35 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 --%expect 0
 
 %token
-  '\n'    { PositionedToken TkNewL _ }
-  '\\'    { PositionedToken TkBackslash _ }
-  '.'     { PositionedToken TkDot _ }
-  ','     { PositionedToken TkComma _ }
-  'x'     { PositionedToken TkCross _ }
-  '+'     { PositionedToken TkPlus _ }
-  '('     { PositionedToken TkLParen _ }
-  ')'     { PositionedToken TkRParen _ }
-  '['     { PositionedToken TkLSqParen _ }
-  ']'     { PositionedToken TkRSqParen _ }
-  ':='    { PositionedToken TkColonEqual _ }
-  ':'     { PositionedToken TkColon _ }
-  '='     { PositionedToken TkEq _ }
-  '->'    { PositionedToken TkRArrow _ }
-  '*'     { PositionedToken TkStar _ }
-  'ind'   { PositionedToken TkInd pos }
-  'check' { PositionedToken TkCheck _ }
-  'inl'   { PositionedToken TkInl _ }
-  'inr'   { PositionedToken TkInr _ }
-  'refl'  { PositionedToken TkRefl _ }
-  'Nat'   { PositionedToken TkNat _ }
-  'succ'  { PositionedToken TkSucc _ }
-  'T'     { PositionedToken (TkTop) _ }
-  '_|_'   { PositionedToken (TkBot) _ }
-  univ    { PositionedToken (TkUniv $$) _ }
-  var     { PositionedToken (TkVar $$) _ }
-  int     { PositionedToken (TkInt $$) _ }
+  '\n'      { PositionedToken TkNewL _ }
+  '\\'      { PositionedToken TkBackslash _ }
+  '.'       { PositionedToken TkDot _ }
+  ','       { PositionedToken TkComma _ }
+  'x'       { PositionedToken TkCross _ }
+  '+'       { PositionedToken TkPlus _ }
+  '('       { PositionedToken TkLParen _ }
+  ')'       { PositionedToken TkRParen _ }
+  '['       { PositionedToken TkLSqParen _ }
+  ']'       { PositionedToken TkRSqParen _ }
+  ':='      { PositionedToken TkColonEqual _ }
+  ':'       { PositionedToken TkColon _ }
+  '='       { PositionedToken TkEq _ }
+  '->'      { PositionedToken TkRArrow _ }
+  '*'       { PositionedToken TkStar _ }
+  'ind'     { PositionedToken TkInd pos }
+  'check'   { PositionedToken TkCheck _ }
+  'include' { PositionedToken TkInclude _ }
+  'inl'     { PositionedToken TkInl _ }
+  'inr'     { PositionedToken TkInr _ }
+  'refl'    { PositionedToken TkRefl _ }
+  'Nat'     { PositionedToken TkNat _ }
+  'succ'    { PositionedToken TkSucc _ }
+  'T'       { PositionedToken (TkTop) _ }
+  '_|_'     { PositionedToken (TkBot) _ }
+  univ      { PositionedToken (TkUniv $$) _ }
+  var       { PositionedToken (TkVar $$) _ }
+  int       { PositionedToken (TkInt $$) _ }
+  string    { PositionedToken (TkString $$) _ }
 
 %nonassoc ':='
 %nonassoc ':' '.' ','
@@ -75,7 +76,8 @@ Signature :: { NamedAssumption }
   : var ':' Term { ($1, $3) }
 
 Pragma :: { Pragma }
-  : 'check' Term { Check $2 }
+  : 'check' Term     { Check $2 }
+  | 'include' string { Include $ unpack $2 }
 
 Term :: { NamedTerm }
   : '(' Term ')' { $2 }
@@ -157,6 +159,17 @@ Induction :: { NamedTerm }
   }
 
 {
+data Pragma
+  = Check NamedTerm
+  | Include FilePath
+
+data Declaration
+  = Def NamedAlias
+  | Signature NamedAssumption
+  | Pragma Pragma
+
+type Program = [Declaration]
+
 parseError :: PositionedToken -> Alex a
 parseError t = alexError ("Parsing error at line " ++ show (fst $ ptPosition t) ++ ", column " ++ show (snd $ ptPosition t))
 

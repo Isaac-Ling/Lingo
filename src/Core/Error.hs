@@ -11,6 +11,7 @@ data ErrorCode
   | FailedToInferType
   | TypeMismatch
   | DuplicateDefinitions
+  | CircularDependency
   deriving Eq
 
 data CanError a
@@ -68,6 +69,7 @@ instance Show ErrorCode where
   show FailedToInferType              = "Failed to infer type"
   show TypeMismatch                   = "Type mismatch"
   show DuplicateDefinitions           = "Duplicate definitions"
+  show CircularDependency             = "Circular dependency"
 
 instance Show (CanError a) where
   show (Result a)            = "Success (0)"
@@ -82,6 +84,7 @@ getErrorCode SyntaxError                    = 4
 getErrorCode FailedToInferType              = 5
 getErrorCode TypeMismatch                   = 6
 getErrorCode DuplicateDefinitions           = 7
+getErrorCode CircularDependency             = 8
 
 errorWith :: CanError a -> b
 errorWith e = errorWithoutStackTrace ("Program exited with: " ++ show e)
