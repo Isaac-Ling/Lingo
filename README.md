@@ -22,7 +22,7 @@ An implementation of Martin-Löf Type Theory, following closely to the Homotopy 
 | Natural Number   | $4$                  | `4`              |
 | Successor        | $\text{succ}(4)$     | `succ(4)`        |
 | Identity         | $A = B$              | `A = B`          |
-| Reflexivity      | $\text{refl}$        | `refl`           |
+| Reflexivity      | $\text{refl}_A$      | `refl[A]`        |
 | Universe         | $\text{Univ}_2$      | `U2`             |
 | Type annotation  | $a : A$              | `a : A`          |
 | Definition       | $a := \text{foo}$    | `a := foo`       |
