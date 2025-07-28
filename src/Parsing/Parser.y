@@ -35,6 +35,8 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
   '*'       { PositionedToken TkStar _ }
   'ind'     { PositionedToken TkInd pos }
   'check'   { PositionedToken TkCheck _ }
+  'type'    { PositionedToken TkType _ }
+  'eval'    { PositionedToken TkEval _ }
   'include' { PositionedToken TkInclude _ }
   'inl'     { PositionedToken TkInl _ }
   'inr'     { PositionedToken TkInr _ }
@@ -77,6 +79,8 @@ Signature :: { NamedAssumption }
 
 Pragma :: { Pragma }
   : 'check' Term     { Check $2 }
+  | 'type' Term      { Type $2 }
+  | 'eval' Term      { Eval $2 }
   | 'include' string { Include $ unpack $2 }
 
 Term :: { NamedTerm }
@@ -161,6 +165,8 @@ Induction :: { NamedTerm }
 {
 data Pragma
   = Check NamedTerm
+  | Type NamedTerm
+  | Eval NamedTerm
   | Include FilePath
 
 data Declaration

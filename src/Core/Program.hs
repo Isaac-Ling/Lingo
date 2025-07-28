@@ -61,6 +61,25 @@ run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
 
       go ds
 
+    go (Pragma (Type m'):ds) = do
+      (env, ctx, _) <- ask
+
+      let m = toDeBruijn m'
+      t <- tryRun $ inferType env ctx m
+      liftIO $ putStrLn (show m ++ " : " ++ show t)
+
+      go ds
+
+    go (Pragma (Eval m'):ds) = do
+      (env, ctx, _) <- ask
+
+      let m = toDeBruijn m'
+      t <- tryRun $ inferType env ctx m
+      let ert = eval $ elaborate env m
+      liftIO $ putStrLn (show m ++ " =>* " ++ show ert)
+
+      go ds
+
     go (Pragma (Include f):ds) = do
       (_, _, inc) <- ask
 
