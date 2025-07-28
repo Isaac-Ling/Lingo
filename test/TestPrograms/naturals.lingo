@@ -51,4 +51,4 @@ addCommLemma := \a. \b. ind[Nat](n. add n succ(b) = add succ(n) b, refl[succ(b)]
 addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
 addComm := \a. \b. ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans Nat (add a succ(m)) (add succ(a) m) (add succ(m) a) (addCommLemma a m) (cong Nat (add a m) (add m a) g Nat (\(n : Nat). succ(n))), b)
 
-#check addComm
+#type addComm

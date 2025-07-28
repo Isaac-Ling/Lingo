@@ -32,6 +32,8 @@ data Token
   | TkUniv Integer
   | TkInd
   | TkCheck
+  | TkType
+  | TkEval
   | TkInclude
   | TkInr
   | TkInl
