@@ -7,15 +7,3 @@
 -- Type theoretic axiom of choice
 ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> (R a (f a))))
 ac := \A. \B. \R. \g. (\(a : A). fst B (\(b : B). R a b) (g a), \(a : A). snd B (\(b : B). R a b) (g a))
-
-#check ac
-
-Fin : Nat -> U
-Fin := \n. ind[Nat](U, _|_, m. g. T + g, n)
-
-#check Fin 2
-
-fmax : (n : Nat) -> Fin (add n 1)
-fmax := \n. ind[Nat](m. Fin (add m 1), inl(*), m. g. inl(*), n)
-
-#check fmax
