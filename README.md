@@ -40,6 +40,8 @@ double := \n. ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
 
 Use the `#check` pragma to print out the normal form of the term supplied, along with it's type.
 
+Using `#type` will print out the type of the given term, and `#eval` will print out the normal form of the given term.
+
 Use the `#include` pragma to include another Lingo source file. For example,
 
 ```
