@@ -40,6 +40,8 @@ data Token
   | TkRefl
   | TkNat
   | TkSucc
+  | TkFunext
+  | TkUnivalence
   -- Misc
   | TkNewL
   | TkEOF

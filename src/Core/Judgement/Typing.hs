@@ -129,6 +129,15 @@ runInferType (Succ m)                                  = do
     Nat -> return Nat
     _   -> typeError FailedToInferType (Just ("Cannot apply succ to a term of type " ++ showTermWithContext bctx mt))
 
+runInferType (Funext p)                                = do
+  (_, bctx, _) <- ask
+
+  pt <- runInferType p
+
+  case pt of
+    Pi _ (Id _ (App f (Var (Bound 0))) (App g (Var (Bound 0)))) -> return $ Id Nothing f g
+    _                                                           -> typeError FailedToInferType (Just ("Cannot apply funext to a term of type " ++ showTermWithContext bctx pt))
+
 runInferType (IdFam t)                                 = do
   (_, bctx, _) <- ask
 

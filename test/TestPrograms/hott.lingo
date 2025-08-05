@@ -1,0 +1,8 @@
+-- Function extensionality
+
+f : T -> T
+g : T -> T
+
+p : (a : T) -> f a = g a
+
+#check funext(p)

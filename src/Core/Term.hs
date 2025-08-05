@@ -29,6 +29,7 @@ data NamedTerm
   | NSum NamedTerm NamedTerm
   | NInr NamedTerm
   | NInl NamedTerm
+  | NFunext NamedTerm
   | NRefl NamedTerm
   | NPi NamedAnonBinder NamedTerm
   | NIdFam NamedTerm
@@ -70,6 +71,7 @@ data Term
   | Sum Term Term
   | Inl Term
   | Inr Term
+  | Funext Term
   | Refl Term
   | Pi AnonBinder Term
   | IdFam Term

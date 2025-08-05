@@ -43,6 +43,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
   'refl'    { PositionedToken TkRefl _ }
   'Nat'     { PositionedToken TkNat _ }
   'succ'    { PositionedToken TkSucc _ }
+  'funext'  { PositionedToken TkFunext _ }
   'T'       { PositionedToken (TkTop) _ }
   '_|_'     { PositionedToken (TkBot) _ }
   univ      { PositionedToken (TkUniv $$) _ }
@@ -56,7 +57,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ'
+%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext'
 %nonassoc APP
 
 %%
@@ -97,6 +98,7 @@ Term :: { NamedTerm }
   | Pair         { $1 }
   | NatNums      { $1 }
   | Induction    { $1 }
+  | Funext       { $1 }
   | '*'          { NStar }
 
 Application :: { NamedTerm }
@@ -136,6 +138,9 @@ NatNums :: { NamedTerm }
   : 'Nat'               { NNat }
   | 'succ' '(' Term ')' { NSucc $3 }
   | int                 { parseNum $1 }
+
+Funext :: { NamedTerm }
+  : 'funext' '(' Term ')' { NFunext $3 }
 
 BoundTerm :: { NamedBoundTerm }
   : Term              { NNoBind $1 }
