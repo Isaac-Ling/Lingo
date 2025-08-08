@@ -1,4 +1,3 @@
-
 -- Identity Equivalence Relation
 idRefl : (A : U) -> (a : A) -> a = a
 idRefl := \A. \a. refl[a]

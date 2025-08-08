@@ -1,8 +1,12 @@
 -- Function extensionality
 
 f : T -> T
+f := \a. a
+
 g : T -> T
+g := \b. b
 
 p : (a : T) -> f a = g a
+p := \c. refl[c]
 
 #check funext(p)
