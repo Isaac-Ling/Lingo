@@ -38,6 +38,7 @@ toDeBruijn = go []
     go bs (NInl m)              = Inl $ go bs m
     go bs (NInr m)              = Inr $ go bs m
     go bs (NFunext p)           = Funext $ go bs p
+    go bs (NUnivalence f)       = Univalence $ go bs f
     go bs (NRefl m)             = Refl $ go bs m
     go bs NStar                 = Star
 
@@ -63,6 +64,7 @@ elaborate env (Refl m)             = Refl $ elaborate env m
 elaborate env (Succ m)             = Succ $ elaborate env m
 elaborate env (IdFam t)            = IdFam $ elaborate env t
 elaborate env (Funext p)           = Funext $ elaborate env p
+elaborate env (Univalence a)       = Univalence $ elaborate env a
 elaborate env (Id mt m n)          = Id (fmap (elaborate env) mt) (elaborate env m) (elaborate env n)
 elaborate env (Ind t m c a)        = Ind (elaborate env t) (elaborateBoundTerm env m) (map (elaborateBoundTerm env) c) (elaborate env a)
   where
@@ -94,7 +96,8 @@ shift k = go k 0
     go k l (Inr m)              = Inr $ go k l m
     go k l (Succ m)             = Succ $ go k l m
     go k l (Refl m)             = Refl $ go k l m
-    go k l (Funext p)           = Funext (go k l p)
+    go k l (Funext p)           = Funext $ go k l p
+    go k l (Univalence a)       = Funext $ go k l a
     go k l (Ind t m c a)        = Ind (go k l t) (shiftInBoundTerm k l m) (map (shiftInBoundTerm k l) c) (go k l a)
     go k l m                    = m
 
@@ -130,7 +133,8 @@ openFor m k (Inl n)              = Inl $ openFor m k n
 openFor m k (Inr n)              = Inr $ openFor m k n
 openFor m k (Refl n)             = Refl $ openFor m k n
 openFor m k (Succ n)             = Succ $ openFor m k n
-openFor m k (Funext p)           = Funext (openFor m k p)
+openFor m k (Funext p)           = Funext $ openFor m k p
+openFor m k (Univalence a)       = Univalence $ openFor m k a
 openFor m k (Ind t m' c a)       = Ind (openFor m k t) (openInBoundTerm m k m') (map (openInBoundTerm m k) c) (openFor m k a)
   where
     openInBoundTerm :: Term -> Int -> BoundTerm -> BoundTerm
@@ -175,6 +179,7 @@ showTermWithBinders bs (Inl m)                       = "inl(" ++ showTermWithBin
 showTermWithBinders bs (Inr m)                       = "inr(" ++ showTermWithBinders bs m ++ ")"
 showTermWithBinders bs (Refl m)                      = "refl[" ++ showTermWithBinders bs m ++ "]"
 showTermWithBinders bs (Funext p)                    = "funext(" ++ showTermWithBinders bs p ++ ")"
+showTermWithBinders bs (Univalence a)                = "univalence(" ++ showTermWithBinders bs a ++ ")"
 showTermWithBinders bs (Pi (Nothing, Pi (y, t) m) n) = "(" ++ showTermWithBinders bs (Pi (y, t) m) ++ ") -> " ++ showTermWithBinders (Nothing : bs) n
 showTermWithBinders bs (Pi (Just x, t) m)            = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") -> " ++ showTermWithBinders (Just x : bs) m
 showTermWithBinders bs (Pi (Nothing, t) m)           = showTermWithBinders bs t ++ " -> " ++ showTermWithBinders (Nothing : bs) m

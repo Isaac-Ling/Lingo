@@ -1,5 +1,6 @@
--- Function extensionality
+#include "test/TestPrograms/basic"
 
+-- Function extensionality
 f : T -> T
 f := \a. a
 
@@ -10,3 +11,13 @@ p : (a : T) -> f a = g a
 p := \c. refl[c]
 
 #check funext(p)
+
+homotopic : (A : U) -> (B : U) -> (f : A -> B) -> (g : A -> B) -> U
+homotopic := \A. \B. \f. \g. (a : A) -> f a = g a
+
+#eval homotopic
+
+isequiv : (A : U) -> (B : U) -> (f : A -> B) -> U
+isequiv := \A. \B. \f. ((g : B -> A) x (homotopic B B (comp B A B g f) (id B))) x ((h : B -> A) x (homotopic A A (comp A B A f h) (id A)))
+
+#eval isequiv

@@ -30,6 +30,7 @@ data NamedTerm
   | NInr NamedTerm
   | NInl NamedTerm
   | NFunext NamedTerm
+  | NUnivalence NamedTerm
   | NRefl NamedTerm
   | NPi NamedAnonBinder NamedTerm
   | NIdFam NamedTerm
@@ -72,6 +73,7 @@ data Term
   | Inl Term
   | Inr Term
   | Funext Term
+  | Univalence Term
   | Refl Term
   | Pi AnonBinder Term
   | IdFam Term

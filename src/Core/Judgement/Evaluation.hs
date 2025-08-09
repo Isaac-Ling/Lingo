@@ -68,6 +68,8 @@ isNeutral (Inl m)                                                               
 isNeutral (Inr m)                                                               = isValue m
 isNeutral (Refl m)                                                              = isValue m
 isNeutral (Succ n)                                                              = isValue n
+isNeutral (Funext p)                                                            = isValue p
+isNeutral (Univalence a)                                                        = isValue a
 isNeutral (Ind Top _ [NoBind _] _)                                              = False
 isNeutral (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))           = False
 isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a))      = False
@@ -105,6 +107,8 @@ instance Eq Term where
       Top === Top                               = True
       Zero === Zero                             = True
       Succ m === Succ n                         = m == n
+      Funext p === Funext q                     = p == q
+      Univalence a === Univalence b             = a == b
       Sum m n === Sum m' n'                     = m == m' && n == n'
       IdFam t === IdFam t'                      = t == t'
       Id _ m n === Id _ m' n'                   = m == m' && n == n'

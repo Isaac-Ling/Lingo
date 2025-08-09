@@ -14,3 +14,6 @@ snd : (A : U) -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst A B p)
 snd := \A. \B. \p. ind[(a : A) x B a](p. B (fst A B p), a. b. b, p)
 
 #check snd
+
+comp : (A : U) -> (B : U) -> (C : U) -> (A -> B) -> (B -> C) -> A -> C
+comp := \A. \B. \C. \f. \g. \a. g (f a)

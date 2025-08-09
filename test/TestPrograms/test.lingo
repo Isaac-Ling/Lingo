@@ -3,14 +3,15 @@
 #include "test/TestPrograms/terminal"
 #include "test/TestPrograms/identity"
 #include "test/TestPrograms/naturals"
-#include "test/TestPrograms/hott"
 
 -- Type theoretic axiom of choice
 ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> (R a (f a))))
 ac := \A. \B. \R. \g. (\(a : A). fst B (\(b : B). R a b) (g a), \(a : A). snd B (\(b : B). R a b) (g a))
 
+#check ac
+
 -- Transport
-transport : (A : U) -> (P : (y : A) -> U) -> (a : A) -> (b : A) -> a = b -> P a -> P b
+transport : (A : U) -> (P : A -> U) -> (a : A) -> (b : A) -> a = b -> P a -> P b
 transport := \A. \P. \a. \b. \p. ind[=[A]](a. b. p. P a -> P b, z. id (P z), a, b, p)
 
 #check transport

@@ -138,6 +138,15 @@ runInferType (Funext p)                                = do
     Pi _ (Id _ (App f (Var (Bound 0))) (App g (Var (Bound 0)))) -> return $ Id Nothing f g
     _                                                           -> typeError FailedToInferType (Just ("Cannot apply funext to a term of type " ++ showTermWithContext bctx pt))
 
+runInferType (Univalence f)                            = do
+  (_, bctx, _) <- ask
+
+  ft <- runInferType f
+
+  case ft of
+    Top -> return $ Top
+    _                                                           -> typeError FailedToInferType (Just ("Cannot apply funext to a term of type " ++ showTermWithContext bctx ft))
+
 runInferType (IdFam t)                                 = do
   (_, bctx, _) <- ask
 

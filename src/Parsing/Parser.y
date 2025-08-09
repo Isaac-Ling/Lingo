@@ -18,38 +18,39 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 --%expect 0
 
 %token
-  '\n'      { PositionedToken TkNewL _ }
-  '\\'      { PositionedToken TkBackslash _ }
-  '.'       { PositionedToken TkDot _ }
-  ','       { PositionedToken TkComma _ }
-  'x'       { PositionedToken TkCross _ }
-  '+'       { PositionedToken TkPlus _ }
-  '('       { PositionedToken TkLParen _ }
-  ')'       { PositionedToken TkRParen _ }
-  '['       { PositionedToken TkLSqParen _ }
-  ']'       { PositionedToken TkRSqParen _ }
-  ':='      { PositionedToken TkColonEqual _ }
-  ':'       { PositionedToken TkColon _ }
-  '='       { PositionedToken TkEq _ }
-  '->'      { PositionedToken TkRArrow _ }
-  '*'       { PositionedToken TkStar _ }
-  'ind'     { PositionedToken TkInd pos }
-  'check'   { PositionedToken TkCheck _ }
-  'type'    { PositionedToken TkType _ }
-  'eval'    { PositionedToken TkEval _ }
-  'include' { PositionedToken TkInclude _ }
-  'inl'     { PositionedToken TkInl _ }
-  'inr'     { PositionedToken TkInr _ }
-  'refl'    { PositionedToken TkRefl _ }
-  'Nat'     { PositionedToken TkNat _ }
-  'succ'    { PositionedToken TkSucc _ }
-  'funext'  { PositionedToken TkFunext _ }
-  'T'       { PositionedToken (TkTop) _ }
-  '_|_'     { PositionedToken (TkBot) _ }
-  univ      { PositionedToken (TkUniv $$) _ }
-  var       { PositionedToken (TkVar $$) _ }
-  int       { PositionedToken (TkInt $$) _ }
-  string    { PositionedToken (TkString $$) _ }
+  '\n'     { PositionedToken TkNewL _ }
+  '\\'     { PositionedToken TkBackslash _ }
+  '.'      { PositionedToken TkDot _ }
+  ','      { PositionedToken TkComma _ }
+  'x'      { PositionedToken TkCross _ }
+  '+'      { PositionedToken TkPlus _ }
+  '('      { PositionedToken TkLParen _ }
+  ')'      { PositionedToken TkRParen _ }
+  '['      { PositionedToken TkLSqParen _ }
+  ']'      { PositionedToken TkRSqParen _ }
+  ':='     { PositionedToken TkColonEqual _ }
+  ':'      { PositionedToken TkColon _ }
+  '='      { PositionedToken TkEq _ }
+  '->'     { PositionedToken TkRArrow _ }
+  '*'      { PositionedToken TkStar _ }
+  'ind'    { PositionedToken TkInd pos }
+  'check'  { PositionedToken TkCheck _ }
+  'type'   { PositionedToken TkType _ }
+  'eval'   { PositionedToken TkEval _ }
+  'include'{ PositionedToken TkInclude _ }
+  'inl'    { PositionedToken TkInl _ }
+  'inr'    { PositionedToken TkInr _ }
+  'refl'   { PositionedToken TkRefl _ }
+  'Nat'    { PositionedToken TkNat _ }
+  'succ'   { PositionedToken TkSucc _ }
+  'funext' { PositionedToken TkFunext _ }
+  'ua'     { PositionedToken TkUnivalence _ }
+  'T'      { PositionedToken (TkTop) _ }
+  '_|_'    { PositionedToken (TkBot) _ }
+  univ     { PositionedToken (TkUniv $$) _ }
+  var      { PositionedToken (TkVar $$) _ }
+  int      { PositionedToken (TkInt $$) _ }
+  string   { PositionedToken (TkString $$) _ }
 
 %nonassoc ':='
 %nonassoc ':' '.' ','
@@ -57,7 +58,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext'
+%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua'
 %nonassoc APP
 
 %%
@@ -99,6 +100,7 @@ Term :: { NamedTerm }
   | NatNums      { $1 }
   | Induction    { $1 }
   | Funext       { $1 }
+  | Univalence   { $1 }
   | '*'          { NStar }
 
 Application :: { NamedTerm }
@@ -141,6 +143,9 @@ NatNums :: { NamedTerm }
 
 Funext :: { NamedTerm }
   : 'funext' '(' Term ')' { NFunext $3 }
+
+Univalence :: { NamedTerm }
+  : 'ua' '(' Term ')' { NUnivalence $3 }
 
 BoundTerm :: { NamedBoundTerm }
   : Term              { NNoBind $1 }
