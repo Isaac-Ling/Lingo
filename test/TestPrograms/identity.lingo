@@ -22,3 +22,9 @@ cong : (A : U) -> (a : A) -> (b : A) -> a = b -> (B : U) -> (f : A -> B) -> f a 
 cong := \A. \a. \b. \p. \B. \f. ind[=[A]](a. b. p. f a = f b, z. refl[f z], a, b, p)
 
 #check cong
+
+-- Transport
+transport : (A : U) -> (P : A -> U) -> (a : A) -> (b : A) -> a = b -> P a -> P b
+transport := \A. \P. \a. \b. \p. ind[=[A]](a. b. p. P a -> P b, z. id (P z), a, b, p)
+
+#check transport
