@@ -50,7 +50,7 @@ runInferType (Var (Free x))                            = do
     Just t  -> return t
     Nothing -> typeError FailedToInferType (Just ("Unknown variable " ++ show x))
 
-runInferType (Pi (x, t, _) m)                             = do
+runInferType (Pi (x, t, _) m)                        = do
   ctxs <- ask
 
   tt <- runInferType t
@@ -320,7 +320,11 @@ runCheckType m (Var (Free x))                    = do
       return $ Var $ Free x
     Nothing -> checkInferredTypeMatch m (Var $ Free x)
 
-runCheckType (Lam (x, Just t) m) (Pi (x', t', _) n) = do
+runCheckType m (Pi (mx, t', Imp) n) = case mx of
+  Just x -> runCheckType (Lam (x, Just t') $ bumpUp m) (Pi (mx, t', Exp) n)
+  _      -> typeError FailedToInferType $ Just "Implicit type cannot be unnamed"
+
+runCheckType (Lam (x, Just t) m) (Pi (x', t', Exp) n) = do
   ctxs <- ask
 
   tt  <- runInferType t

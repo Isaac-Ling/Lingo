@@ -21,9 +21,9 @@ run :: Program -> FilePath -> IO (CanError ())
 run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
   where
     go :: Program -> Runtime ()
-    go []                    = success
+    go []                      = success
 
-    go (Def (x, m'):ds)       = do
+    go (Def (x, m'):ds)        = do
       (env, ctx, is) <- ask
 
       case lookup x env of
@@ -32,13 +32,15 @@ run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
 
       let m = toDeBruijn m'
 
-      t <- case lookup x ctx of
-        Just t -> tryRun $ checkType env ctx m t
-        _      -> tryRun $ inferType env ctx m
+      case lookup x ctx of
+        Just t -> do
+          tryRun $ checkType env ctx m t
+          local (addToEnv (x, m)) (go ds)
+        _      -> do
+          t <- tryRun $ inferType env ctx m
+          local (addToRuntime (x, m) (x, t)) (go ds)
 
-      local (addToRuntime (x, m) (x, t)) (go ds)
-
-    go (Signature (x, t'):ds) = do
+    go (Signature (x, t'):ds)  = do
       (env, ctx, _) <- ask
 
       let t = toDeBruijn t'
@@ -51,7 +53,7 @@ run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))
         _       -> p
 
-    go (Pragma (Check m'):ds) = do
+    go (Pragma (Check m'):ds)  = do
       (env, ctx, _) <- ask
 
       let m = toDeBruijn m'
@@ -61,7 +63,7 @@ run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
 
       go ds
 
-    go (Pragma (Type m'):ds) = do
+    go (Pragma (Type m'):ds)   = do
       (env, ctx, _) <- ask
 
       let m = toDeBruijn m'
@@ -70,7 +72,7 @@ run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
 
       go ds
 
-    go (Pragma (Eval m'):ds) = do
+    go (Pragma (Eval m'):ds)   = do
       (env, ctx, _) <- ask
 
       let m = toDeBruijn m'

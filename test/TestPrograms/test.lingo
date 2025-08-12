@@ -1,4 +1,7 @@
 #include "test/TestPrograms/basic"
+
+#check id 42
+
 #include "test/TestPrograms/bool"
 #include "test/TestPrograms/terminal"
 #include "test/TestPrograms/identity"
