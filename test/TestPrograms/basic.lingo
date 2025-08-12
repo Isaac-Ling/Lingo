@@ -1,6 +1,6 @@
 -- Identity
-id : (A : U) -> A -> A
-id := \A. \a. a
+id : {A : U} -> A -> A
+id := \a. a
 
 #check id
 

@@ -2,13 +2,20 @@ module Core.Term where
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 
+data Explicitness
+  = Exp
+  | Imp
+
 -- Named source terms --
 
 type NamedAssumption = (ByteString, NamedTerm)
 type NamedAlias = (ByteString, NamedTerm)
 
-type NamedLambdaBinding = (ByteString, Maybe NamedTerm)
-type NamedAnonBinder = (Maybe ByteString, NamedTerm)
+type NamedBinder = (ByteString, NamedTerm)
+
+type NamedLambdaBinder = (ByteString, Maybe NamedTerm)
+type NamedSigmaBinder = (Maybe ByteString, NamedTerm)
+type NamedPiBinder = (Maybe ByteString, NamedTerm, Explicitness)
 
 data NamedBoundTerm
   = NNoBind NamedTerm
@@ -16,7 +23,7 @@ data NamedBoundTerm
 
 data NamedTerm
   = NVar ByteString
-  | NLam NamedLambdaBinding NamedTerm
+  | NLam NamedLambdaBinder NamedTerm
   | NApp NamedTerm NamedTerm
   | NStar
   | NPair NamedTerm NamedTerm
@@ -32,10 +39,10 @@ data NamedTerm
   | NFunext NamedTerm
   | NUnivalence NamedTerm
   | NRefl NamedTerm
-  | NPi NamedAnonBinder NamedTerm
+  | NPi NamedPiBinder NamedTerm
   | NIdFam NamedTerm
   | NId (Maybe NamedTerm) NamedTerm NamedTerm
-  | NSigma NamedAnonBinder NamedTerm
+  | NSigma NamedSigmaBinder NamedTerm
   | NInd NamedTerm NamedBoundTerm [NamedBoundTerm] NamedTerm
 
 -- De Bruijn Terms --
@@ -50,8 +57,11 @@ type Context = [Assumption]
 type Alias = (ByteString, Term)
 type Environment = [Alias]
 
-type LambdaBinding = (ByteString, Maybe Term)
-type AnonBinder = (Maybe ByteString, Term)
+type Binder = (ByteString, Term)
+
+type LambdaBinder = (ByteString, Maybe Term)
+type SigmaBinder = (Maybe ByteString, Term)
+type PiBinder = (Maybe ByteString, Term, Explicitness)
 
 data BoundTerm
   = NoBind Term
@@ -59,7 +69,7 @@ data BoundTerm
 
 data Term
   = Var Var
-  | Lam LambdaBinding Term
+  | Lam LambdaBinder Term
   | App Term Term
   | Star
   | Pair Term Term
@@ -75,9 +85,9 @@ data Term
   | Funext Term
   | Univalence Term
   | Refl Term
-  | Pi AnonBinder Term
+  | Pi PiBinder Term
   | IdFam Term
   | Id (Maybe Term) Term Term
-  | Sigma AnonBinder Term
+  | Sigma SigmaBinder Term
   -- Induction principle is of the form: Ind <What am I inducting over?> <Motive> <Required evidence> <Antecedent>
   | Ind Term BoundTerm [BoundTerm] Term

@@ -15,6 +15,8 @@ data Token
   | TkColon
   | TkLParen
   | TkRParen
+  | TkLCurlyParen
+  | TkRCurlyParen
   | TkLSqParen
   | TkRSqParen
   -- Symbols

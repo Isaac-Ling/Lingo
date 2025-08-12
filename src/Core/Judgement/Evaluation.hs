@@ -10,7 +10,7 @@ eval :: Term -> Term
 eval (Lam _ (App f (Var (Bound 0))))                                  = eval $ bumpDown f -- Eta conversion
 eval (Lam (x, Just t) m)                                              = Lam (x, Just $ eval t) (eval m)
 eval (Lam (x, Nothing) m)                                             = Lam (x, Nothing) (eval m)
-eval (Pi (x, t) m)                                                    = Pi (x, eval t) (eval m)
+eval (Pi (x, t, ex) m)                                                = Pi (x, eval t, ex) (eval m)
 eval (Sigma (x, t) m)                                                 = Sigma (x, eval t) (eval m)
 eval (Pair m n)                                                       = Pair (eval m) (eval n)
 eval (Sum m n)                                                        = Sum (eval m) (eval n)
@@ -52,7 +52,7 @@ isValue m         = isNeutral m
 isNeutral :: Term -> Bool
 isNeutral (Var x)                                                               = True
 isNeutral (App m n)                                                             = isNeutral m && isValue n
-isNeutral (Pi (_, t) m)                                                         = isValue t && isValue m
+isNeutral (Pi (_, t, _) m)                                                      = isValue t && isValue m
 isNeutral (Sigma (_, t) m)                                                      = isValue t && isValue m
 isNeutral (Sum m n)                                                             = isValue m && isValue n
 isNeutral (Pair m n)                                                            = isValue m && isValue n
@@ -113,7 +113,7 @@ instance Eq Term where
       IdFam t === IdFam t'                      = t == t'
       Id _ m n === Id _ m' n'                   = m == m' && n == n'
       Refl m === Refl n                         = m == n
-      Pi (_, t) m === Pi (_, t') n              = t == t' && m == n
+      Pi (_, t, _) m === Pi (_, t', _) n        = t == t' && m == n
       Sigma (_, t) m === Sigma (_, t') n        = t == t' && m == n
       Ind t m c a === Ind t' m' c' a'           = t == t' && m == m' && c == c' && a == a' 
       _ === _                                   = False

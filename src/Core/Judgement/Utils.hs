@@ -21,7 +21,7 @@ toDeBruijn = go []
       Nothing -> Var (Free x)
     go bs (NLam (x, Nothing) m) = Lam (x, Nothing) (go (Just x : bs) m)
     go bs (NLam (x, Just t) m)  = Lam (x, Just $ go bs t) (go (Just x : bs) m)
-    go bs (NPi (x, t) m)        = Pi (x, go bs t) (go (x : bs) m)
+    go bs (NPi (x, t, ex) m)    = Pi (x, go bs t, ex) (go (x : bs) m)
     go bs (NSigma (x, t) m)     = Sigma (x, go bs t) (go (x : bs) m)
     go bs (NApp m n)            = App (go bs m) (go bs n)
     go bs (NPair m n)           = Pair (go bs m) (go bs n)
@@ -53,7 +53,7 @@ elaborate env (Var (Free x))       = case lookup x env of
 elaborate env (Var (Bound i))      = Var $ Bound i
 elaborate env (Lam (x, Nothing) m) = Lam (x, Nothing) (elaborate env m)
 elaborate env (Lam (x, Just t) m)  = Lam (x, Just $ elaborate env t) (elaborate env m)
-elaborate env (Pi (x, t) m)        = Pi (x, elaborate env t) (elaborate env m)
+elaborate env (Pi (x, t, ex) m)    = Pi (x, elaborate env t, ex) (elaborate env m)
 elaborate env (Sigma (x, t) m)     = Sigma (x, elaborate env t) (elaborate env m)
 elaborate env (App m n)            = App (elaborate env m) (elaborate env n)
 elaborate env (Pair m n)           = Pair (elaborate env m) (elaborate env n)
@@ -85,7 +85,7 @@ shift k = go k 0
       | otherwise = Var $ Bound i
     go k l (Lam (x, Nothing) m) = Lam (x, Nothing) (go k (l + 1) m)
     go k l (Lam (x, Just t) m)  = Lam (x, Just $ go k l m) (go k (l + 1) m)
-    go k l (Pi (x, t) m)        = Pi (x, go k l t) (go k (l + 1)  m)
+    go k l (Pi (x, t, ex) m)    = Pi (x, go k l t, ex) (go k (l + 1) m)
     go k l (Sigma (x, t) m)     = Sigma (x, go k l t) (go k (l + 1) m)
     go k l (App m n)            = App (go k l m) (go k l n)
     go k l (Pair m n)           = Pair (go k l m) (go k l n)
@@ -122,7 +122,7 @@ openFor m k (Var (Bound i))
   | otherwise = Var $ Bound i
 openFor m k (Lam (x, Just t) n)  = Lam (x, Just $ openFor m k t) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Lam (x, Nothing) n) = Lam (x, Nothing) (openFor (bumpUp m) (k + 1) n)
-openFor m k (Pi (x, t) n)        = Pi (x, openFor m k t) (openFor (bumpUp m) (k + 1) n)
+openFor m k (Pi (x, t, ex) n)    = Pi (x, openFor m k t, ex) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Sigma (x, t) n)     = Sigma (x, openFor m k t) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Pair t n)           = Pair (openFor m k t) (openFor m k n)
 openFor m k (IdFam t)            = IdFam $ openFor m k t
@@ -180,11 +180,22 @@ showTermWithBinders bs (Inr m)                       = "inr(" ++ showTermWithBin
 showTermWithBinders bs (Refl m)                      = "refl[" ++ showTermWithBinders bs m ++ "]"
 showTermWithBinders bs (Funext p)                    = "funext(" ++ showTermWithBinders bs p ++ ")"
 showTermWithBinders bs (Univalence a)                = "univalence(" ++ showTermWithBinders bs a ++ ")"
-showTermWithBinders bs (Pi (Nothing, Pi (y, t) m) n) = "(" ++ showTermWithBinders bs (Pi (y, t) m) ++ ") -> " ++ showTermWithBinders (Nothing : bs) n
-showTermWithBinders bs (Pi (Just x, t) m)            = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") -> " ++ showTermWithBinders (Just x : bs) m
-showTermWithBinders bs (Pi (Nothing, t) m)           = showTermWithBinders bs t ++ " -> " ++ showTermWithBinders (Nothing : bs) m
 showTermWithBinders bs (Sigma (Just x, t) m)         = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") x " ++ showSigmaOperarands (Just x : bs) m
 showTermWithBinders bs (Sigma (Nothing, t) m)        = showSigmaOperarands bs t ++ " x " ++ showSigmaOperarands (Nothing : bs) m
+showTermWithBinders bs (Pi (x, t, ex) m)             = showPi bs (Pi (x, t, ex) m)
+  where
+    showPi :: Binders -> Term -> String
+    showPi bs (Pi (Nothing, Pi (y, t, ex') m, ex) n) = getExLParen ex ++ showPi bs (Pi (y, t, ex') m) ++ getExRParen ex ++ " -> " ++ showTermWithBinders (Nothing : bs) n
+    showPi bs (Pi (Just x, t, ex) m)                 = getExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ getExRParen ex ++ " -> " ++ showTermWithBinders (Just x : bs) m
+    showPi bs (Pi (Nothing, t, ex) m)                = showTermWithBinders bs t ++ " -> " ++ showTermWithBinders (Nothing : bs) m
+
+    getExLParen :: Explicitness -> String
+    getExLParen Exp = "("
+    getExLParen Imp = "{"
+
+    getExRParen :: Explicitness -> String
+    getExRParen Exp = ")"
+    getExRParen Imp = "}"
 showTermWithBinders bs (Succ m)
   | isNum m   = showNum (Succ m)
   | otherwise = showNonNum bs (Succ m)

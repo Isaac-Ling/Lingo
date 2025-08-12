@@ -26,6 +26,8 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
   '+'      { PositionedToken TkPlus _ }
   '('      { PositionedToken TkLParen _ }
   ')'      { PositionedToken TkRParen _ }
+  '{'      { PositionedToken TkLCurlyParen _ }
+  '}'      { PositionedToken TkRCurlyParen _ }
   '['      { PositionedToken TkLSqParen _ }
   ']'      { PositionedToken TkRSqParen _ }
   ':='     { PositionedToken TkColonEqual _ }
@@ -58,7 +60,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua'
+%nonassoc var univ int '(' '{' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua'
 %nonassoc APP
 
 %%
@@ -111,8 +113,9 @@ Abstraction :: { NamedTerm }
   | '\\' var '.' Term                  { NLam ($2, Nothing) $4 }
 
 PiType :: { NamedTerm }
-  : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4) $7 }
-  | Term '->' Term                 { NPi (Nothing, $1) $3 }
+  : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4, Exp) $7 }
+  | '{' var ':' Term '}' '->' Term { NPi (Just $2, $4, Imp) $7 }
+  | Term '->' Term                 { NPi (Nothing, $1, Exp) $3 }
 
 Terminal :: { NamedTerm }
   : 'T'          { NTop }
