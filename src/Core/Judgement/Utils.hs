@@ -46,32 +46,37 @@ toDeBruijn = go []
     boundTermToDeBruijn bs (NNoBind m) = NoBind $ go bs m
     boundTermToDeBruijn bs (NBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
 
-elaborate :: Environment -> Term -> Term
-elaborate env (Var (Free x))       = case lookup x env of
-  Just m  -> elaborate env m
+elaborate :: Term -> Term -> Term
+elaborate m (Pi (Just x, t, Imp) n) = Lam (x, Just t) $ elaborate m n
+elaborate m (Pi (Just x, t, Exp) n) = elaborate m n
+elaborate m _                       = m
+
+resolve :: Environment -> Term -> Term
+resolve env (Var (Free x))       = case lookup x env of
+  Just m  -> resolve env m
   Nothing -> Var $ Free x
-elaborate env (Var (Bound i))      = Var $ Bound i
-elaborate env (Lam (x, Nothing) m) = Lam (x, Nothing) (elaborate env m)
-elaborate env (Lam (x, Just t) m)  = Lam (x, Just $ elaborate env t) (elaborate env m)
-elaborate env (Pi (x, t, ex) m)    = Pi (x, elaborate env t, ex) (elaborate env m)
-elaborate env (Sigma (x, t) m)     = Sigma (x, elaborate env t) (elaborate env m)
-elaborate env (App m n)            = App (elaborate env m) (elaborate env n)
-elaborate env (Pair m n)           = Pair (elaborate env m) (elaborate env n)
-elaborate env (Sum m n)            = Sum (elaborate env m) (elaborate env n)
-elaborate env (Inl m)              = Inl $ elaborate env m
-elaborate env (Inr m)              = Inr $ elaborate env m
-elaborate env (Refl m)             = Refl $ elaborate env m
-elaborate env (Succ m)             = Succ $ elaborate env m
-elaborate env (IdFam t)            = IdFam $ elaborate env t
-elaborate env (Funext p)           = Funext $ elaborate env p
-elaborate env (Univalence a)       = Univalence $ elaborate env a
-elaborate env (Id mt m n)          = Id (fmap (elaborate env) mt) (elaborate env m) (elaborate env n)
-elaborate env (Ind t m c a)        = Ind (elaborate env t) (elaborateBoundTerm env m) (map (elaborateBoundTerm env) c) (elaborate env a)
+resolve env (Var (Bound i))      = Var $ Bound i
+resolve env (Lam (x, Nothing) m) = Lam (x, Nothing) (resolve env m)
+resolve env (Lam (x, Just t) m)  = Lam (x, Just $ resolve env t) (resolve env m)
+resolve env (Pi (x, t, ex) m)    = Pi (x, resolve env t, ex) (resolve env m)
+resolve env (Sigma (x, t) m)     = Sigma (x, resolve env t) (resolve env m)
+resolve env (App m n)            = App (resolve env m) (resolve env n)
+resolve env (Pair m n)           = Pair (resolve env m) (resolve env n)
+resolve env (Sum m n)            = Sum (resolve env m) (resolve env n)
+resolve env (Inl m)              = Inl $ resolve env m
+resolve env (Inr m)              = Inr $ resolve env m
+resolve env (Refl m)             = Refl $ resolve env m
+resolve env (Succ m)             = Succ $ resolve env m
+resolve env (IdFam t)            = IdFam $ resolve env t
+resolve env (Funext p)           = Funext $ resolve env p
+resolve env (Univalence a)       = Univalence $ resolve env a
+resolve env (Id mt m n)          = Id (fmap (resolve env) mt) (resolve env m) (resolve env n)
+resolve env (Ind t m c a)        = Ind (resolve env t) (resolveBoundTerm env m) (map (resolveBoundTerm env) c) (resolve env a)
   where
-    elaborateBoundTerm :: Environment -> BoundTerm -> BoundTerm
-    elaborateBoundTerm env (NoBind m) = NoBind $ elaborate env m
-    elaborateBoundTerm env (Bind x m) = Bind x $ elaborateBoundTerm env m
-elaborate env m                    = m
+    resolveBoundTerm :: Environment -> BoundTerm -> BoundTerm
+    resolveBoundTerm env (NoBind m) = NoBind $ resolve env m
+    resolveBoundTerm env (Bind x m) = Bind x $ resolveBoundTerm env m
+resolve env m                    = m
 
 shift :: Int -> Term -> Term
 shift k = go k 0

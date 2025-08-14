@@ -34,8 +34,9 @@ run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
 
       case lookup x ctx of
         Just t -> do
-          tryRun $ checkType env ctx m t
-          local (addToEnv (x, m)) (go ds)
+          let em = elaborate m t
+          tryRun $ checkType env ctx em t
+          local (addToEnv (x, em)) (go ds)
         _      -> do
           t <- tryRun $ inferType env ctx m
           local (addToRuntime (x, m) (x, t)) (go ds)
@@ -58,7 +59,7 @@ run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
 
       let m = toDeBruijn m'
       t <- tryRun $ inferType env ctx m
-      let ert = eval $ elaborate env m
+      let ert = eval $ resolve env m
       liftIO $ putStrLn (show m ++ " =>* " ++ show ert ++ " : " ++ show t)
 
       go ds
@@ -77,7 +78,7 @@ run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
 
       let m = toDeBruijn m'
       t <- tryRun $ inferType env ctx m
-      let ert = eval $ elaborate env m
+      let ert = eval $ resolve env m
       liftIO $ putStrLn (show m ++ " =>* " ++ show ert)
 
       go ds

@@ -2,7 +2,7 @@
 id : {A : U} -> A -> A
 id := \a. a
 
-#check id
+#check id 42
 
 -- Projections
 fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A

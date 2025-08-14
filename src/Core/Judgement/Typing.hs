@@ -308,7 +308,7 @@ runCheckEvaluatedType :: Term -> Term -> TypeCheck Term
 runCheckEvaluatedType m t = do
   ctxs <- ask
 
-  runCheckType m (eval $ elaborate (env ctxs) t)
+  runCheckType m (eval $ resolve (env ctxs) t)
 
 runCheckType :: Term -> Term -> TypeCheck Term
 runCheckType m (Var (Free x))                    = do
@@ -320,11 +320,7 @@ runCheckType m (Var (Free x))                    = do
       return $ Var $ Free x
     Nothing -> checkInferredTypeMatch m (Var $ Free x)
 
-runCheckType m (Pi (mx, t', Imp) n) = case mx of
-  Just x -> runCheckType (Lam (x, Just t') $ bumpUp m) (Pi (mx, t', Exp) n)
-  _      -> typeError FailedToInferType $ Just "Implicit type cannot be unnamed"
-
-runCheckType (Lam (x, Just t) m) (Pi (x', t', Exp) n) = do
+runCheckType (Lam (x, Just t) m) (Pi (x', t', _) n) = do
   ctxs <- ask
 
   tt  <- runInferType t
