@@ -21,10 +21,6 @@ data MetaSolution = MetaSolution
 
 type MetaContext = [(Int, MetaSolution)]
 
--- A constraint is an equality of the first term with the second
-type Constraint = (Term, Term)
-type Constraints = [Constraint]
-
 data Contexts = Contexts
   { env   :: Environment
   , ctx   :: Context
@@ -32,10 +28,14 @@ data Contexts = Contexts
   , tbctx :: BoundContext
   }
 
+-- A constraint is an equality of the first term with the second
+type Constraint = (Term, Term)
+type Constraints = [Constraint]
+
 data TypeState = TypeState
-  { csts  :: Constraints
-  , mctx  :: MetaContext
-  , meta  :: Int
+  { csts   :: Constraints
+  , mctx   :: MetaContext
+  , metaID :: Int
   }
 
 type TypeCheck a = ReaderT Contexts (StateT TypeState CanError) a
@@ -44,13 +44,13 @@ inferType :: Environment -> Context -> Term -> CanError Term
 inferType env ctx m = evalStateT (runReaderT (runInferType m) initContexts) initState
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
-    initState    = TypeState { csts=[], mctx=[], meta=0 }
+    initState    = TypeState { csts=[], mctx=[], metaID=0 }
 
 checkType :: Environment-> Context -> Term -> Term -> CanError Term
 checkType env ctx m t = evalStateT (runReaderT (runCheckType m t) initContexts) initState
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
-    initState    = TypeState { csts=[], mctx=[], meta=0 }
+    initState    = TypeState { csts=[], mctx=[], metaID=0 }
 
 runInferType :: Term -> TypeCheck Term
 runInferType (Univ i)                                  = return $ Univ (i + 1)
@@ -119,10 +119,10 @@ runInferType (Lam (x, Nothing, ex) m)                  = do
 
 runInferType (App m n)                                 = do
   mt <- runInferType m
-  inferAppType (App m n) mt
+  inferAppType m n mt
     where
-      inferAppType :: Term -> Term -> TypeCheck Term
-      inferAppType (App m n) mt = do
+      inferAppType :: Term -> Term -> Term -> TypeCheck Term
+      inferAppType m n mt = do
         ctxs <- ask
 
         case mt of
@@ -137,16 +137,8 @@ runInferType (App m n)                                 = do
             let m'  = App m mv
             let m't = bumpDown $ open mv t'
 
-            inferAppTypeOverride (App m' n) m't
+            inferAppType m' n m't
           _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
-      inferAppType _ _          = typeError TypeMismatch $ Just "Cannot infer application type of a non application term"
-
-      inferAppTypeOverride :: Term -> Term -> TypeCheck Term
-      inferAppTypeOverride (App m n) mt = do
-        ctxs <- ask
-
-        inferAppType (App m n) mt
-      inferAppTypeOverride _ _          = typeError TypeMismatch $ Just "Cannot infer application type of a non application term"
 
 runInferType (Pair m n)                                = do
   mt <- runInferType m
@@ -496,8 +488,8 @@ useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 createMetaVar :: Term -> TypeCheck Term
 createMetaVar mt = do
   st <- get
-  let mid = meta st
-  put st { meta=mid + 1, mctx=(mid, MetaSolution { metaTerm=Nothing, metaType=mt }) : mctx st }
+  let mid = metaID st
+  put st { metaID=mid + 1, mctx=(mid, MetaSolution { metaTerm=Nothing, metaType=mt }) : mctx st }
 
   return $ Var $ Meta mid
 

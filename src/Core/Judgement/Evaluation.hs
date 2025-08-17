@@ -8,6 +8,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 eval :: Term -> Term
 eval (Lam _ (App f (Var (Bound 0))))                                  = eval $ bumpDown f -- Eta conversion
+eval (Lam (x, Just t, Imp) m)                                         = bumpDown $ eval m
 eval (Lam (x, Just t, ex) m)                                          = Lam (x, Just $ eval t, ex) (eval m)
 eval (Lam (x, Nothing, ex) m)                                         = Lam (x, Nothing, ex) (eval m)
 eval (Pi (x, t, ex) m)                                                = Pi (x, eval t, ex) (eval m)
