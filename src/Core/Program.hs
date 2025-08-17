@@ -5,13 +5,13 @@ import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Typing
 import Core.Judgement.Evaluation
-import IO.Source ( readSource )
+import IO.Source (readSource)
 import Parsing.Parser
 
 import Control.Monad (when)
-import System.Directory ( makeAbsolute )
+import System.Directory (makeAbsolute)
 import Control.Monad.Reader
-import Data.ByteString.Lazy.Char8 ( ByteString, unpack )
+import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
 type Includes = [FilePath]
 

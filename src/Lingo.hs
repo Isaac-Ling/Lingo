@@ -3,9 +3,9 @@ module Lingo (main) where
 import Core.Error
 import IO.Args
 import IO.Source
-import Core.Program ( run )
-import Parsing.Parser ( parse )
-import System.Directory ( makeAbsolute )
+import Core.Program (run)
+import Parsing.Parser (parse)
+import System.Directory (makeAbsolute)
 
 import System.Environment (getArgs)
 

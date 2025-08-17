@@ -109,8 +109,8 @@ Application :: { NamedTerm }
   : Term Term %prec APP { NApp $1 $2 }
 
 Abstraction :: { NamedTerm }
-  : '\\' '(' var ':' Term ')' '.' Term { NLam ($3, Just $5) $8 }
-  | '\\' var '.' Term                  { NLam ($2, Nothing) $4 }
+  : '\\' '(' var ':' Term ')' '.' Term { NLam ($3, Just $5, Exp) $8 }
+  | '\\' var '.' Term                  { NLam ($2, Nothing, Exp) $4 }
 
 PiType :: { NamedTerm }
   : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4, Exp) $7 }

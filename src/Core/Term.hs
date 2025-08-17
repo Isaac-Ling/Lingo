@@ -5,6 +5,7 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 data Explicitness
   = Exp
   | Imp
+  deriving (Eq)
 
 -- Named source terms --
 
@@ -13,7 +14,7 @@ type NamedAlias = (ByteString, NamedTerm)
 
 type NamedBinder = (ByteString, NamedTerm)
 
-type NamedLambdaBinder = (ByteString, Maybe NamedTerm)
+type NamedLambdaBinder = (ByteString, Maybe NamedTerm, Explicitness)
 type NamedSigmaBinder = (Maybe ByteString, NamedTerm)
 type NamedPiBinder = (Maybe ByteString, NamedTerm, Explicitness)
 
@@ -50,6 +51,7 @@ data NamedTerm
 data Var
   = Free ByteString
   | Bound Int
+  | Meta Int
 
 type Assumption = (ByteString, Term)
 type Context = [Assumption]
@@ -59,7 +61,7 @@ type Environment = [Alias]
 
 type Binder = (ByteString, Term)
 
-type LambdaBinder = (ByteString, Maybe Term)
+type LambdaBinder = (ByteString, Maybe Term, Explicitness)
 type SigmaBinder = (Maybe ByteString, Term)
 type PiBinder = (Maybe ByteString, Term, Explicitness)
 

@@ -2,24 +2,4 @@
 id : {A : U} -> A -> A
 id := \a. a
 
-#check id 42
-
--- Projections
-fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A
-fst := \A. \B. \p. ind[(a : A) x B a](A, a. b. a, p)
-
-#check fst
-
-snd : (A : U) -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst A B p)
-snd := \A. \B. \p. ind[(a : A) x B a](p. B (fst A B p), a. b. b, p)
-
-#check snd
-
-comp : (A : U) -> (B : U) -> (C : U) -> (A -> B) -> (B -> C) -> A -> C
-comp := \A. \B. \C. \f. \g. \a. g (f a)
-
--- Type theoretic axiom of choice
-ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> (R a (f a))))
-ac := \A. \B. \R. \g. (\(a : A). fst B (\(b : B). R a b) (g a), \(a : A). snd B (\(b : B). R a b) (g a))
-
-#check ac
+#check id 32

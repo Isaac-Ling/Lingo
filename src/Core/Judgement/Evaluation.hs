@@ -8,8 +8,8 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 eval :: Term -> Term
 eval (Lam _ (App f (Var (Bound 0))))                                  = eval $ bumpDown f -- Eta conversion
-eval (Lam (x, Just t) m)                                              = Lam (x, Just $ eval t) (eval m)
-eval (Lam (x, Nothing) m)                                             = Lam (x, Nothing) (eval m)
+eval (Lam (x, Just t, ex) m)                                          = Lam (x, Just $ eval t, ex) (eval m)
+eval (Lam (x, Nothing, ex) m)                                         = Lam (x, Nothing, ex) (eval m)
 eval (Pi (x, t, ex) m)                                                = Pi (x, eval t, ex) (eval m)
 eval (Sigma (x, t) m)                                                 = Sigma (x, eval t) (eval m)
 eval (Pair m n)                                                       = Pair (eval m) (eval n)
@@ -28,13 +28,13 @@ eval (App m n)
     f :: Term
     f = eval m
 eval (Ind Top _ [NoBind c] _)                                         = eval c
-eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))      = eval $ App (App (Lam (pack "w", Nothing) $ Lam (pack "y", Nothing) f) a) b
-eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a)) = eval $ App (Lam (pack "x", Nothing) c) a
-eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b)) = eval $ App (Lam (pack "y", Nothing) d) b
+eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))      = eval $ App (App (Lam (pack "w", Nothing, Exp) $ Lam (pack "y", Nothing, Exp) f) a) b
+eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a)) = eval $ App (Lam (pack "x", Nothing, Exp) c) a
+eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b)) = eval $ App (Lam (pack "y", Nothing, Exp) d) b
 eval (Ind Nat _ [NoBind c0, _] Zero)                                  = eval c0
-eval (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] (Succ n))           = eval $ App (App (Lam (pack "x", Nothing) $ Lam (pack "y", Nothing) cs) n) $ Ind Nat m [c0, Bind x (Bind y (NoBind cs))] n
+eval (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] (Succ n))           = eval $ App (App (Lam (pack "x", Nothing, Exp) $ Lam (pack "y", Nothing, Exp) cs) n) $ Ind Nat m [c0, Bind x (Bind y (NoBind cs))] n
 eval (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl a''))
-  | a == a' && a' == a'' = eval $ App (Lam (pack "z", Nothing) c) a
+  | a == a' && a' == a'' = eval $ App (Lam (pack "z", Nothing, Exp) c) a
   | otherwise            = Ind (IdFam t) m [Bind z $ NoBind c, NoBind a, NoBind a'] (Refl a'')
 eval (Ind t m c a)
   | isValue $ Ind t m c a = Ind t m c a
@@ -95,28 +95,28 @@ equal env m n = resolve env m == resolve env n
 instance Eq Term where
   m == n = eval m === eval n
     where
-      Var x === Var y                           = x == y
-      Lam (_, Nothing) m === Lam (_, Nothing) n = m == n
-      Lam (_, Just t) m === Lam (_, Just t') n  = t == t' && m == n
-      App m n === App m' n'                     = m == m' && n == n'
-      Star === Star                             = True
-      Pair m n === Pair m' n'                   = m == m' && n == n'
-      Univ i === Univ j                         = i == j
-      Nat === Nat                               = True
-      Bot === Bot                               = True
-      Top === Top                               = True
-      Zero === Zero                             = True
-      Succ m === Succ n                         = m == n
-      Funext p === Funext q                     = p == q
-      Univalence a === Univalence b             = a == b
-      Sum m n === Sum m' n'                     = m == m' && n == n'
-      IdFam t === IdFam t'                      = t == t'
-      Id _ m n === Id _ m' n'                   = m == m' && n == n'
-      Refl m === Refl n                         = m == n
-      Pi (_, t, _) m === Pi (_, t', _) n        = t == t' && m == n
-      Sigma (_, t) m === Sigma (_, t') n        = t == t' && m == n
-      Ind t m c a === Ind t' m' c' a'           = t == t' && m == m' && c == c' && a == a' 
-      _ === _                                   = False
+      Var x === Var y                                 = x == y
+      Lam (_, Nothing, _) m === Lam (_, Nothing, _) n = m == n
+      Lam (_, Just t, _) m === Lam (_, Just t', _) n  = t == t' && m == n
+      App m n === App m' n'                           = m == m' && n == n'
+      Star === Star                                   = True
+      Pair m n === Pair m' n'                         = m == m' && n == n'
+      Univ i === Univ j                               = i == j
+      Nat === Nat                                     = True
+      Bot === Bot                                     = True
+      Top === Top                                     = True
+      Zero === Zero                                   = True
+      Succ m === Succ n                               = m == n
+      Funext p === Funext q                           = p == q
+      Univalence a === Univalence b                   = a == b
+      Sum m n === Sum m' n'                           = m == m' && n == n'
+      IdFam t === IdFam t'                            = t == t'
+      Id _ m n === Id _ m' n'                         = m == m' && n == n'
+      Refl m === Refl n                               = m == n
+      Pi (_, t, _) m === Pi (_, t', _) n              = t == t' && m == n
+      Sigma (_, t) m === Sigma (_, t') n              = t == t' && m == n
+      Ind t m c a === Ind t' m' c' a'                 = t == t' && m == m' && c == c' && a == a' 
+      _ === _                                         = False
 
 instance Eq BoundTerm where
   NoBind m == NoBind n = m == n
