@@ -77,7 +77,7 @@ resolve env (Ind t m c a)            = Ind (resolve env t) (resolveBoundTerm env
     resolveBoundTerm :: Environment -> BoundTerm -> BoundTerm
     resolveBoundTerm env (NoBind m) = NoBind $ resolve env m
     resolveBoundTerm env (Bind x m) = Bind x $ resolveBoundTerm env m
-resolve env m                    = m
+resolve env m                        = m
 
 shift :: Int -> Term -> Term
 shift k = go k 0
@@ -90,7 +90,7 @@ shift k = go k 0
       | i >= l    = Var $ Bound (i + k)
       | otherwise = Var $ Bound i
     go k l (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go k (l + 1) m)
-    go k l (Lam (x, Just t, ex) m)  = Lam (x, Just $ go k l m, ex) (go k (l + 1) m)
+    go k l (Lam (x, Just t, ex) m)  = Lam (x, Just $ go k l t, ex) (go k (l + 1) m)
     go k l (Pi (x, t, ex) m)        = Pi (x, go k l t, ex) (go k (l + 1) m)
     go k l (Sigma (x, t) m)         = Sigma (x, go k l t) (go k (l + 1) m)
     go k l (App m n)                = App (go k l m) (go k l n)
@@ -146,7 +146,7 @@ openFor m k (Ind t m' c a)           = Ind (openFor m k t) (openInBoundTerm m k 
     openInBoundTerm :: Term -> Int -> BoundTerm -> BoundTerm
     openInBoundTerm m k (NoBind n) = NoBind (openFor m k n)
     openInBoundTerm m k (Bind x n) = Bind x (openInBoundTerm (bumpUp m) (k + 1) n)
-openFor m k n                    = n
+openFor m k n                        = n
 
 -- Returns True if there is a variable bound to a 0 index binder in the given term
 isBinderUsed :: Term -> Bool

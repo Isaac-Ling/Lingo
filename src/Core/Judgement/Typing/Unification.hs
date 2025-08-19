@@ -6,7 +6,7 @@ import Core.Judgement.Utils
 import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Context
 
-import Control.Monad (when)
+import Control.Monad (unless)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
@@ -19,13 +19,14 @@ unify t t' ms = do
   ctxs <- ask
   let errorString = fromMaybe ("Failed to unify types " ++ showTermWithContext (bctx ctxs) t ++ " and " ++ showTermWithContext (bctx ctxs) t') ms
 
-  when (isRigid t && isRigid t' && not (equal (env ctxs) t t'))
-    (typeError TypeMismatch $ Just errorString)
-
-  -- Add constraint
-  st <- get
-  let cst = (bctx ctxs, t, t')
-  put st { csts=cst : csts st }
+  if isRigid t && isRigid t'
+  then unless (equal (env ctxs) t t') $
+    typeError TypeMismatch $ Just errorString
+  else do
+    -- Add constraint
+    st <- get
+    let cst = (bctx ctxs, t, t')
+    put st { csts=cst : csts st }
 
 solveConstraints :: Constraints -> CanError MetaSolutions
 solveConstraints []               = return []

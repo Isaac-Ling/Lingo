@@ -21,14 +21,11 @@ eval (IdFam t)                                                        = IdFam $ 
 eval (Refl m)                                                         = Refl $ eval m
 eval (App (App (IdFam t) m) n)                                        = eval $ Id (Just t) m n
 eval (Id mt m n)                                                      = Id (fmap eval mt) (eval m) (eval n)
-eval (App m n)                                                        = case f of
-  Lam (_, _, Imp) n' -> eval $ App n' n
-  _                  -> if isNeutral f 
+eval (App m n)                                                        = case eval m of
+  Lam (_, _, Imp) n' -> eval $ App (bumpDown n') n
+  f                  -> if isNeutral f 
     then App f $ eval n
     else eval $ beta $ App f n
-  where
-    f :: Term
-    f = eval m
 eval (Ind Top _ [NoBind c] _)                                         = eval c
 eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))      = eval $ App (App (Lam (pack "w", Nothing, Exp) $ Lam (pack "y", Nothing, Exp) f) a) b
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a)) = eval $ App (Lam (pack "x", Nothing, Exp) c) a
