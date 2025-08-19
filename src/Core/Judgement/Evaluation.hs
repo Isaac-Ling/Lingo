@@ -8,7 +8,6 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 eval :: Term -> Term
 eval (Lam _ (App f (Var (Bound 0))))                                  = eval $ bumpDown f -- Eta conversion
-eval (Lam (x, Just t, Imp) m)                                         = bumpDown $ eval m
 eval (Lam (x, Just t, ex) m)                                          = Lam (x, Just $ eval t, ex) (eval m)
 eval (Lam (x, Nothing, ex) m)                                         = Lam (x, Nothing, ex) (eval m)
 eval (Pi (x, t, ex) m)                                                = Pi (x, eval t, ex) (eval m)
@@ -22,9 +21,11 @@ eval (IdFam t)                                                        = IdFam $ 
 eval (Refl m)                                                         = Refl $ eval m
 eval (App (App (IdFam t) m) n)                                        = eval $ Id (Just t) m n
 eval (Id mt m n)                                                      = Id (fmap eval mt) (eval m) (eval n)
-eval (App m n)
-  | isNeutral f = App f (eval n)
-  | otherwise   = eval $ beta $ App f n
+eval (App m n)                                                        = case f of
+  Lam (_, _, Imp) n' -> eval $ App n' n
+  _                  -> if isNeutral f 
+    then App f $ eval n
+    else eval $ beta $ App f n
   where
     f :: Term
     f = eval m
@@ -116,7 +117,7 @@ instance Eq Term where
       Refl m === Refl n                               = m == n
       Pi (_, t, _) m === Pi (_, t', _) n              = t == t' && m == n
       Sigma (_, t) m === Sigma (_, t') n              = t == t' && m == n
-      Ind t m c a === Ind t' m' c' a'                 = t == t' && m == m' && c == c' && a == a' 
+      Ind t m c a === Ind t' m' c' a'                 = t == t' && m == m' && c == c' && a == a'
       _ === _                                         = False
 
 instance Eq BoundTerm where

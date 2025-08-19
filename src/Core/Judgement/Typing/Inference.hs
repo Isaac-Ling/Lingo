@@ -1,56 +1,33 @@
-module Core.Judgement.Typing (inferType, checkType) where
+module Core.Judgement.Typing.Inference (inferType, checkType) where
 
 import Core.Term
 import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
+import Core.Judgement.Typing.Context
+import Core.Judgement.Typing.Unification
 
-import Data.Bifunctor (second)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (ByteString)
 
--- This context records the type of bound variables, where the ith type in the
--- context is the type of the ith binder away from the current term
-type BoundContext = [(Maybe ByteString, Term)]
-
-data MetaSolution = MetaSolution
-  { metaType :: Term
-  , metaTerm :: Maybe Term
-  }
-
-type MetaContext = [(Int, MetaSolution)]
-
-data Contexts = Contexts
-  { env   :: Environment
-  , ctx   :: Context
-  , bctx  :: BoundContext
-  , tbctx :: BoundContext
-  }
-
--- A constraint is an equality of the first term with the second
-type Constraint = (Term, Term)
-type Constraints = [Constraint]
-
-data TypeState = TypeState
-  { csts   :: Constraints
-  , mctx   :: MetaContext
-  , metaID :: Int
-  }
-
-type TypeCheck a = ReaderT Contexts (StateT TypeState CanError) a
-
 inferType :: Environment -> Context -> Term -> CanError Term
-inferType env ctx m = evalStateT (runReaderT (runInferType m) initContexts) initState
+inferType env ctx m = do
+  result <- runStateT (runReaderT (runInferType m) initContexts) initState
+  msol   <- solveConstraints $ csts $ snd result
+  return $ expandMetas msol $ fst result
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
-    initState    = TypeState { csts=[], mctx=[], metaID=0 }
+    initState    = MetaState { csts=[], mctx=[], metaID=0 }
 
 checkType :: Environment-> Context -> Term -> Term -> CanError Term
-checkType env ctx m t = evalStateT (runReaderT (runCheckType m t) initContexts) initState
+checkType env ctx m t = do
+  result <- runStateT (runReaderT (runCheckType m t) initContexts) initState
+  msol   <- solveConstraints $ csts $ snd result
+  return $ expandMetas msol $ fst result
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
-    initState    = TypeState { csts=[], mctx=[], metaID=0 }
+    initState    = MetaState { csts=[], mctx=[], metaID=0 }
 
 runInferType :: Term -> TypeCheck Term
 runInferType (Univ i)                                  = return $ Univ (i + 1)
@@ -77,7 +54,7 @@ runInferType (Var (Meta i))                            = do
   st <- get
 
   case lookup i $ mctx st of
-    Just t  -> return $ metaType t
+    Just t  -> return t
     Nothing -> typeError FailedToInferType (Just ("Unknown meta variable " ++ show (Var $ Meta i)))
 
 runInferType (Pi (x, t, _) m)                        = do
@@ -110,7 +87,7 @@ runInferType (Lam (x, Just t, ex) m)                   = do
 
   case tt of
     Univ i -> return $ Pi (if isBinderUsed mt then Just x else Nothing, t, ex) mt
-    _      -> typeError TypeMismatch (Just (showTermWithContext (bctx ctxs)  t ++ " is not a term of a universe"))
+    _      -> typeError TypeMismatch (Just (showTermWithContext (bctx ctxs) t ++ " is not a term of a universe"))
 
 runInferType (Lam (x, Nothing, ex) m)                  = do
   ctxs <- ask
@@ -129,9 +106,8 @@ runInferType (App m n)                                 = do
           Pi (x, t, Exp) t' -> do
             nt <- runInferType n
 
-            if equal (env ctxs) t nt
-            then return $ bumpDown $ open (bumpUp n) t'
-            else typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " of type " ++ showTermWithContext (bctx ctxs) mt ++ " cannot be applied to " ++ showTermWithContext (bctx ctxs) n ++ " of type " ++ showTermWithContext (bctx ctxs) nt)
+            unify t nt $ Just (showTermWithContext (bctx ctxs) m ++ " of type " ++ showTermWithContext (bctx ctxs) mt ++ " cannot be applied to " ++ showTermWithContext (bctx ctxs) n ++ " of type " ++ showTermWithContext (bctx ctxs) nt)
+            return $ bumpDown $ open (bumpUp n) t'
           Pi (x, t, Imp) t' -> do
             mv <- createMetaVar t
             let m'  = App m mv
@@ -436,62 +412,3 @@ checkInferredTypeMatch m t = do
   if equal (env ctxs) t t'
   then return t
   else typeError TypeMismatch $ Just ("The type of " ++ showTermWithContext (bctx ctxs) m ++ " is " ++ showTermWithContext (bctx ctxs) (eval t') ++ " but expected " ++ showTermWithContext (tbctx ctxs) t)
-
--- Returns True if there is a variable bound to a 0 index binder
--- in the given term
-isBinderUsed :: Term -> Bool
-isBinderUsed = go 0
-  where
-    go :: Int -> Term -> Bool
-    go k (Var (Bound i))
-      | i == k    = True
-      | otherwise = False
-    go k (Lam (x, Just t, _) n)  = go k t || go (k + 1) n
-    go k (Lam (x, Nothing, _) n) = go (k + 1) n
-    go k (Pi (x, t, _) n)        = go k t || go (k + 1) n
-    go k (Sigma (x, t) n)        = go k t || go (k + 1) n
-    go k (Pair t n)              = go k t || go k n
-    go k (App t n)               = go k t || go k n
-    go k (Id mt m n)             = maybe False (go k) mt || go k m || go k n
-    go k (Refl m)                = go k m
-    go k (Funext m)              = go k m
-    go k (Univalence m)          = go k m
-    go k (Succ m)                = go k m
-    go k (Inl m)                 = go k m
-    go k (Inr m)                 = go k m
-    go k (IdFam m)               = go k m
-    go k (Ind t m' c a)          = go k t || isBinderUsedInBoundTerm k m' || any (isBinderUsedInBoundTerm k) c || go k a
-    go k n                       = False
-
-    isBinderUsedInBoundTerm :: Int -> BoundTerm -> Bool
-    isBinderUsedInBoundTerm k (NoBind n) = go k n
-    isBinderUsedInBoundTerm k (Bind x n) = isBinderUsedInBoundTerm (k + 1) n
-
-showTermWithContext :: BoundContext -> Term -> String
-showTermWithContext bctx = showTermWithBinders (map fst bctx)
-
-addToCtx :: Assumption -> (Contexts -> Contexts)
-addToCtx (x, t) ctxs = ctxs { ctx=(x, t) : ctx ctxs }
-
-addToBoundCtx :: (Maybe ByteString, Term) -> (Contexts -> Contexts)
-addToBoundCtx (x, t) ctxs = ctxs { bctx=(x, bumpUp t) : map (second bumpUp) (bctx ctxs) }
-
-addToTypeBoundCtx :: (Maybe ByteString, Term) -> (Contexts -> Contexts)
-addToTypeBoundCtx (x, t) ctxs = ctxs { tbctx=(x, bumpUp t) : map (second bumpUp) (bctx ctxs) }
-
-addToBoundCtxs :: (Maybe ByteString, Term) -> (Maybe ByteString, Term) -> (Contexts -> Contexts)
-addToBoundCtxs (x, t) (x', t') = addToTypeBoundCtx (x', t') . addToBoundCtx (x, t)
-
-useTypeBoundCtx :: Contexts -> Contexts
-useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
-
-createMetaVar :: Term -> TypeCheck Term
-createMetaVar mt = do
-  st <- get
-  let mid = metaID st
-  put st { metaID=mid + 1, mctx=(mid, MetaSolution { metaTerm=Nothing, metaType=mt }) : mctx st }
-
-  return $ Var $ Meta mid
-
-typeError :: ErrorCode -> Maybe String -> TypeCheck a
-typeError errc ms = lift $ lift $ Error errc ms

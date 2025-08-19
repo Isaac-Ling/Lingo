@@ -148,6 +148,58 @@ openFor m k (Ind t m' c a)           = Ind (openFor m k t) (openInBoundTerm m k 
     openInBoundTerm m k (Bind x n) = Bind x (openInBoundTerm (bumpUp m) (k + 1) n)
 openFor m k n                    = n
 
+-- Returns True if there is a variable bound to a 0 index binder in the given term
+isBinderUsed :: Term -> Bool
+isBinderUsed = go 0
+  where
+    go :: Int -> Term -> Bool
+    go k (Var (Bound i))
+      | i == k    = True
+      | otherwise = False
+    go k (Lam (x, Just t, _) n)  = go k t || go (k + 1) n
+    go k (Lam (x, Nothing, _) n) = go (k + 1) n
+    go k (Pi (x, t, _) n)        = go k t || go (k + 1) n
+    go k (Sigma (x, t) n)        = go k t || go (k + 1) n
+    go k (Pair t n)              = go k t || go k n
+    go k (App t n)               = go k t || go k n
+    go k (Id mt m n)             = maybe False (go k) mt || go k m || go k n
+    go k (Refl m)                = go k m
+    go k (Funext m)              = go k m
+    go k (Univalence m)          = go k m
+    go k (Succ m)                = go k m
+    go k (Inl m)                 = go k m
+    go k (Inr m)                 = go k m
+    go k (IdFam m)               = go k m
+    go k (Ind t m' c a)          = go k t || isBinderUsedInBoundTerm k m' || any (isBinderUsedInBoundTerm k) c || go k a
+    go k n                       = False
+
+    isBinderUsedInBoundTerm :: Int -> BoundTerm -> Bool
+    isBinderUsedInBoundTerm k (NoBind n) = go k n
+    isBinderUsedInBoundTerm k (Bind x n) = isBinderUsedInBoundTerm (k + 1) n
+
+isRigid :: Term -> Bool
+isRigid (Var (Meta _))          = False
+isRigid (Lam (x, Just t, _) n)  = isRigid t && isRigid n
+isRigid (Lam (x, Nothing, _) n) = isRigid n
+isRigid (Pi (x, t, _) n)        = isRigid t && isRigid n
+isRigid (Sigma (x, t) n)        = isRigid t && isRigid n
+isRigid (Pair t n)              = isRigid t && isRigid n
+isRigid (App t n)               = isRigid t && isRigid n
+isRigid (Id mt m n)             = maybe True isRigid mt && isRigid m && isRigid n
+isRigid (Refl m)                = isRigid m
+isRigid (Funext m)              = isRigid m
+isRigid (Univalence m)          = isRigid m
+isRigid (Succ m)                = isRigid m
+isRigid (Inl m)                 = isRigid m
+isRigid (Inr m)                 = isRigid m
+isRigid (IdFam m)               = isRigid m
+isRigid (Ind t m' c a)          = isRigid t && isBoundTermRigid m' && all isBoundTermRigid c && isRigid a
+  where
+    isBoundTermRigid :: BoundTerm -> Bool
+    isBoundTermRigid (NoBind m) = isRigid m
+    isBoundTermRigid (Bind _ m) = isBoundTermRigid m
+isRigid m                       = True
+
 showTermWithBinders :: Binders -> Term -> String
 showTermWithBinders bs (Var (Free x))                = unpack x
 showTermWithBinders bs (Var (Meta i))

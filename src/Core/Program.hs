@@ -3,8 +3,8 @@ module Core.Program where
 import Core.Term
 import Core.Error
 import Core.Judgement.Utils
-import Core.Judgement.Typing
 import Core.Judgement.Evaluation
+import Core.Judgement.Typing.Inference
 import IO.Source (readSource)
 import Parsing.Parser
 
