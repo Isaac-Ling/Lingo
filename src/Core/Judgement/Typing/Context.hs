@@ -9,6 +9,9 @@ import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (ByteString)
 
+type Assumption = (ByteString, Term)
+type Context = [Assumption]
+
 -- This context records the type of bound variables, where the ith type in the
 -- context is the type of the ith binder away from the current term
 type BoundContext = [(Maybe ByteString, Term)]
@@ -47,7 +50,7 @@ addToBoundCtx :: (Maybe ByteString, Term) -> (Contexts -> Contexts)
 addToBoundCtx (x, t) ctxs = ctxs { bctx=(x, bumpUp t) : map (second bumpUp) (bctx ctxs) }
 
 addToTypeBoundCtx :: (Maybe ByteString, Term) -> (Contexts -> Contexts)
-addToTypeBoundCtx (x, t) ctxs = ctxs { tbctx=(x, bumpUp t) : map (second bumpUp) (bctx ctxs) }
+addToTypeBoundCtx (x, t) ctxs = ctxs { tbctx=(x, bumpUp t) : map (second bumpUp) (tbctx ctxs) }
 
 addToBoundCtxs :: (Maybe ByteString, Term) -> (Maybe ByteString, Term) -> (Contexts -> Contexts)
 addToBoundCtxs (x, t) (x', t') = addToTypeBoundCtx (x', t') . addToBoundCtx (x, t)

@@ -53,9 +53,6 @@ data Var
   | Bound Int
   | Meta Int
 
-type Assumption = (ByteString, Term)
-type Context = [Assumption]
-
 type Alias = (ByteString, Term)
 type Environment = [Alias]
 

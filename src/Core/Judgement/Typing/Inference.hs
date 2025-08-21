@@ -159,6 +159,7 @@ runInferType (Funext p)                                = do
 
   pt <- runInferType p
 
+  -- TODO: Need to type check applications
   case pt of
     Pi _ (Id _ (App f (Var (Bound 0))) (App g (Var (Bound 0)))) -> return $ Id Nothing f g
     _                                                           -> typeError FailedToInferType $ Just ("Cannot apply funext to a term of type " ++ showTermWithContext (bctx ctxs) pt)
@@ -179,7 +180,7 @@ runInferType (IdFam t)                                 = do
   tt <- runInferType t
   case tt of
     Univ i -> return $ Pi (Nothing, t, Exp) $ Pi (Nothing, t, Exp) tt
-    _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs)t ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) t ++ " is not a term of a universe")
 
 runInferType (Id Nothing m n)                          = do
   mt  <- runInferType m
@@ -335,27 +336,27 @@ runCheckType m (Var (Free x))                             = do
     Just t  -> do
       t' <- runCheckType m t
       return $ Var $ Free x
-    Nothing -> checkInferredTypeMatch m (Var $ Free x)
+    Nothing -> unifyInferredType m (Var $ Free x)
 
 runCheckType (Lam (x, Just t, ex) m) (Pi (x', t', ex') n) = do
   ctxs <- ask
 
   tt  <- runInferType t
-  t't <- runInferType t'
+  t't <- local useTypeBoundCtx (runInferType t')
   mt  <- local (addToBoundCtxs (Just x, t) (x', t')) (runCheckType m n)
 
   case (tt, t't, ex == ex') of
     (_, _, False)       -> typeError TypeMismatch $ Just ("Mismatching explicitness between " ++ showTermWithContext (bctx ctxs) (Lam (x, Just t, ex) m) ++ " and " ++ showTermWithContext (tbctx ctxs) (Pi (x', t, ex') n))
-    (Univ i, Univ j, _) -> if i == j
-      then return $ Pi (x', t, Exp) mt
-      else typeError TypeMismatch $ Just ("The type of " ++ showTermWithContext (bctx ctxs) t ++ " is " ++ show (Univ i) ++ " but expected " ++ show (Univ j))
+    (Univ i, Univ j, _) -> do
+      unify t t' Nothing
+      return $ Pi (x', t, Exp) mt
     (Univ _, _, _)      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t' ++ " is not a term of a universe")
     (_, _, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) t ++ " is not a term of a universe")
 
 runCheckType (Lam (x, Nothing, ex) m) (Pi (x', t, ex') n) = do
   ctxs <- ask
 
-  tt <- runInferType t
+  tt <- local useTypeBoundCtx (runInferType t)
   mt <- local (addToBoundCtxs (Just x, t) (x', t)) (runCheckType m n)
 
   case tt of
@@ -368,7 +369,7 @@ runCheckType (Pair m n) (Sigma (x, t) t')                 = do
   ctxs <- ask
 
   tt  <- runInferType t
-  t't <- local (useTypeBoundCtx . addToBoundCtx (x, t)) (runInferType t')
+  t't <- local (addToBoundCtx (x, t) . useTypeBoundCtx) (runInferType t')
   mt  <- runCheckType m t
   nt  <- runCheckType n (bumpDown $ open (bumpUp m) t')
 
@@ -381,8 +382,8 @@ runCheckType (Inl m) (Sum t t')                           = do
   ctxs <- ask
 
   mt  <- runCheckType m t
-  tt  <- runInferType t
-  t't <- runInferType t'
+  tt  <- local useTypeBoundCtx (runInferType t)
+  t't <- local useTypeBoundCtx (runInferType t')
 
   case (tt, t't) of
     (Univ _, Univ _) -> return $ Sum t t'
@@ -393,22 +394,20 @@ runCheckType (Inr m) (Sum t t')                           = do
   ctxs <- ask
 
   mt  <- runCheckType m t'
-  tt  <- runInferType t
-  t't <- runInferType t'
+  tt  <- local useTypeBoundCtx (runInferType t)
+  t't <- local useTypeBoundCtx (runInferType t')
 
   case (tt, t't) of
     (Univ _, Univ _) -> return $ Sum t t'
     (Univ _, _)      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t' ++ " is not a term of a universe")
     (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t ++ " is not a term of a universe")
 
-runCheckType m t                                          = checkInferredTypeMatch m t
+runCheckType m t                                          = unifyInferredType m t
 
-checkInferredTypeMatch :: Term -> Term -> TypeCheck Term
-checkInferredTypeMatch m t = do
+unifyInferredType :: Term -> Term -> TypeCheck Term
+unifyInferredType m t = do
   ctxs <- ask
 
-  t' <- runInferType m
-
-  if equal (env ctxs) t t'
-  then return t
-  else typeError TypeMismatch $ Just ("The type of " ++ showTermWithContext (bctx ctxs) m ++ " is " ++ showTermWithContext (bctx ctxs) (eval t') ++ " but expected " ++ showTermWithContext (tbctx ctxs) t)
+  mt <- runInferType m
+  unify mt t $ Just ("The type of " ++ showTermWithContext (bctx ctxs) m ++ " is " ++ showTermWithContext (bctx ctxs) (eval mt) ++ " but expected " ++ showTermWithContext (tbctx ctxs) t)
+  return t

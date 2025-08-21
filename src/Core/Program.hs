@@ -2,11 +2,12 @@ module Core.Program where
 
 import Core.Term
 import Core.Error
+import Parsing.Parser
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
+import Core.Judgement.Typing.Context
 import Core.Judgement.Typing.Inference
 import IO.Source (readSource)
-import Parsing.Parser
 
 import Control.Monad (when)
 import System.Directory (makeAbsolute)
@@ -15,10 +16,13 @@ import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
 type Includes = [FilePath]
 
+type NamedTypeContext = [(ByteString, NamedTerm)]
+
 data RuntimeContext = RuntimeContext
-  { env  :: Environment
-  , ctx  :: Context
-  , incs :: [FilePath]
+  { rtEnv   :: Environment
+  , rtCtx   :: Context
+  , ntctx :: NamedTypeContext
+  , incs  :: [FilePath]
   }
 
 type Runtime a = ReaderT RuntimeContext (CanErrorT IO) a
@@ -26,7 +30,7 @@ type Runtime a = ReaderT RuntimeContext (CanErrorT IO) a
 run :: Program -> FilePath -> IO (CanError ())
 run p f = runCanErrorT $ runReaderT (go p) initRuntimeContext
   where
-    initRuntimeContext = RuntimeContext { env=[], ctx=[], incs=[f] }
+    initRuntimeContext = RuntimeContext { rtEnv=[], rtCtx=[], ntctx=[], incs=[f] }
 
     go :: Program -> Runtime ()
     go []                      = success
@@ -34,30 +38,31 @@ run p f = runCanErrorT $ runReaderT (go p) initRuntimeContext
     go (Def (x, m'):ds)        = do
       ctxs <- ask
 
-      case lookup x (env ctxs) of
+      case lookup x (rtEnv ctxs) of
         Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
         _      -> success
 
-      let m = toDeBruijn m'
+      let m = case lookup x (ntctx ctxs) of
+                Just t' -> toDeBruijn $ elaborate m' t'
+                _       -> toDeBruijn m'
 
-      case lookup x (ctx ctxs) of
+      case lookup x (rtCtx ctxs) of
         Just t -> do
-          let em = elaborate m t
-          tryRun $ checkType (env ctxs) (ctx ctxs) em t
-          local (addToEnv (x, em)) (go ds)
+          tryRun $ checkType (rtEnv ctxs) (rtCtx ctxs) m t
+          local (addToRTEnv (x, m)) (go ds)
         _      -> do
-          t <- tryRun $ inferType (env ctxs) (ctx ctxs) m
-          local (addToEnv (x, m) . addToCtx (x, t)) (go ds)
+          t <- tryRun $ inferType (rtEnv ctxs) (rtCtx ctxs) m
+          local (addToRTEnv (x, m) . addToRTCtx (x, t)) (go ds)
 
     go (Signature (x, t'):ds)  = do
       ctxs <- ask
 
       let t = toDeBruijn t'
-      tt <- tryRun $ inferType (env ctxs) (ctx ctxs) t
-      let p = local (addToCtx (x, t)) (go ds)
+      tt <- tryRun $ inferType (rtEnv ctxs) (rtCtx ctxs) t
+      let p = local (addToRTCtx (x, t) . addToNamedTypeCtx (x, t')) (go ds)
 
-      case lookup x (ctx ctxs) of
-        Just t2 -> if equal (env ctxs) t t2
+      case lookup x (rtCtx ctxs) of
+        Just t2 -> if equal (rtEnv ctxs) t t2
           then p
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))
         _       -> p
@@ -66,8 +71,8 @@ run p f = runCanErrorT $ runReaderT (go p) initRuntimeContext
       ctxs <- ask
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType (env ctxs) (ctx ctxs) m
-      let ert = eval $ resolve (env ctxs) m
+      t <- tryRun $ inferType (rtEnv ctxs) (rtCtx ctxs) m
+      let ert = eval $ resolve (rtEnv ctxs) m
       liftIO $ putStrLn (show m ++ " =>* " ++ show ert ++ " : " ++ show t)
 
       go ds
@@ -76,7 +81,7 @@ run p f = runCanErrorT $ runReaderT (go p) initRuntimeContext
       ctxs <- ask
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType (env ctxs) (ctx ctxs) m
+      t <- tryRun $ inferType (rtEnv ctxs) (rtCtx ctxs) m
       liftIO $ putStrLn (show m ++ " : " ++ show t)
 
       go ds
@@ -85,8 +90,8 @@ run p f = runCanErrorT $ runReaderT (go p) initRuntimeContext
       ctxs <- ask
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType (env ctxs) (ctx ctxs) m
-      let ert = eval $ resolve (env ctxs) m
+      t <- tryRun $ inferType (rtEnv ctxs) (rtCtx ctxs) m
+      let ert = eval $ resolve (rtEnv ctxs) m
       liftIO $ putStrLn (show m ++ " =>* " ++ show ert)
 
       go ds
@@ -122,11 +127,14 @@ success = return ()
 abort :: ErrorCode -> Maybe String -> Runtime ()
 abort errc ms = lift $ CanErrorT $ return $ Error errc ms
 
-addToEnv :: Alias -> (RuntimeContext -> RuntimeContext)
-addToEnv def ctxs = ctxs { env=def : env ctxs }
+addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
+addToRTEnv def ctxs = ctxs { rtEnv=def : rtEnv ctxs }
 
-addToCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
-addToCtx sig ctxs = ctxs { ctx=sig : ctx ctxs }
+addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
+addToRTCtx sig ctxs = ctxs { rtCtx=sig : rtCtx ctxs }
+
+addToNamedTypeCtx :: (ByteString, NamedTerm) -> (RuntimeContext -> RuntimeContext)
+addToNamedTypeCtx nt ctxs = ctxs { ntctx=nt : ntctx ctxs }
 
 addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
 addToIncludes f ctxs = ctxs { incs=f : incs ctxs }

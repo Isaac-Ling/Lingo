@@ -12,6 +12,12 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 -- current term. Nothing is used if we should never match against that binder
 type Binders = [Maybe ByteString]
 
+-- TODO: Add implicit lambdas inside sub-terms
+elaborate :: NamedTerm -> NamedTerm -> NamedTerm
+elaborate m (NPi (Just x, t, Imp) n) = NLam (x, Just t, Imp) $ elaborate m n
+elaborate m (NPi (Just x, t, Exp) n) = elaborate m n
+elaborate m _                       = m
+
 toDeBruijn :: NamedTerm -> Term
 toDeBruijn = go []
   where
@@ -45,12 +51,6 @@ toDeBruijn = go []
     boundTermToDeBruijn :: Binders -> NamedBoundTerm -> BoundTerm
     boundTermToDeBruijn bs (NNoBind m) = NoBind $ go bs m
     boundTermToDeBruijn bs (NBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
-
---TODO: Add implicit lambdas inside sub-terms 
-elaborate :: Term -> Term -> Term
-elaborate m (Pi (Just x, t, Imp) n) = Lam (x, Just t, Imp) $ elaborate m n
-elaborate m (Pi (Just x, t, Exp) n) = elaborate m n
-elaborate m _                       = m
 
 resolve :: Environment -> Term -> Term
 resolve env (Var (Free x))           = case lookup x env of
