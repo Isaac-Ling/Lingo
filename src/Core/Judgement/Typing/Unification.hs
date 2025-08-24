@@ -27,51 +27,60 @@ unify t t' ms = do
     -- Add constraint
     st <- get
     let cst = (bctx ctxs, t, t')
-    put st { csts=cst : csts st }
+    put st { mcsts=cst : mcsts st }
 
-type Unification = ReaderT Environment (StateT MetaSolutions CanError) ()
+data UniState = UniState
+  { sols :: MetaSolutions
+  , csts :: Constraints
+  }
+
+type Unification a = ReaderT Environment (StateT UniState CanError) a
 
 solveConstraints :: Environment -> Constraints -> CanError MetaSolutions
-solveConstraints env cs = execStateT (runReaderT (go cs) env) []
+solveConstraints env cs = do
+  result <- runStateT (runReaderT runUnification env) initState
+  return $ sols $ snd result
   where
-    go :: Constraints -> Unification
-    go []                 = return ()
-    go ((bc, t, t'):csts) = do
-      env  <- ask
-      sols <- get
-      
-      let et  = eval $ expandMetas sols t
-      let et' = eval $ expandMetas sols t'
+    initState = UniState { sols=[], csts=cs }
 
-      -- Drop constraint if the two terms are definitionally equal
-      when (equal env et et') $
-        go cs
+    runUnification :: Unification ()
+    runUnification = do
+      env <- ask
+      st  <- get
 
-      -- Decompose goals if terms have same rigid head
-      decompose bc t t'
+      -- Get constraint from worklist
+      case csts st of
+        []              -> return ()
+        ((bc, t, t'):_) -> do
+          let et  = eval $ expandMetas (sols st) t
+          let et' = eval $ expandMetas (sols st) t'
 
-    decompose :: BoundContext -> Term -> Term -> Unification
+          -- Drop constraint if the two terms are definitionally equal
+          when (equal env et et') $ do
+            dropConstraint
+            runUnification
+
+          -- Decompose goals if terms have same rigid head
+          decompose bc et et'
+
+    dropConstraint :: Unification ()
+    dropConstraint = do
+      st <- get
+
+      case csts st of
+        [] -> return ()
+        cs -> do
+          put $ st { csts=cs }
+
+    decompose :: BoundContext -> Term -> Term -> Unification ()
     decompose bc (App (Var (Meta _)) _) _ = return ()
     decompose bc _ (App (Var (Meta _)) _) = return ()
     decompose bc (Var (Meta _)) _         = return ()
     decompose bc _ (Var (Meta _))         = return ()
     decompose bc t t'                     = unificationError $ Just ("Failed to unify types " ++ showTermWithContext bc t ++ " and " ++ showTermWithContext bc t')
 
-    unificationError :: Maybe String -> Unification
+    unificationError :: Maybe String -> Unification a
     unificationError ms = lift $ lift $ Error UnificationError ms
-
-  {-
-  case solveConstraint (bc, t, t') of
-    Just sol -> do
-      sols <- solveConstraints cs
-      return $ sol : sols
-    _        -> 
-  -}
-
-solveConstraint :: Constraint -> Maybe MetaSolution
-solveConstraint (_, m, Var (Meta i)) = Just (i, Just m)
-solveConstraint (_, Var (Meta i), m) = Just (i, Just m)
-solveConstraint _                    = Nothing
 
 -- TODO: Manage contexts when moving in binders
 expandMetas :: MetaSolutions -> Term -> Term

@@ -21,7 +21,7 @@ type Constraint = (BoundContext, Term, Term)
 type Constraints = [Constraint]
 
 data MetaState = MetaState
-  { csts   :: Constraints
+  { mcsts   :: Constraints
   , mctx   :: MetaContext
   , metaID :: Int
   } deriving (Show)

@@ -8,7 +8,7 @@ id := \a. a
 fst : {A : U} -> (B : A -> U) -> (a : A) x B a -> A
 fst := \B. \p. ind[(a : A) x B a](A, a. b. a, p)
 
-#check fst
+#check fst (\(a : T). T) (*, *)
 
 snd : {A : U} -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst B p)
 snd := \B. \p. ind[(a : A) x B a](p. B (fst B p), a. b. b, p)
