@@ -12,7 +12,7 @@ import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import GHC.Base (when)
 
-type MetaSolution  = (Int, Maybe Term)
+type MetaSolution  = (Int, Term)
 type MetaSolutions = [MetaSolution]
 
 unify :: Term -> Term -> Maybe String -> TypeCheck ()
@@ -55,29 +55,113 @@ solveConstraints env cs = do
           let et  = eval $ expandMetas (sols st) t
           let et' = eval $ expandMetas (sols st) t'
 
-          -- Drop constraint if the two terms are definitionally equal
-          when (equal env et et') $ do
-            dropConstraint
-            runUnification
+          -- Skip constraint if the two terms are definitionally equal
+          unless (equal env et et') $ do
+            -- Attempt to decompose constraint if terms have same rigid head
+            decomposed <- decompose bc et et'
 
-          -- Decompose goals if terms have same rigid head
-          decompose bc et et'
+            unless decomposed $
+              tryTrivialSolve et et'
+      
+          -- Loop with remaining constraints
+          dropConstraint
+          runUnification
 
     dropConstraint :: Unification ()
     dropConstraint = do
       st <- get
 
       case csts st of
-        [] -> return ()
-        cs -> do
+        []     -> return ()
+        (c:cs) -> do
           put $ st { csts=cs }
 
-    decompose :: BoundContext -> Term -> Term -> Unification ()
-    decompose bc (App (Var (Meta _)) _) _ = return ()
-    decompose bc _ (App (Var (Meta _)) _) = return ()
-    decompose bc (Var (Meta _)) _         = return ()
-    decompose bc _ (Var (Meta _))         = return ()
-    decompose bc t t'                     = unificationError $ Just ("Failed to unify types " ++ showTermWithContext bc t ++ " and " ++ showTermWithContext bc t')
+    tryTrivialSolve :: Term -> Term -> Unification ()
+    tryTrivialSolve t (Var (Meta i)) = do
+      when (isRigid t) $ do
+        addSolution i t
+    tryTrivialSolve (Var (Meta i)) t = do
+      when (isRigid t) $ do
+        addSolution i t
+        
+    isMeta :: Term -> Bool
+    isMeta (Var (Meta _)) = True
+    isMeta _              = False
+
+    addSolution :: Int -> Term -> Unification ()
+    addSolution i m = do
+      st <- get
+      put $ st { sols=(i, m) : sols st }
+
+    decompose :: BoundContext -> Term -> Term -> Unification Bool
+    decompose bc (Lam (_, Just t, _) m) (Lam (_, Just t', _) m') = do
+      appendConstraint bc t t'
+      appendConstraint bc m m'
+      return True
+    decompose bc (Lam _ m) (Lam _ m')                            = do
+      appendConstraint bc m m'
+      return True
+    decompose bc (Pi (_, t, _) m) (Pi (_, t', _) m')             = do
+      appendConstraint bc t t'
+      appendConstraint bc m m'
+      return True
+    decompose bc (Sigma (_, t) m) (Sigma (_, t') m')             = do
+      appendConstraint bc t t'
+      appendConstraint bc m m'
+      return True
+    decompose bc (Id (Just t) m n) (Id (Just t') m' n')          = do
+      appendConstraint bc t t'
+      appendConstraint bc m m'
+      appendConstraint bc n n'
+      return True
+    decompose bc (Id _ m n) (Id _ m' n')                         = do
+      appendConstraint bc m m'
+      appendConstraint bc n n'
+      return True
+    decompose bc (App (Var (Meta _)) _) _                        = return False
+    decompose bc _ (App (Var (Meta _)) _)                        = return False
+    decompose bc (App m n) (App m' n')                           = do
+      appendConstraint bc m m'
+      appendConstraint bc n n'
+      return True
+    decompose bc (Pair m n) (Pair m' n')                         = do
+      appendConstraint bc m m'
+      appendConstraint bc n n'
+      return True
+    decompose bc (Sum m n) (Sum m' n')                           = do
+      appendConstraint bc m m'
+      appendConstraint bc n n'
+      return True
+    decompose bc (Succ m) (Succ m')                              = do
+      appendConstraint bc m m'
+      return True
+    decompose bc (Inl m) (Inl m')                                = do
+      appendConstraint bc m m'
+      return True
+    decompose bc (Inr m) (Inr m')                                = do
+      appendConstraint bc m m'
+      return True
+    decompose bc (Funext m) (Funext m')                          = do
+      appendConstraint bc m m'
+      return True
+    decompose bc (Univalence m) (Univalence m')                  = do
+      appendConstraint bc m m'
+      return True
+    decompose bc (Refl m) (Refl m')                              = do
+      appendConstraint bc m m'
+      return True
+    decompose bc (IdFam m) (IdFam m')                            = do
+      appendConstraint bc m m'
+      return True
+    -- TODO: Decompose induction
+    decompose bc (Var (Meta _)) _                                = return False
+    decompose bc _ (Var (Meta _))                                = return False
+    decompose bc t t'                                            = unificationError $ Just ("Failed to unify types " ++ showTermWithContext bc t ++ " and " ++ showTermWithContext bc t')
+
+    appendConstraint :: BoundContext -> Term -> Term -> Unification ()
+    appendConstraint bc t t' = do
+      st <- get
+      put $ st { csts=csts st ++ [(bc, t, t')] }
 
     unificationError :: Maybe String -> Unification a
     unificationError ms = lift $ lift $ Error UnificationError ms
@@ -85,8 +169,8 @@ solveConstraints env cs = do
 -- TODO: Manage contexts when moving in binders
 expandMetas :: MetaSolutions -> Term -> Term
 expandMetas sols (Var (Meta i))           = case lookup i sols of
-  Just (Just t) -> t
-  _             -> Var (Meta i)
+  Just t -> t
+  _      -> Var (Meta i)
 expandMetas sols (Lam (x, Just t, ex) n)  = Lam (x, Just $ expandMetas sols t, ex) (expandMetas sols n)
 expandMetas sols (Lam x n)                = Lam x $ expandMetas sols n
 expandMetas sols (Pi (x, t, ex) n)        = Pi (x, expandMetas sols t, ex) (expandMetas sols n)

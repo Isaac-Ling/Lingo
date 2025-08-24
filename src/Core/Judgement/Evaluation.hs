@@ -121,8 +121,3 @@ instance Eq BoundTerm where
   NoBind m == NoBind n = m == n
   Bind _ m == Bind _ n = m == n
   _ == _               = False
-
-instance Eq Var where
-  Free x == Free y   = x == y
-  Bound i == Bound j = i == j
-  _ == _             = False

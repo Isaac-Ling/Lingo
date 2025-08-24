@@ -2,15 +2,26 @@
 id : {A : U} -> A -> A
 id := \a. a
 
-#check id 32
+--#check id 32
 
 -- Projections
-fst : {A : U} -> (B : A -> U) -> (a : A) x B a -> A
-fst := \B. \p. ind[(a : A) x B a](A, a. b. a, p)
+dfst : {A : U} -> (B : A -> U) -> (a : A) x B a -> A
+dfst := \B. \p. ind[(a : A) x B a](A, a. b. a, p)
 
-#check fst (\(a : T). T) (*, *)
+dsnd : {A : U} -> (B : A -> U) -> (p : (a : A) x B a) -> B (dfst B p)
+dsnd := \B. \p. ind[(a : A) x B a](p. B (dfst B p), a. b. b, p)
 
-snd : {A : U} -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst B p)
-snd := \B. \p. ind[(a : A) x B a](p. B (fst B p), a. b. b, p)
+#check dfst
+#check dsnd
 
-#check snd
+-- TODO: Allow explicitely passing implicit vars so fst can
+-- be defined in terms of dfst
+fst : {A : U} -> {B : U} -> A x B -> A
+fst := \p. ind[A x B](A, a. b. a, p)
+
+snd : {A : U} -> {B : U} -> A x B -> B
+snd := \p. ind[A x B](p. B, a. b. b, p)
+
+#check fst (*, _|_)
+#check snd (*, _|_)
+

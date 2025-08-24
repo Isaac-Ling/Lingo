@@ -52,6 +52,7 @@ data Var
   = Free ByteString
   | Bound Int
   | Meta Int
+  deriving (Eq)
 
 type Alias = (ByteString, Term)
 type Environment = [Alias]
