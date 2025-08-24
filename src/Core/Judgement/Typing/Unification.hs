@@ -10,6 +10,7 @@ import Control.Monad (unless)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
+import GHC.Base (when)
 
 type MetaSolution  = (Int, Maybe Term)
 type MetaSolutions = [MetaSolution]
@@ -28,13 +29,44 @@ unify t t' ms = do
     let cst = (bctx ctxs, t, t')
     put st { csts=cst : csts st }
 
-solveConstraints :: Constraints -> CanError MetaSolutions
-solveConstraints []               = return []
-solveConstraints ((bc, t, t'):cs) = case solveConstraint (bc, t, t') of
-  Just sol -> do
-    sols <- solveConstraints cs
-    return $ sol : sols
-  _        -> Error TypeMismatch $ Just ("Failed to unify types " ++ showTermWithContext bc t ++ " and " ++ showTermWithContext bc t')
+type Unification = ReaderT Environment (StateT MetaSolutions CanError) ()
+
+solveConstraints :: Environment -> Constraints -> CanError MetaSolutions
+solveConstraints env cs = execStateT (runReaderT (go cs) env) []
+  where
+    go :: Constraints -> Unification
+    go []                 = return ()
+    go ((bc, t, t'):csts) = do
+      env  <- ask
+      sols <- get
+      
+      let et  = eval $ expandMetas sols t
+      let et' = eval $ expandMetas sols t'
+
+      -- Drop constraint if the two terms are definitionally equal
+      when (equal env et et') $
+        go cs
+
+      -- Decompose goals if terms have same rigid head
+      decompose bc t t'
+
+    decompose :: BoundContext -> Term -> Term -> Unification
+    decompose bc (App (Var (Meta _)) _) _ = return ()
+    decompose bc _ (App (Var (Meta _)) _) = return ()
+    decompose bc (Var (Meta _)) _         = return ()
+    decompose bc _ (Var (Meta _))         = return ()
+    decompose bc t t'                     = unificationError $ Just ("Failed to unify types " ++ showTermWithContext bc t ++ " and " ++ showTermWithContext bc t')
+
+    unificationError :: Maybe String -> Unification
+    unificationError ms = lift $ lift $ Error UnificationError ms
+
+  {-
+  case solveConstraint (bc, t, t') of
+    Just sol -> do
+      sols <- solveConstraints cs
+      return $ sol : sols
+    _        -> 
+  -}
 
 solveConstraint :: Constraint -> Maybe MetaSolution
 solveConstraint (_, m, Var (Meta i)) = Just (i, Just m)

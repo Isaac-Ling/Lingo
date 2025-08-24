@@ -38,15 +38,15 @@ run p f = runCanErrorT $ runReaderT (go p) initRuntimeContext
     go (Def (x, m'):ds)        = do
       ctxs <- ask
 
-      case lookup x (rtEnv ctxs) of
+      case lookup x $ rtEnv ctxs of
         Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
         _      -> success
 
-      let m = case lookup x (ntctx ctxs) of
+      let m = case lookup x $ ntctx ctxs of
                 Just t' -> toDeBruijn $ elaborate m' t'
                 _       -> toDeBruijn m'
 
-      case lookup x (rtCtx ctxs) of
+      case lookup x $ rtCtx ctxs of
         Just t -> do
           tryRun $ checkType (rtEnv ctxs) (rtCtx ctxs) m t
           local (addToRTEnv (x, m)) (go ds)
@@ -61,7 +61,7 @@ run p f = runCanErrorT $ runReaderT (go p) initRuntimeContext
       tt <- tryRun $ inferType (rtEnv ctxs) (rtCtx ctxs) t
       let p = local (addToRTCtx (x, t) . addToNamedTypeCtx (x, t')) (go ds)
 
-      case lookup x (rtCtx ctxs) of
+      case lookup x $ rtCtx ctxs of
         Just t2 -> if equal (rtEnv ctxs) t t2
           then p
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))

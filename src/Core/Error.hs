@@ -12,6 +12,7 @@ data ErrorCode
   | TypeMismatch
   | DuplicateDefinitions
   | CircularDependency
+  | UnificationError
   deriving Eq
 
 data CanError a
@@ -70,6 +71,7 @@ instance Show ErrorCode where
   show TypeMismatch                   = "Type mismatch"
   show DuplicateDefinitions           = "Duplicate definitions"
   show CircularDependency             = "Circular dependency"
+  show UnificationError               = "Unification Error"
 
 instance Show (CanError a) where
   show (Result a)            = "Success (0)"
@@ -85,6 +87,7 @@ getErrorCode FailedToInferType              = 5
 getErrorCode TypeMismatch                   = 6
 getErrorCode DuplicateDefinitions           = 7
 getErrorCode CircularDependency             = 8
+getErrorCode UnificationError               = 9
 
 errorWith :: CanError a -> b
 errorWith e = errorWithoutStackTrace ("Program exited with: " ++ show e)

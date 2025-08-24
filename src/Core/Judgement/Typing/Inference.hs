@@ -14,7 +14,7 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 inferType :: Environment -> Context -> Term -> CanError Term
 inferType env ctx m = do
   result <- runStateT (runReaderT (runInferType m) initContexts) initState
-  msol   <- solveConstraints $ csts $ snd result
+  msol   <- solveConstraints env $ csts $ snd result
   return $ expandMetas msol $ fst result
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
@@ -23,7 +23,7 @@ inferType env ctx m = do
 checkType :: Environment-> Context -> Term -> Term -> CanError Term
 checkType env ctx m t = do
   result <- runStateT (runReaderT (runCheckType m t) initContexts) initState
-  msol   <- solveConstraints $ csts $ snd result
+  msol   <- solveConstraints env $ csts $ snd result
   return $ expandMetas msol $ fst result
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
