@@ -2,7 +2,7 @@
 id : {A : U} -> A -> A
 id := \(a : A). a
 
-#check id 32
+#check id {Nat} 32
 
 -- Projections
 dfst : {A : U} -> (B : A -> U) -> (a : A) x B a -> A

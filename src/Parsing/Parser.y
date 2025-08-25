@@ -106,7 +106,8 @@ Term :: { NamedTerm }
   | '*'          { NStar }
 
 Application :: { NamedTerm }
-  : Term Term %prec APP { NApp $1 $2 }
+  : Term Term         %prec APP { NApp $1 ($2, Exp) }
+  | Term '{' Term '}' %prec APP { NApp $1 ($3, Imp) }
 
 Abstraction :: { NamedTerm }
   : '\\' '(' var ':' Term ')' '.' Term { NLam ($3, Just $5, Exp) $8 }

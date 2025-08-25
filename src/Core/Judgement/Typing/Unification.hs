@@ -121,7 +121,7 @@ solveConstraints env cs = do
       return True
     decompose bc (App (Var (Meta _)) _) _                        = return False
     decompose bc _ (App (Var (Meta _)) _)                        = return False
-    decompose bc (App m n) (App m' n')                           = do
+    decompose bc (App m (n, _)) (App m' (n', _))                 = do
       appendConstraint bc m m'
       appendConstraint bc n n'
       return True
@@ -177,7 +177,7 @@ expandMetas sols (Lam x n)                = Lam x $ expandMetas sols n
 expandMetas sols (Pi (x, t, ex) n)        = Pi (x, expandMetas sols t, ex) (expandMetas sols n)
 expandMetas sols (Sigma (x, t) n)         = Sigma (x, expandMetas sols t) (expandMetas sols n)
 expandMetas sols (Pair t n)               = Pair (expandMetas sols t) (expandMetas sols n)
-expandMetas sols (App t n)                = App (expandMetas sols t) (expandMetas sols n)
+expandMetas sols (App t (n, ex))          = App (expandMetas sols t) (expandMetas sols n, ex)
 expandMetas sols (Id mt m n)              = Id (fmap (expandMetas sols) mt) (expandMetas sols m) (expandMetas sols n)
 expandMetas sols (Refl m)                 = Refl $ expandMetas sols m
 expandMetas sols (Funext m)               = Funext $ expandMetas sols m

@@ -25,7 +25,7 @@ data NamedBoundTerm
 data NamedTerm
   = NVar ByteString
   | NLam NamedLambdaBinder NamedTerm
-  | NApp NamedTerm NamedTerm
+  | NApp NamedTerm (NamedTerm, Explicitness)
   | NStar
   | NPair NamedTerm NamedTerm
   | NUniv Integer
@@ -70,7 +70,7 @@ data BoundTerm
 data Term
   = Var Var
   | Lam LambdaBinder Term
-  | App Term Term
+  | App Term (Term, Explicitness)
   | Star
   | Pair Term Term
   | Univ Integer

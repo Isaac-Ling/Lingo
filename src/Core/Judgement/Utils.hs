@@ -30,7 +30,7 @@ toDeBruijn = go []
     go bs (NLam (x, Just t, ex) m)  = Lam (x, Just $ go bs t, ex) (go (Just x : bs) m)
     go bs (NPi (x, t, ex) m)        = Pi (x, go bs t, ex) (go (x : bs) m)
     go bs (NSigma (x, t) m)         = Sigma (x, go bs t) (go (x : bs) m)
-    go bs (NApp m n)                = App (go bs m) (go bs n)
+    go bs (NApp m (n, ex))          = App (go bs m) (go bs n, ex)
     go bs (NPair m n)               = Pair (go bs m) (go bs n)
     go bs (NSum m n)                = Sum (go bs m) (go bs n)
     go bs (NIdFam t)                = IdFam $ go bs t
@@ -62,7 +62,7 @@ resolve env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (resolve env m)
 resolve env (Lam (x, Just t, ex) m)  = Lam (x, Just $ resolve env t, ex) (resolve env m)
 resolve env (Pi (x, t, ex) m)        = Pi (x, resolve env t, ex) (resolve env m)
 resolve env (Sigma (x, t) m)         = Sigma (x, resolve env t) (resolve env m)
-resolve env (App m n)                = App (resolve env m) (resolve env n)
+resolve env (App m (n, ex))          = App (resolve env m) (resolve env n, ex)
 resolve env (Pair m n)               = Pair (resolve env m) (resolve env n)
 resolve env (Sum m n)                = Sum (resolve env m) (resolve env n)
 resolve env (Inl m)                  = Inl $ resolve env m
@@ -94,7 +94,7 @@ shift k = go k 0
     go k l (Lam (x, Just t, ex) m)  = Lam (x, Just $ go k l t, ex) (go k (l + 1) m)
     go k l (Pi (x, t, ex) m)        = Pi (x, go k l t, ex) (go k (l + 1) m)
     go k l (Sigma (x, t) m)         = Sigma (x, go k l t) (go k (l + 1) m)
-    go k l (App m n)                = App (go k l m) (go k l n)
+    go k l (App m (n, ex))          = App (go k l m) (go k l n, ex)
     go k l (Pair m n)               = Pair (go k l m) (go k l n)
     go k l (Sum m n)                = Sum (go k l m) (go k l n)
     go k l (IdFam t)                = IdFam (go k l t)
@@ -135,7 +135,7 @@ openFor m k (Pair t n)               = Pair (openFor m k t) (openFor m k n)
 openFor m k (IdFam t)                = IdFam $ openFor m k t
 openFor m k (Id mt t n)              = Id (fmap (openFor m k) mt) (openFor m k t) (openFor m k n)
 openFor m k (Sum t n)                = Sum (openFor m k t) (openFor m k n)
-openFor m k (App t n)                = App (openFor m k t) (openFor m k n)
+openFor m k (App t (n, ex))          = App (openFor m k t) (openFor m k n, ex)
 openFor m k (Inl n)                  = Inl $ openFor m k n
 openFor m k (Inr n)                  = Inr $ openFor m k n
 openFor m k (Refl n)                 = Refl $ openFor m k n
@@ -162,7 +162,7 @@ isBinderUsed = go 0
     go k (Pi (x, t, _) n)        = go k t || go (k + 1) n
     go k (Sigma (x, t) n)        = go k t || go (k + 1) n
     go k (Pair t n)              = go k t || go k n
-    go k (App t n)               = go k t || go k n
+    go k (App t (n, _))          = go k t || go k n
     go k (Id mt m n)             = maybe False (go k) mt || go k m || go k n
     go k (Refl m)                = go k m
     go k (Funext m)              = go k m
@@ -185,7 +185,7 @@ isRigid (Lam (x, Nothing, _) n) = isRigid n
 isRigid (Pi (x, t, _) n)        = isRigid t && isRigid n
 isRigid (Sigma (x, t) n)        = isRigid t && isRigid n
 isRigid (Pair t n)              = isRigid t && isRigid n
-isRigid (App t n)               = isRigid t && isRigid n
+isRigid (App t (n, _))          = isRigid t && isRigid n
 isRigid (Id mt m n)             = maybe True isRigid mt && isRigid m && isRigid n
 isRigid (Refl m)                = isRigid m
 isRigid (Funext m)              = isRigid m
@@ -222,14 +222,14 @@ showTermWithBinders bs (Var (Bound i))
     errorString :: String
     errorString = "ERROR"
 showTermWithBinders bs Star                                   = "*"
-showTermWithBinders bs (App (Lam xt m) (Lam yt n))            = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ "(" ++ showTermWithBinders bs (Lam yt n) ++ ")"
-showTermWithBinders bs (App m (Lam xt n))                     = showTermWithBinders bs m ++ " (" ++ showTermWithBinders bs (Lam xt n) ++ ")"
-showTermWithBinders bs (App m (App p n))                      = showTermWithBinders bs m ++ " (" ++ showTermWithBinders bs (App p n) ++ ")"
-showTermWithBinders bs (App m (Sigma xt n))                   = showTermWithBinders bs m ++ " (" ++ showTermWithBinders bs (Sigma xt n) ++ ")"
-showTermWithBinders bs (App (Lam xt m) n)                     = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showTermWithBinders bs n
-showTermWithBinders bs (App (Pi xt m) n)                      = "(" ++ showTermWithBinders bs (Pi xt m) ++ ") " ++ showTermWithBinders bs n
-showTermWithBinders bs (App (Sigma xt m) n)                   = "(" ++ showTermWithBinders bs (Sigma xt m) ++ ") " ++ showTermWithBinders bs n
-showTermWithBinders bs (App m n)                              = showTermWithBinders bs m ++ " " ++ showTermWithBinders bs n
+showTermWithBinders bs (App (Lam xt m) (Lam yt n, ex))        = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders bs (Lam yt n) ++ showExRParen ex
+showTermWithBinders bs (App m (Lam xt n, ex))                 = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (Lam xt n) ++ showExRParen ex
+showTermWithBinders bs (App m (App p n, ex))                  = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (App p n) ++ showExRParen ex
+showTermWithBinders bs (App m (Sigma xt n, ex))               = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (Sigma xt n) ++ showExRParen ex
+showTermWithBinders bs (App (Lam xt m) (n, ex))               = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
+showTermWithBinders bs (App (Pi xt m) (n, ex))                = "(" ++ showTermWithBinders bs (Pi xt m) ++ ") " ++ showTermWithBinders bs n
+showTermWithBinders bs (App (Sigma xt m) (n, ex))             = "(" ++ showTermWithBinders bs (Sigma xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
+showTermWithBinders bs (App m (n, ex))                        = showTermWithBinders bs m ++ " " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
 showTermWithBinders bs (Pair m n)                             = "(" ++ showTermWithBinders bs m ++ ", " ++ showTermWithBinders bs n ++ ")"
 showTermWithBinders bs (IdFam t)                              = "=[" ++ showTermWithBinders bs t ++ "]"
 showTermWithBinders bs (Id (Just t) m n)                      = showTermWithBinders bs m ++ " =[" ++ showTermWithBinders bs t ++ "] " ++ showTermWithBinders bs n
@@ -285,9 +285,17 @@ showExLParen :: Explicitness -> String
 showExLParen Exp = "("
 showExLParen Imp = "{"
 
+showExLParenOrNone :: Explicitness -> String
+showExLParenOrNone Exp = ""
+showExLParenOrNone Imp = "{"
+
 showExRParen :: Explicitness -> String
 showExRParen Exp = ")"
 showExRParen Imp = "}"
+
+showExRParenOrNone :: Explicitness -> String
+showExRParenOrNone Exp = ""
+showExRParenOrNone Imp = "}"
 
 -- TODO: Generalise this to support arbitrary terms with any precedence
 showSigmaOperarands :: Binders -> Term -> String

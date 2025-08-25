@@ -38,7 +38,7 @@ runInferType Nat                                       = return $ Univ 0
 
 runInferType (Var (Bound i))                           = do
   ctxs <- ask
-  
+
   if i >= 0 && i < length (bctx ctxs)
   then return $ snd $ bctx ctxs !! i
   else typeError FailedToInferType (Just ("Invalid index for bound term \"" ++ show i ++ "\""))
@@ -94,12 +94,13 @@ runInferType (Lam (x, Nothing, ex) m)                  = do
 
   typeError FailedToInferType (Just ("Cannot infer type of implicit lambda " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) m)))
 
-runInferType (App m n)                                 = do
+-- TODO: Use explicitness of second term
+runInferType (App m (n, ex))                           = do
   mt <- runInferType m
-  inferAppType m n mt
+  inferAppType m (n, ex) mt
     where
-      inferAppType :: Term -> Term -> Term -> TypeCheck Term
-      inferAppType m n mt = do
+      inferAppType :: Term -> (Term, Explicitness) -> Term -> TypeCheck Term
+      inferAppType m (n, ex') mt = do
         ctxs <- ask
 
         case mt of
@@ -109,11 +110,18 @@ runInferType (App m n)                                 = do
             unify t nt $ Just (showTermWithContext (bctx ctxs) m ++ " of type " ++ showTermWithContext (bctx ctxs) mt ++ " cannot be applied to " ++ showTermWithContext (bctx ctxs) n ++ " of type " ++ showTermWithContext (bctx ctxs) nt)
             return $ bumpDown $ open (bumpUp n) t'
           Pi (x, t, Imp) t' -> do
-            mv <- createMetaVar t
-            let m'  = App m mv
-            let m't = bumpDown $ open mv t'
+            if ex == Imp
+            then do
+              -- If user supplies implicit variable explicitely, simply infer type using
+              -- explicit type and term
+              inferAppType m (n, Exp) $ Pi (x, t, Exp) t'
+            else do
+              -- Otherwise, create a meta variable and continue with type inference
+              mv <- createMetaVar t
+              let m'  = App m (mv, ex)
+              let m't = bumpDown $ open mv t'
 
-            inferAppType m' n m't
+              inferAppType m' (n, ex) m't
           _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
 
 runInferType (Pair m n)                                = do
@@ -159,10 +167,12 @@ runInferType (Funext p)                                = do
 
   pt <- runInferType p
 
-  -- TODO: Need to type check applications
   case pt of
-    Pi _ (Id _ (App f (Var (Bound 0))) (App g (Var (Bound 0)))) -> return $ Id Nothing f g
-    _                                                           -> typeError FailedToInferType $ Just ("Cannot apply funext to a term of type " ++ showTermWithContext (bctx ctxs) pt)
+    Pi _ (Id _ (App f (Var (Bound 0), Exp)) (App g (Var (Bound 0), Exp))) -> do
+      at  <- runInferType $ App f (Var (Bound 0), Exp)
+      at' <- runInferType $ App g (Var (Bound 0), Exp)
+      return $ Id Nothing f g
+    _                                                                     -> typeError FailedToInferType $ Just ("Cannot apply funext to a term of type " ++ showTermWithContext (bctx ctxs) pt)
 
 -- TODO: Type check univalence
 runInferType (Univalence f)                            = do
