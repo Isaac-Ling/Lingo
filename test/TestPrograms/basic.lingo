@@ -1,7 +1,6 @@
 -- Identity
 id : {A : U} -> A -> A
-id := \(a : A). *
-id := \(a : A). *
+id := \(a : A). a
 
 #check id 32
 
