@@ -2,7 +2,7 @@
 id : {A : U} -> A -> A
 id := \(a : A). a
 
-#check id {Nat} 32
+#check id 32
 
 -- Projections
 dfst : {A : U} -> (B : A -> U) -> (a : A) x B a -> A
@@ -14,13 +14,11 @@ dsnd := \B. \p. ind[(a : A) x B a](p. B (dfst B p), a. b. b, p)
 #check dfst
 #check dsnd
 
--- TODO: Allow explicitely passing implicit vars so fst can
--- be defined in terms of dfst
 fst : {A : U} -> {B : U} -> A x B -> A
-fst := \p. ind[A x B](A, a. b. a, p)
+fst := \{A}. \{B}. \p. dfst {A} (\(a : A). B) p
 
 snd : {A : U} -> {B : U} -> A x B -> B
-snd := \p. ind[A x B](p. B, a. b. b, p)
+snd := \{A}. \{B}. \p. dsnd {A} (\(a : A). B) p
 
 #check fst (*, _|_)
 #check snd (*, _|_)
