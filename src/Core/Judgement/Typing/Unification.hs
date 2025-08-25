@@ -83,7 +83,8 @@ solveConstraints env cs = do
     tryTrivialSolve (Var (Meta i)) t = do
       when (isRigid t) $ do
         addSolution i t
-        
+    -- TODO: Trivial solve meta applied to a list of args
+
     isMeta :: Term -> Bool
     isMeta (Var (Meta _)) = True
     isMeta _              = False

@@ -38,7 +38,7 @@ runInferType Nat                                       = return $ Univ 0
 
 runInferType (Var (Bound i))                           = do
   ctxs <- ask
-
+  
   if i >= 0 && i < length (bctx ctxs)
   then return $ snd $ bctx ctxs !! i
   else typeError FailedToInferType (Just ("Invalid index for bound term \"" ++ show i ++ "\""))

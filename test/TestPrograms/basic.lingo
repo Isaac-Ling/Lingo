@@ -1,8 +1,9 @@
 -- Identity
 id : {A : U} -> A -> A
-id := \a. a
+id := \(a : A). *
+id := \(a : A). *
 
---#check id 32
+#check id 32
 
 -- Projections
 dfst : {A : U} -> (B : A -> U) -> (a : A) x B a -> A
@@ -24,4 +25,3 @@ snd := \p. ind[A x B](p. B, a. b. b, p)
 
 #check fst (*, _|_)
 #check snd (*, _|_)
-
