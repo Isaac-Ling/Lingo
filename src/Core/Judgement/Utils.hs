@@ -16,7 +16,7 @@ type Binders = [Maybe ByteString]
 elaborate :: NamedTerm -> NamedTerm -> NamedTerm
 elaborate (NLam (x, t, Imp) m) (NPi (_, _, Imp) n) = NLam (x, t, Imp) $ elaborate m n
 elaborate m (NPi (Just x, t, Imp) n)               = NLam (x, Just t, Imp) $ elaborate m n
-elaborate m (NPi (Just x, t, Exp) n)               = elaborate m n
+elaborate (NLam (x, t, Exp) m) (NPi (_, _, Exp) n) = NLam (x, t, Exp) $ elaborate m n
 elaborate m _                                      = m
 
 toDeBruijn :: NamedTerm -> Term
