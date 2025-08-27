@@ -5,20 +5,16 @@ id := \(a : A). a
 #check id 32
 
 -- Projections
-dfst : {A : U} -> (B : A -> U) -> (a : A) x B a -> A
-dfst := \B. \p. ind[(a : A) x B a](A, a. b. a, p)
-
-dsnd : {A : U} -> (B : A -> U) -> (p : (a : A) x B a) -> B (dfst B p)
-dsnd := \B. \p. ind[(a : A) x B a](p. B (dfst B p), a. b. b, p)
-
-#check dfst
-#check dsnd
-
 fst : {A : U} -> {B : U} -> A x B -> A
-fst := \{A}. \{B}. \p. dfst {A} (\(a : A). B) p
+fst := \p. ind[A x B](A, a. b. a, p)
+
+#check fst
+
+dsnd : {A : U} -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst p)
+dsnd := \B. \p. ind[(a : A) x B a](p. B (fst p), a. b. b, p)
 
 snd : {A : U} -> {B : U} -> A x B -> B
-snd := \{A}. \{B}. \p. dsnd {A} (\(a : A). B) p
+snd := \{A}. \{B}. \p. dsnd (\(a : A). B) p
 
 #check fst (*, _|_)
 #check snd (*, _|_)
