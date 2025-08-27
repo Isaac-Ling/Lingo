@@ -314,13 +314,11 @@ showBoundTermWithBinders bs (Bind Nothing m)  = showBoundTermWithBinders (Nothin
 instance Show Term where
   show = showTermWithBinders binders
     where
-      -- TODO: Ensure these are fresh
       binders :: [Maybe ByteString]
-      binders = [Just $ pack ("a" ++ show i) | i <- [0..]]
+      binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
 instance Show BoundTerm where
   show = showBoundTermWithBinders binders
     where
-      -- TODO: Ensure these are fresh
       binders :: [Maybe ByteString]
-      binders = [Just $ pack ("a" ++ show i) | i <- [0..]]
+      binders = [Just $ pack ("!b" ++ show i) | i <- [0..]]

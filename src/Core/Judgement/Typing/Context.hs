@@ -58,6 +58,9 @@ addToBoundCtxs (x, t) (x', t') = addToTypeBoundCtx (x', t') . addToBoundCtx (x, 
 useTypeBoundCtx :: Contexts -> Contexts
 useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 
+useBoundCtx :: Contexts -> Contexts
+useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
+
 createMetaVar :: Term -> TypeCheck Term
 createMetaVar mt = do
   st <- get

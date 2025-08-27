@@ -1,3 +1,8 @@
+idTransLemma : (A : U) -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
+idTransLemma := \A. \a. \b. \p. ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
+
+#check idTransLemma
+
 -- Identity Equivalence Relation
 idRefl : (A : U) -> (a : A) -> a = a
 idRefl := \A. \a. refl[a]
@@ -8,9 +13,6 @@ idSymm : (A : U) -> (a : A) -> (b : A) -> a = b -> b = a
 idSymm := \A. \a. \b. \p. ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p) 
 
 #check idSymm
-
-idTransLemma : (A : U) -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
-idTransLemma := \A. \a. \b. \p. ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
 
 idTrans : (A : U) -> (a : A) -> (b : A) -> (c : A) -> a = b -> b = c -> a = c
 idTrans := \A. \a. \b. \c. \p. idTransLemma A a b p c

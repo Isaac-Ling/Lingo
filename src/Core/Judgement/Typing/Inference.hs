@@ -41,21 +41,21 @@ runInferType (Var (Bound i))                           = do
 
   if i >= 0 && i < length (bctx ctxs)
   then return $ snd $ bctx ctxs !! i
-  else typeError FailedToInferType (Just ("Invalid index for bound term \"" ++ show i ++ "\""))
+  else typeError FailedToInferType $ Just ("Invalid index " ++ show i ++ " for bound term")
 
 runInferType (Var (Free x))                            = do
   ctxs <- ask
 
   case lookup x $ ctx ctxs of
     Just t  -> return t
-    Nothing -> typeError FailedToInferType (Just ("Unknown variable " ++ show x))
+    Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
 runInferType (Var (Meta i))                            = do
   st <- get
 
   case lookup i $ mctx st of
     Just t  -> return t
-    Nothing -> typeError FailedToInferType (Just ("Unknown meta variable " ++ show (Var $ Meta i)))
+    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i))
 
 runInferType (Pi (x, t, _) m)                        = do
   ctxs <- ask
@@ -65,8 +65,8 @@ runInferType (Pi (x, t, _) m)                        = do
 
   case (tt, mt) of
     (Univ i, Univ j) -> return $ Univ $ max i j
-    (Univ i, _)      -> typeError TypeMismatch (Just (showTermWithContext ((x, t) : bctx ctxs) m ++ " is not a term of a universe"))
-    (_, _)           -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
+    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) m ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (show t ++ " is not a term of a universe")
 
 runInferType (Sigma (x, t) m)                          = do
   ctxs <- ask
@@ -76,8 +76,8 @@ runInferType (Sigma (x, t) m)                          = do
 
   case (tt, mt) of
     (Univ i, Univ j) -> return $ Univ $ max i j
-    (Univ i, _)      -> typeError TypeMismatch (Just (showTermWithContext ((x, t) : bctx ctxs) m ++ " is not a term of a universe"))
-    (_, _)           -> typeError TypeMismatch (Just (show t ++ " is not a term of a universe"))
+    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) m ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (show t ++ " is not a term of a universe")
 
 runInferType (Lam (x, Just t, ex) m)                   = do
   ctxs <- ask
@@ -87,12 +87,12 @@ runInferType (Lam (x, Just t, ex) m)                   = do
 
   case tt of
     Univ i -> return $ Pi (if isBinderUsed mt then Just x else Nothing, t, ex) mt
-    _      -> typeError TypeMismatch (Just (showTermWithContext (bctx ctxs) t ++ " is not a term of a universe"))
+    _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) t ++ " is not a term of a universe")
 
 runInferType (Lam (x, Nothing, ex) m)                  = do
   ctxs <- ask
 
-  typeError FailedToInferType (Just ("Cannot infer type of implicit lambda " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) m)))
+  typeError FailedToInferType $ Just ("Cannot infer type of implicit lambda " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) m))
 
 -- TODO: Use explicitness of second term
 runInferType (App m (n, ex))                           = do
@@ -221,7 +221,7 @@ runInferType (Ind Top (Bind x (NoBind m)) [NoBind c] a) = do
   ctxs <- ask
 
   mt <- local (addToBoundCtx (x, Top)) (runInferType m)
-  ct <- runCheckEvaluatedType c (bumpDown $ open Star m)
+  ct <- local useBoundCtx $ runCheckEvaluatedType c (bumpDown $ open Star m)
   at <- runCheckType a Top
 
   case mt of
@@ -242,7 +242,7 @@ runInferType (Ind
   ctxs <- ask
 
   mt <- local (addToBoundCtx (z, Sigma (x, t) n)) (runInferType m)
-  ft <- local (addToBoundCtx (y, n) . addToBoundCtx (w, t)) (runCheckEvaluatedType f $ openFor (Pair (Var $ Bound 1) (Var $ Bound 0)) 1 (bumpUp m))
+  ft <- local (useBoundCtx . addToBoundCtx (y, n) . addToBoundCtx (w, t)) (runCheckEvaluatedType f $ openFor (Pair (Var $ Bound 1) (Var $ Bound 0)) 1 (bumpUp m))
   at <- runCheckEvaluatedType a (Sigma (x, t) n)
 
   case mt of
@@ -263,8 +263,8 @@ runInferType (Ind
   ctxs <- ask
 
   mt <- local (addToBoundCtx (z, Sum t n)) (runInferType m)
-  ct <- local (addToBoundCtx (x, t)) (runCheckEvaluatedType c $ open (Inl $ Var $ Bound 1) m)
-  dt <- local (addToBoundCtx (y, n)) (runCheckEvaluatedType d $ open (Inr $ Var $ Bound 1) m)
+  ct <- local (useBoundCtx . addToBoundCtx (x, t)) (runCheckEvaluatedType c $ open (Inl $ Var $ Bound 1) m)
+  dt <- local (useBoundCtx . addToBoundCtx (y, n)) (runCheckEvaluatedType d $ open (Inr $ Var $ Bound 1) m)
   at <- runCheckEvaluatedType a (Sum t n)
 
   case mt of
@@ -294,8 +294,8 @@ runInferType (Ind
   bt <- runCheckEvaluatedType b t
 
   mt  <- local (addToBoundCtx (p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp t) . addToBoundCtx (x, t)) (runInferType m)
-  ct  <- local (addToBoundCtx (z, t)) (runCheckEvaluatedType c $ shift (-2) $ openFor (Var $ Bound 2) 2 $ openFor (Var $ Bound 2) 1 $ open (Refl $ Var $ Bound 2) m)
-  p't <- runCheckEvaluatedType p' (Id (Just t) a b)
+  ct  <- local (useBoundCtx . addToBoundCtx (z, t)) (runCheckEvaluatedType c $ shift (-2) $ openFor (Var $ Bound 2) 2 $ openFor (Var $ Bound 2) 1 $ open (Refl $ Var $ Bound 2) m)
+  p't <- local useBoundCtx $ runCheckEvaluatedType p' (Id (Just t) a b)
 
   case mt of
     Univ _ -> return $ shift (-3) $ openFor (shift 3 a) 2 $ openFor (shift 3 b) 1 $ open (shift 3 p') m
@@ -323,8 +323,8 @@ runInferType (Ind
 
   nt  <- runCheckType n Nat
   mt  <- local (addToBoundCtx (x, Nat)) (runInferType m)
-  c0t <- runCheckEvaluatedType c0 $ bumpDown $ open Zero m
-  cst <- local (addToBoundCtx (z, m) . addToBoundCtx (w, Nat)) (runCheckEvaluatedType cs $ bumpUp $ open (Succ $ Var $ Bound 0) m)
+  c0t <- local useBoundCtx $ runCheckEvaluatedType c0 $ bumpDown $ open Zero m
+  cst <- local (useBoundCtx . addToBoundCtx (z, m) . addToBoundCtx (w, Nat)) (runCheckEvaluatedType cs $ bumpUp $ open (Succ $ Var $ Bound 0) m)
 
   case mt of
     Univ _ -> return $ bumpDown $ open (bumpUp n) m
