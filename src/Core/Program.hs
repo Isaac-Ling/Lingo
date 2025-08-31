@@ -51,7 +51,7 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
           tryRun $ checkType (rtenv ctxs) (rtctx ctxs) m t
           continue (addToRTEnv (x, m)) (go ds)
         _      -> do
-          t <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+          (_, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
           continue (addToRTEnv (x, m) . addToRTCtx (x, t)) (go ds)
 
     go (Signature (x, t'):ds)  = do
@@ -71,9 +71,10 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
-      let ert = eval $ resolve (rtenv ctxs) m
-      liftIO $ putStrLn (show m ++ " =>* " ++ show ert ++ " : " ++ show t)
+      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+      let erf = eval $ resolve (rtenv ctxs) f
+      let et = eval t
+      liftIO $ putStrLn (show f ++ " =>* " ++ show erf ++ " : " ++ show et)
 
       go ds
 
@@ -81,8 +82,9 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
-      liftIO $ putStrLn (show m ++ " : " ++ show t)
+      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+      let et = eval t
+      liftIO $ putStrLn (show f ++ " : " ++ show et)
 
       go ds
 
@@ -90,9 +92,9 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
-      let ert = eval $ resolve (rtenv ctxs) m
-      liftIO $ putStrLn (show m ++ " =>* " ++ show ert)
+      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+      let erf = eval $ resolve (rtenv ctxs) f
+      liftIO $ putStrLn (show f ++ " =>* " ++ show erf)
 
       go ds
 

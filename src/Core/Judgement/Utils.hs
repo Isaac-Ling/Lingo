@@ -223,10 +223,10 @@ showTermWithBinders bs (Var (Bound i))
     errorString = "ERROR"
 showTermWithBinders bs Star                                   = "*"
 showTermWithBinders bs (App (Lam xt m) (Lam yt n, ex))        = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders bs (Lam yt n) ++ showExRParen ex
+showTermWithBinders bs (App (Lam xt m) (App p n, ex))         = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders bs (App p n) ++ showExRParen ex
 showTermWithBinders bs (App m (Lam xt n, ex))                 = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (Lam xt n) ++ showExRParen ex
 showTermWithBinders bs (App m (App p n, ex))                  = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (App p n) ++ showExRParen ex
 showTermWithBinders bs (App m (Sigma xt n, ex))               = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (Sigma xt n) ++ showExRParen ex
-showTermWithBinders bs (App (Lam xt m) (n, ex))               = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
 showTermWithBinders bs (App (Pi xt m) (n, ex))                = "(" ++ showTermWithBinders bs (Pi xt m) ++ ") " ++ showTermWithBinders bs n
 showTermWithBinders bs (App (Sigma xt m) (n, ex))             = "(" ++ showTermWithBinders bs (Sigma xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
 showTermWithBinders bs (App m (n, ex))                        = showTermWithBinders bs m ++ " " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex

@@ -167,7 +167,6 @@ solveConstraints env cs = do
     unificationError :: Maybe String -> Unification a
     unificationError ms = lift $ lift $ Error UnificationError ms
 
--- TODO: Manage contexts when moving in binders
 expandMetas :: MetaSolutions -> Term -> Term
 expandMetas sols (Var (Meta i))           = case lookup i sols of
   Just t -> t

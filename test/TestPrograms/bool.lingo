@@ -13,12 +13,12 @@ false := inr(*)
 #check false
 
 -- Conditional
-ifThenElse : (C : U) -> Bool -> C -> C -> C
-ifThenElse := \C. \b. \cT. \c2. ind[Bool](C, a. cT, b. c2, b)
+ifThenElse : {C : U} -> Bool -> C -> C -> C
+ifThenElse := \b. \cT. \c2. ind[Bool](C, a. cT, b. c2, b)
 
 #check ifThenElse
 
 not : Bool -> Bool
-not := \b. ifThenElse Bool b false true
+not := \b. ifThenElse b false true
 
 #check not false
