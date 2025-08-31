@@ -6,15 +6,16 @@ import Core.Judgement.Utils
 import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Context
 
+import GHC.Base (when)
 import Control.Monad (unless)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import GHC.Base (when)
 
 type MetaSolution  = (Int, Term)
 type MetaSolutions = [MetaSolution]
 
+-- TODO: Constraint contexts are not used and DONT WORK
 unify :: Term -> Term -> Maybe String -> TypeCheck ()
 unify t t' ms = do
   ctxs <- ask
@@ -62,6 +63,8 @@ solveConstraints env cs = do
 
             unless decomposed $
               tryTrivialSolve et et'
+
+              -- TODO: Solve non-trivial cases
       
           -- Loop with remaining constraints
           dropConstraint
@@ -84,10 +87,6 @@ solveConstraints env cs = do
       when (isRigid t) $ do
         addSolution i t
     -- TODO: Trivial solve meta applied to a list of args
-
-    isMeta :: Term -> Bool
-    isMeta (Var (Meta _)) = True
-    isMeta _              = False
 
     addSolution :: Int -> Term -> Unification ()
     addSolution i m = do
@@ -167,6 +166,7 @@ solveConstraints env cs = do
     unificationError :: Maybe String -> Unification a
     unificationError ms = lift $ lift $ Error UnificationError ms
 
+-- TODO: Handle contexts when expanding metas
 expandMetas :: MetaSolutions -> Term -> Term
 expandMetas sols (Var (Meta i))           = case lookup i sols of
   Just t -> t

@@ -58,8 +58,8 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let t = toDeBruijn t'
-      tt <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) t
-      let p = continue (addToRTCtx (x, t) . addToNamedTypeCtx (x, t')) (go ds)
+      (et, _) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) t
+      let p = continue (addToRTCtx (x, et) . addToNamedTypeCtx (x, t')) (go ds)
 
       case lookup x $ rtctx ctxs of
         Just t2 -> if equal (rtenv ctxs) t t2
@@ -72,6 +72,8 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
       let m = toDeBruijn m'
       (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+
+      -- TODO: Resolving after getting elaborated term means that term is no longer elaborated...
       let erf = eval $ resolve (rtenv ctxs) f
       let et = eval t
       liftIO $ putStrLn (show f ++ " =>* " ++ show erf ++ " : " ++ show et)

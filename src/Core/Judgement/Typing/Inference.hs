@@ -67,33 +67,33 @@ runInferType (Pi (x, t, ex) m)                         = do
   ctxs <- ask
 
   (et, tt) <- runInferType t
-  (em, mt) <- local (addToBoundCtx (x, t)) (runInferType m)
+  (em, mt) <- local (addToBoundCtx (x, et)) (runInferType m)
 
   case (tt, mt) of
     (Univ i, Univ j) -> return (Pi (x, et, ex) em, Univ $ max i j)
-    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) m ++ " is not a term of a universe")
-    (_, _)           -> typeError TypeMismatch $ Just (show t ++ " is not a term of a universe")
+    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (show et ++ " is not a term of a universe")
 
 runInferType (Sigma (x, t) m)                          = do
   ctxs <- ask
 
   (et, tt) <- runInferType t
-  (em, mt) <- local (addToBoundCtx (x, t)) (runInferType m)
+  (em, mt) <- local (addToBoundCtx (x, et)) (runInferType m)
 
   case (tt, mt) of
     (Univ i, Univ j) -> return (Sigma (x, et) em, Univ $ max i j)
-    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) m ++ " is not a term of a universe")
-    (_, _)           -> typeError TypeMismatch $ Just (show t ++ " is not a term of a universe")
+    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (show et ++ " is not a term of a universe")
 
 runInferType (Lam (x, Just t, ex) m)                   = do
   ctxs <- ask
 
   (et, tt) <- runInferType t
-  (em, mt) <- local (addToBoundCtx (Just x, t)) (runInferType m)
+  (em, mt) <- local (addToBoundCtx (Just x, et)) (runInferType m)
 
   case tt of
     Univ i -> return (Lam (x, Just et, ex) em, Pi (if isBinderUsed mt then Just x else Nothing, et, ex) mt)
-    _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) t ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
 runInferType (Lam (x, Nothing, ex) m)                  = do
   ctxs <- ask
@@ -112,13 +112,13 @@ runInferType (App m (n, ex))                           = do
           Pi (x, t, Exp) t' -> do
             (en, nt) <- runInferType n
 
-            unify t nt $ Just (showTermWithContext (bctx ctxs) m ++ " of type " ++ showTermWithContext (bctx ctxs) mt ++ " cannot be applied to " ++ showTermWithContext (bctx ctxs) n ++ " of type " ++ showTermWithContext (bctx ctxs) nt)
+            unify t nt $ Just (showTermWithContext (bctx ctxs) m ++ " of type " ++ showTermWithContext (bctx ctxs) mt ++ " cannot be applied to " ++ showTermWithContext (bctx ctxs) en ++ " of type " ++ showTermWithContext (bctx ctxs) nt)
             return (App m (en, ex'), bumpDown $ open (bumpUp en) t')
           Pi (x, t, Imp) t' -> do
             if ex == Imp
             then do
               -- If user supplies implicit variable explicitely, simply infer type using
-              -- explicit type and term
+              -- explicit type and term as normal
               (_, at) <- inferAppType m (n, Exp) $ Pi (x, t, Exp) t'
               return (App m (n, Imp), at)
             else do
@@ -144,8 +144,8 @@ runInferType (Sum m n)                                 = do
 
   case (mt, nt) of
     (Univ i, Univ j) -> return (Sum em en, Univ $ max i j)
-    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) n ++ " is not a term of a universe")
-    (_, _)           -> typeError TypeMismatch $ Just (show m ++ " is not a term of a universe")
+    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) en ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (show em ++ " is not a term of a universe")
 
 runInferType (Inl m)                                   = do
   ctxs <- ask
@@ -165,7 +165,7 @@ runInferType (Succ m)                                  = do
   (em, mt) <- runInferType m
 
   case mt of
-    Nat -> return (em, Nat)
+    Nat -> return (Succ em, Nat)
     _   -> typeError FailedToInferType $ Just ("Cannot apply succ to a term of type " ++ showTermWithContext (bctx ctxs) mt)
 
 runInferType (Funext p)                                = do
@@ -188,15 +188,16 @@ runInferType (Univalence f)                            = do
 
   case ft of
     Top -> return (Univalence ef, Top)
-    _   -> typeError FailedToInferType $ Just ("Cannot apply funext to a term of type " ++ showTermWithContext (bctx ctxs) ft)
+    _   -> typeError FailedToInferType $ Just ("Cannot apply univalence to a term of type " ++ showTermWithContext (bctx ctxs) ft)
 
 runInferType (IdFam t)                                 = do
   ctxs <- ask
 
   (et, tt) <- runInferType t
+
   case tt of
     Univ i -> return (IdFam et, Pi (Nothing, et, Exp) $ Pi (Nothing, et, Exp) tt)
-    _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) t ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
 runInferType (Id Nothing m n)                          = do
   (em, mt)   <- runInferType m
@@ -222,7 +223,7 @@ runInferType (Ind Bot (Bind x (NoBind m)) [] a)        = do
 
   case mt of
     Univ _ -> return (Ind Bot (Bind x (NoBind em)) [] ea, bumpDown $ open (bumpUp ea) em)
-    _      -> typeError TypeMismatch $ Just (showTermWithContext ((x, Bot) : bctx ctxs) m ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext ((x, Bot) : bctx ctxs) em ++ " is not a term of a universe")
 
 runInferType (Ind Top (NoBind m) [NoBind c] a)          = runInferType (Ind Top (Bind Nothing $ NoBind $ bumpUp m) [NoBind c] a)
 
@@ -230,12 +231,12 @@ runInferType (Ind Top (Bind x (NoBind m)) [NoBind c] a) = do
   ctxs <- ask
 
   (em, mt) <- local (addToBoundCtx (x, Top)) (runInferType m)
-  (ec, ct) <- local useBoundCtx $ runCheckEvaluatedType c (bumpDown $ open Star m)
+  (ec, ct) <- local useBoundCtx $ runCheckEvaluatedType c (bumpDown $ open Star em)
   (ea, at) <- runCheckType a Top
 
   case mt of
     Univ _ -> return (Ind Top (Bind x (NoBind em)) [NoBind ec] ea, bumpDown $ open (bumpUp ea) em)
-    _      -> typeError TypeMismatch $ Just (showTermWithContext ((x, Top) : bctx ctxs) m ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext ((x, Top) : bctx ctxs) em ++ " is not a term of a universe")
 
 runInferType (Ind
   (Sigma (x, t) n)
@@ -251,7 +252,7 @@ runInferType (Ind
   ctxs <- ask
 
   (em, mt) <- local (addToBoundCtx (z, Sigma (x, t) n)) (runInferType m)
-  (ef, ft) <- local (useBoundCtx . addToBoundCtx (y, n) . addToBoundCtx (w, t)) (runCheckEvaluatedType f $ openFor (Pair (Var $ Bound 1) (Var $ Bound 0)) 1 (bumpUp m))
+  (ef, ft) <- local (useBoundCtx . addToBoundCtx (y, n) . addToBoundCtx (w, t)) (runCheckEvaluatedType f $ openFor (Pair (Var $ Bound 1) (Var $ Bound 0)) 1 (bumpUp em))
   (ea, at) <- runCheckEvaluatedType a (Sigma (x, t) n)
 
   case mt of
@@ -260,7 +261,7 @@ runInferType (Ind
       (Bind z (NoBind em))
       [Bind w (Bind y (NoBind ef))]
       ea, bumpDown $ open (bumpUp ea) em)
-    _      -> typeError TypeMismatch $ Just (showTermWithContext ((z, Sigma (x, t) n) : bctx ctxs) m ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext ((z, Sigma (x, t) n) : bctx ctxs) em ++ " is not a term of a universe")
 
 runInferType (Ind
   (Sum t n)
@@ -276,8 +277,8 @@ runInferType (Ind
   ctxs <- ask
 
   (em, mt) <- local (addToBoundCtx (z, Sum t n)) (runInferType m)
-  (ec, ct) <- local (useBoundCtx . addToBoundCtx (x, t)) (runCheckEvaluatedType c $ open (Inl $ Var $ Bound 1) m)
-  (ed, dt) <- local (useBoundCtx . addToBoundCtx (y, n)) (runCheckEvaluatedType d $ open (Inr $ Var $ Bound 1) m)
+  (ec, ct) <- local (useBoundCtx . addToBoundCtx (x, t)) (runCheckEvaluatedType c $ open (Inl $ Var $ Bound 1) em)
+  (ed, dt) <- local (useBoundCtx . addToBoundCtx (y, n)) (runCheckEvaluatedType d $ open (Inr $ Var $ Bound 1) em)
   (ea, at) <- runCheckEvaluatedType a (Sum t n)
 
   case mt of
@@ -286,7 +287,7 @@ runInferType (Ind
       (Bind z (NoBind em))
       [Bind x (NoBind ec), Bind y (NoBind ed)]
       ea, bumpDown $ open (bumpUp ea) em)
-    _      -> typeError TypeMismatch $ Just (showTermWithContext ((z, Sum t n) : bctx ctxs) m ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext ((z, Sum t n) : bctx ctxs) em ++ " is not a term of a universe")
 
 runInferType (Ind
   (IdFam t)
@@ -311,8 +312,8 @@ runInferType (Ind
   (eb, bt) <- runCheckEvaluatedType b t
 
   (em, mt)   <- local (addToBoundCtx (p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp t) . addToBoundCtx (x, t)) (runInferType m)
-  (ec, ct)   <- local (useBoundCtx . addToBoundCtx (z, t)) (runCheckEvaluatedType c $ shift (-2) $ openFor (Var $ Bound 2) 2 $ openFor (Var $ Bound 2) 1 $ open (Refl $ Var $ Bound 2) m)
-  (ep', p't) <- local useBoundCtx $ runCheckEvaluatedType p' (Id (Just t) a b)
+  (ec, ct)   <- local (useBoundCtx . addToBoundCtx (z, t)) (runCheckEvaluatedType c $ shift (-2) $ openFor (Var $ Bound 2) 2 $ openFor (Var $ Bound 2) 1 $ open (Refl $ Var $ Bound 2) em)
+  (ep', p't) <- local useBoundCtx $ runCheckEvaluatedType p' (Id (Just t) ea eb)
 
   case mt of
     Univ _ -> return (Ind
@@ -320,7 +321,7 @@ runInferType (Ind
       (Bind x (Bind y (Bind p (NoBind em))))
       [Bind z (NoBind ec), NoBind ea, NoBind eb]
       ep', shift (-3) $ openFor (shift 3 ea) 2 $ openFor (shift 3 eb) 1 $ open (shift 3 ep') em)
-    _      -> typeError TypeMismatch $ Just (showTermWithContext ((p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) : (y, bumpUp t) : (x, t) : bctx ctxs) m ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext ((p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) : (y, bumpUp t) : (x, t) : bctx ctxs) em ++ " is not a term of a universe")
 
 runInferType (Ind (Var (Free x)) m c a)                 = do
   ctxs <- ask
@@ -344,8 +345,8 @@ runInferType (Ind
 
   (en, nt)   <- runCheckType n Nat
   (em, mt)   <- local (addToBoundCtx (x, Nat)) (runInferType m)
-  (ec0, c0t) <- local useBoundCtx $ runCheckEvaluatedType c0 $ bumpDown $ open Zero m
-  (ecs, cst) <- local (useBoundCtx . addToBoundCtx (z, m) . addToBoundCtx (w, Nat)) (runCheckEvaluatedType cs $ bumpUp $ open (Succ $ Var $ Bound 0) m)
+  (ec0, c0t) <- local useBoundCtx $ runCheckEvaluatedType c0 $ bumpDown $ open Zero em
+  (ecs, cst) <- local (useBoundCtx . addToBoundCtx (z, em) . addToBoundCtx (w, Nat)) (runCheckEvaluatedType cs $ bumpUp $ open (Succ $ Var $ Bound 0) em)
 
   case mt of
     Univ _ -> return (Ind
@@ -353,7 +354,7 @@ runInferType (Ind
       (Bind x (NoBind em))
       [NoBind ec0, Bind w (Bind z (NoBind ecs))]
       en, bumpDown $ open (bumpUp en) em)
-    _      -> typeError TypeMismatch $ Just (showTermWithContext ((x, Nat) : bctx ctxs) m ++ " is not a term of a universe")
+    _      -> typeError TypeMismatch $ Just (showTermWithContext ((x, Nat) : bctx ctxs) em ++ " is not a term of a universe")
 
 runInferType (Ind t m c a)                              = typeError FailedToInferType $ Just ("Invalid induction " ++ show (Ind t m c a))
 
@@ -378,40 +379,40 @@ runCheckType (Lam (x, Just t, ex) m) (Pi (x', t', ex') n) = do
 
   (et, tt)   <- runInferType t
   (et', t't) <- local useTypeBoundCtx (runInferType t')
-  (em, mt)   <- local (addToBoundCtxs (Just x, t) (x', t')) (runCheckType m n)
+  (em, mt)   <- local (addToBoundCtxs (Just x, et) (x', et')) (runCheckType m n)
 
   case (tt, t't, ex == ex') of
-    (_, _, False)       -> typeError TypeMismatch $ Just ("Mismatching explicitness between " ++ showTermWithContext (bctx ctxs) (Lam (x, Just t, ex) m) ++ " and " ++ showTermWithContext (tbctx ctxs) (Pi (x', t, ex') n))
+    (_, _, False)       -> typeError TypeMismatch $ Just ("Mismatching explicitness between " ++ showTermWithContext (bctx ctxs) (Lam (x, Just et, ex) em) ++ " and " ++ showTermWithContext (tbctx ctxs) (Pi (x', et, ex') n))
     (Univ i, Univ j, _) -> do
-      unify t t' Nothing
+      unify et et' Nothing
       return (Lam (x, Just et, ex) em, Pi (x', et, Exp) mt)
-    (Univ _, _, _)      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t' ++ " is not a term of a universe")
-    (_, _, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) t ++ " is not a term of a universe")
+    (Univ _, _, _)      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et' ++ " is not a term of a universe")
+    (_, _, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
 runCheckType (Lam (x, Nothing, ex) m) (Pi (x', t, ex') n) = do
   ctxs <- ask
 
   (et, tt) <- local useTypeBoundCtx (runInferType t)
-  (em, mt) <- local (addToBoundCtxs (Just x, t) (x', t)) (runCheckType m n)
+  (em, mt) <- local (addToBoundCtxs (Just x, et) (x', et)) (runCheckType m n)
 
   case tt of
     Univ _ -> if ex == ex'
-      then return (Lam (x, Nothing, ex) em, Pi (x', t, Exp) mt)
-      else typeError TypeMismatch $ Just ("Mismatching explicitness between " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) m) ++ " and " ++ showTermWithContext (tbctx ctxs) (Pi (x', t, ex') n))
-    _      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t ++ " is not a term of a universe")
+      then return (Lam (x, Nothing, ex) em, Pi (x', et, Exp) mt)
+      else typeError TypeMismatch $ Just ("Mismatching explicitness between " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) em) ++ " and " ++ showTermWithContext (tbctx ctxs) (Pi (x', et, ex') n))
+    _      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et ++ " is not a term of a universe")
 
 runCheckType (Pair m n) (Sigma (x, t) t')                 = do
   ctxs <- ask
 
   (et, tt)   <- runInferType t
-  (et', t't) <- local (addToBoundCtx (x, t) . useTypeBoundCtx) (runInferType t')
-  (em, mt)   <- runCheckType m t
-  (en, nt)   <- runCheckType n (bumpDown $ open (bumpUp m) t')
+  (et', t't) <- local (addToBoundCtx (x, et) . useTypeBoundCtx) (runInferType t')
+  (em, mt)   <- runCheckType m et
+  (en, nt)   <- runCheckType n (bumpDown $ open (bumpUp em) et')
 
   case (tt, t't) of
-    (Univ _, Univ _) -> return (Pair em en, Sigma (x, t) t')
-    (Univ _, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : tbctx ctxs) t' ++ " is not a term of a universe")
-    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t ++ " is not a term of a universe")
+    (Univ _, Univ _) -> return (Pair em en, Sigma (x, et) et')
+    (Univ _, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, et) : tbctx ctxs) et' ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et ++ " is not a term of a universe")
 
 runCheckType (Inl m) (Sum t t')                           = do
   ctxs <- ask
@@ -421,9 +422,9 @@ runCheckType (Inl m) (Sum t t')                           = do
   (et', t't) <- local useTypeBoundCtx (runInferType t')
 
   case (tt, t't) of
-    (Univ _, Univ _) -> return (Inl em, Sum t t')
-    (Univ _, _)      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t' ++ " is not a term of a universe")
-    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t ++ " is not a term of a universe")
+    (Univ _, Univ _) -> return (Inl em, Sum et et')
+    (Univ _, _)      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et' ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et ++ " is not a term of a universe")
 
 runCheckType (Inr m) (Sum t t')                           = do
   ctxs <- ask
@@ -433,9 +434,9 @@ runCheckType (Inr m) (Sum t t')                           = do
   (et', t't) <- local useTypeBoundCtx (runInferType t')
 
   case (tt, t't) of
-    (Univ _, Univ _) -> return (Inr em, Sum t t')
-    (Univ _, _)      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t' ++ " is not a term of a universe")
-    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) t ++ " is not a term of a universe")
+    (Univ _, Univ _) -> return (Inr em, Sum et et')
+    (Univ _, _)      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et' ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et ++ " is not a term of a universe")
 
 runCheckType m t                                          = unifyInferredType m t
 
@@ -444,5 +445,5 @@ unifyInferredType m t = do
   ctxs <- ask
 
   (em, mt) <- runInferType m
-  unify mt t $ Just ("The type of " ++ showTermWithContext (bctx ctxs) m ++ " is " ++ showTermWithContext (bctx ctxs) (eval mt) ++ " but expected " ++ showTermWithContext (tbctx ctxs) t)
+  unify mt t $ Just ("The type of " ++ showTermWithContext (bctx ctxs) em ++ " is " ++ showTermWithContext (bctx ctxs) (eval mt) ++ " but expected " ++ showTermWithContext (tbctx ctxs) t)
   return (em, t)
