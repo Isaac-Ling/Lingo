@@ -24,3 +24,9 @@ snd : {A : U} -> {B : U} -> A x B -> B
 snd := \{A}. \{B}. \p. dsnd A (\(a : A). B) p
 
 #check snd (*, _|_)
+
+-- Composition
+comp : {A : U} -> {B : U} -> {C : U} -> (B -> C) -> (A -> B) -> A -> C
+comp := \g. \f. \a. g (f a)
+
+#check comp

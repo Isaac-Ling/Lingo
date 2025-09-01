@@ -93,21 +93,25 @@ solveConstraints env cs = do
       st <- get
       put $ st { sols=(i, m) : sols st }
 
+    -- TODO: Manage contexts when decomposing terms within binders
+    -- Simply bumping them down to be relative to the same context
+    -- 'works' in simple cases, but what about when there is a variable
+    -- bound to that binder, then it will be bumped down to Bound (-1)...
     decompose :: BoundContext -> Term -> Term -> Unification Bool
     decompose bc (Lam (_, Just t, _) m) (Lam (_, Just t', _) m') = do
       appendConstraint bc t t'
-      appendConstraint bc m m'
+      appendConstraint bc (bumpDown m) (bumpDown m')
       return True
     decompose bc (Lam _ m) (Lam _ m')                            = do
-      appendConstraint bc m m'
+      appendConstraint bc (bumpDown m) (bumpDown m')
       return True
     decompose bc (Pi (_, t, _) m) (Pi (_, t', _) m')             = do
       appendConstraint bc t t'
-      appendConstraint bc m m'
+      appendConstraint bc (bumpDown m) (bumpDown m')
       return True
     decompose bc (Sigma (_, t) m) (Sigma (_, t') m')             = do
       appendConstraint bc t t'
-      appendConstraint bc m m'
+      appendConstraint bc (bumpDown m) (bumpDown m')
       return True
     decompose bc (Id (Just t) m n) (Id (Just t') m' n')          = do
       appendConstraint bc t t'
