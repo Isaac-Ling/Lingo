@@ -3,3 +3,4 @@
 #include "test/TestPrograms/terminal"
 #include "test/TestPrograms/identity"
 #include "test/TestPrograms/naturals"
+#include "test/TestPrograms/hott"

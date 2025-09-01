@@ -12,7 +12,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 -- current term. Nothing is used if we should never match against that binder
 type Binders = [Maybe ByteString]
 
--- TODO: Add implicit lambdas inside sub-terms
+-- TODO: Add implicit lambdas inside sub-terms ??
 elaborate :: NamedTerm -> NamedTerm -> NamedTerm
 elaborate (NLam (x, t, Imp) m) (NPi (_, _, Imp) n) = NLam (x, t, Imp) $ elaborate m n
 elaborate m (NPi (Just x, t, Imp) n)               = NLam (x, Just t, Imp) $ elaborate m n

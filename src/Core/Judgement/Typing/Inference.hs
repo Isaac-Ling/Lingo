@@ -175,8 +175,7 @@ runInferType (Funext p)                                = do
 
   case pt of
     Pi _ (Id _ (App f (Var (Bound 0), Exp)) (App g (Var (Bound 0), Exp))) -> do
-      at  <- runInferType $ App f (Var (Bound 0), Exp)
-      at' <- runInferType $ App g (Var (Bound 0), Exp)
+      runInferType pt
       return (Funext ep, Id Nothing f g)
     _                                                                     -> typeError FailedToInferType $ Just ("Cannot apply funext to a term of type " ++ showTermWithContext (bctx ctxs) pt)
 

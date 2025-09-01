@@ -9,8 +9,6 @@ idSymm := \p. ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p)
 
 #check idSymm
 
---idTransLemma : {A : U} -> {a : A} -> {b : A} -> a = b -> (c : A) -> b = c -> a = c
---idTransLemma := \p. ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
 idTransLemma : {A : U} -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
 idTransLemma := \a. \b. \p. ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
 

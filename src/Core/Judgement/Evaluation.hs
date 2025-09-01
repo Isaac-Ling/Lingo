@@ -90,7 +90,7 @@ beta m                      = m
 equal :: Environment -> Term -> Term -> Bool
 equal env m n = resolve env m == resolve env n
 
--- Equality of terms is alpha-beta-eta equivalence
+-- Equality of terms is modulo alpha-beta-eta equivalence
 instance Eq Term where
   m == n = eval m === eval n
     where

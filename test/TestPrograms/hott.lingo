@@ -1,26 +1,16 @@
 -- Function extensionality
-f : T -> T
-f := \a. a
+id1 : T -> T
+id1 := \a. a
 
-g : T -> T
-g := \b. b
+id2 : T -> T
+id2 := \b. b
 
-p : (a : T) -> f a = g a
-p := \c. refl[c]
+id1PointwiseEqualsId2 : (a : T) -> id1 a = id2 a
+id1PointwiseEqualsId2 := \c. refl[c]
 
-#check funext(p)
+#check funext(id1PointwiseEqualsId2)
 
-homotopic : (A : U) -> (B : U) -> (f : A -> B) -> (g : A -> B) -> U
-homotopic := \A. \B. \f. \g. (a : A) -> f a = g a
+homotopic : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> U
+homotopic := \f. \g. (a : A) -> f a = g a
 
-#eval homotopic
-
--- TODO: Complete ishae definition
-ishae : (A : U) -> (B : U) -> (f : A -> B) -> (g : B -> A) x (eta : homotopic A A (comp A B A f g) (id A)) x (eps : homotopic B B (comp B A B g f) (id B)) x (a : A) -> U
---ishae := \A. \B. \f. \g. 
-
--- TODO: Implicit parameters to reduce boilerplate
-isequiv : (A : U) -> (B : U) -> (f : A -> B) -> U
-isequiv := \A. \B. \f. ((g : B -> A) x (homotopic B B (comp B A B g f) (id B))) x ((h : B -> A) x (homotopic A A (comp A B A f h) (id A)))
-
-#eval isequiv
+#check homotopic id1 id2
