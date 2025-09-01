@@ -189,5 +189,5 @@ expandMetas sols (Ind t m' c a)           = Ind (expandMetas sols t) (expandMeta
   where
     expandMetasInBoundTerm :: MetaSolutions -> BoundTerm -> BoundTerm
     expandMetasInBoundTerm sols (NoBind m) = NoBind $ expandMetas sols m
-    expandMetasInBoundTerm sols (Bind _ m) = expandMetasInBoundTerm sols m
+    expandMetasInBoundTerm sols (Bind x m) = Bind x $ expandMetasInBoundTerm sols m
 expandMetas sols m                        = m

@@ -48,11 +48,11 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
       case lookup x $ rtctx ctxs of
         Just t -> do
-          tryRun $ checkType (rtenv ctxs) (rtctx ctxs) m t
-          continue (addToRTEnv (x, m)) (go ds)
+          (em, _) <- tryRun $ checkType (rtenv ctxs) (rtctx ctxs) m t
+          continue (addToRTEnv (x, em)) (go ds)
         _      -> do
-          (_, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, m) . addToRTCtx (x, t)) (go ds)
+          (em, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+          continue (addToRTEnv (x, em) . addToRTCtx (x, t)) (go ds)
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
@@ -73,7 +73,6 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       let m = toDeBruijn m'
       (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
 
-      -- TODO: Resolving after getting elaborated term means that term is no longer elaborated...
       let erf = eval $ resolve (rtenv ctxs) f
       let et = eval t
       liftIO $ putStrLn (show f ++ " =>* " ++ show erf ++ " : " ++ show et)
