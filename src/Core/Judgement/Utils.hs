@@ -207,7 +207,7 @@ isRigid m                       = True
 showTermWithBinders :: Binders -> Term -> String
 showTermWithBinders bs (Var (Free x))                = unpack x
 showTermWithBinders bs (Var (Meta i sp))
-  | i >= 0    = "?" ++ vars !! i ++ show sp
+  | i >= 0    = "?" ++ vars !! i
   | otherwise = errorString
   where
     vars :: [String]
