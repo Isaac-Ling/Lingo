@@ -50,7 +50,7 @@ id := \a. a
 #check id 32
 ```
 
-The check on the last line with give `id {Nat} 32 =>* 32 : Nat`.
+The check on the last line will give `id {Nat} 32 =>* 32 : Nat`.
 
 Implicits can be made explicit in both a lambda and an application by using curly braces:
 
