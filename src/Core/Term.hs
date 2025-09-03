@@ -48,11 +48,25 @@ data NamedTerm
 
 -- De Bruijn Terms --
 
+-- Spine of a meta variable is a telescope of all variables in the
+-- bound context that it can depend on. We carry this along with the
+-- meta variable as this corresponds to how a meta var is actually
+-- a function of the current context to a meta. This ensures contexts
+-- are managed correctly as meta spines will be bumped up and down
+-- as we navigate through a term. As an invariant, spines will only 
+-- contain variables, not arbitrary terms.
+type Spine = [Term]
+
 data Var
   = Free ByteString
   | Bound Int
-  | Meta Int
-  deriving (Eq)
+  | Meta Int Spine
+
+instance Eq Var where
+  Free x == Free y     = x == y
+  Bound i == Bound j   = i == j
+  Meta i _ == Meta j _ = i == j
+  _ == _               = False
 
 type Alias = (ByteString, Term)
 type Environment = [Alias]

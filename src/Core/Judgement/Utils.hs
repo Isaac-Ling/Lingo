@@ -57,6 +57,7 @@ resolve :: Environment -> Term -> Term
 resolve env (Var (Free x))           = case lookup x env of
   Just m  -> resolve env m
   Nothing -> Var $ Free x
+resolve env (Var (Meta i sp))        = Var $ Meta i sp
 resolve env (Var (Bound i))          = Var $ Bound i
 resolve env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (resolve env m)
 resolve env (Lam (x, Just t, ex) m)  = Lam (x, Just $ resolve env t, ex) (resolve env m)
@@ -90,6 +91,7 @@ shift k = go k 0
     go k l (Var (Bound i))
       | i >= l    = Var $ Bound (i + k)
       | otherwise = Var $ Bound i
+    go k l (Var (Meta i sp))        = Var $ Meta i $ map (go k l) sp
     go k l (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go k (l + 1) m)
     go k l (Lam (x, Just t, ex) m)  = Lam (x, Just $ go k l t, ex) (go k (l + 1) m)
     go k l (Pi (x, t, ex) m)        = Pi (x, go k l t, ex) (go k (l + 1) m)
@@ -127,6 +129,7 @@ openFor :: Term -> Int -> Term -> Term
 openFor m k (Var (Bound i))
   | i == k    = m
   | otherwise = Var $ Bound i
+openFor m k (Var (Meta i sp))        = Var $ Meta i $ map (openFor m k) sp
 openFor m k (Lam (x, Just t, ex) n)  = Lam (x, Just $ openFor m k t, ex) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Lam (x, Nothing, ex) n) = Lam (x, Nothing, ex) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Pi (x, t, ex) n)        = Pi (x, openFor m k t, ex) (openFor (bumpUp m) (k + 1) n)
@@ -179,7 +182,7 @@ isBinderUsed = go 0
     isBinderUsedInBoundTerm k (Bind x n) = isBinderUsedInBoundTerm (k + 1) n
 
 isRigid :: Term -> Bool
-isRigid (Var (Meta _))          = False
+isRigid (Var (Meta _ _))        = False
 isRigid (Lam (x, Just t, _) n)  = isRigid t && isRigid n
 isRigid (Lam (x, Nothing, _) n) = isRigid n
 isRigid (Pi (x, t, _) n)        = isRigid t && isRigid n
@@ -203,15 +206,15 @@ isRigid m                       = True
 
 showTermWithBinders :: Binders -> Term -> String
 showTermWithBinders bs (Var (Free x))                = unpack x
-showTermWithBinders bs (Var (Meta i))
-  | i >= 0    = "?" ++ vars !! i
+showTermWithBinders bs (Var (Meta i sp))
+  | i >= 0    = "?" ++ vars !! i ++ show sp
   | otherwise = errorString
   where
     vars :: [String]
     vars = ["a" ++ show i | i <- [0..]]
     
     errorString :: String
-    errorString = "ERROR"
+    errorString = "!ERROR"
 showTermWithBinders bs (Var (Bound i))
   | i >= 0    = unpack $ fromMaybe (pack errorString) a
   | otherwise = errorString
@@ -220,7 +223,7 @@ showTermWithBinders bs (Var (Bound i))
     a = join $ bs !? i
 
     errorString :: String
-    errorString = "ERROR"
+    errorString = "!ERROR"
 showTermWithBinders bs Star                                   = "*"
 showTermWithBinders bs (App (Lam xt m) (Lam yt n, ex))        = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders bs (Lam yt n) ++ showExRParen ex
 showTermWithBinders bs (App (Lam xt m) (App p n, ex))         = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders bs (App p n) ++ showExRParen ex
@@ -269,7 +272,7 @@ showTermWithBinders bs (Succ m)
         go :: Term -> Integer -> String
         go Zero     i = show i
         go (Succ m) i = go m (i + 1)
-        go _        _ = "ERROR"
+        go _        _ = "!ERROR"
 
     showNonNum :: Binders -> Term -> String
     showNonNum bs (Succ m) = "succ(" ++ showTermWithBinders bs m ++ ")"

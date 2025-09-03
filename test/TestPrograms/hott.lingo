@@ -14,8 +14,3 @@ homotopic : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> U
 homotopic := \f. \g. (a : A) -> f a = g a
 
 #check homotopic id1 id2
-
-ishae : {A : U} -> {B : U} -> (f : A -> B) -> (g : B -> A) x (eta : homotopic (comp f g) (id {B})) x (eps : homotopic (comp g f) (id {A})) x ((a : A) -> U)
--- Define ishae
-
-#type ishae

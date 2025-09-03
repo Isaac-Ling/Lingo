@@ -12,8 +12,6 @@ idSymm := \p. ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p)
 idTransLemma : {A : U} -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
 idTransLemma := \a. \b. \p. ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
 
-#check idTransLemma
-
 idTrans : {A : U} -> {a : A} -> {b : A} -> {c : A} -> a = b -> b = c -> a = c
 idTrans := \p. idTransLemma a b p c
 

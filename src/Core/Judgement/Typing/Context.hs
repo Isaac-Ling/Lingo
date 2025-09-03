@@ -26,7 +26,12 @@ data MetaState = MetaState
   , metaID :: Int
   } deriving (Show)
 
-type MetaContext   = [(Int, Term)]
+data MetaData = MetaData
+  { mtype :: Term
+  , mbctx :: BoundContext
+  } deriving (Show)
+
+type MetaContext = [(Int, MetaData)]
 
 data Contexts = Contexts
   { env   :: Environment
@@ -61,10 +66,13 @@ useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 useBoundCtx :: Contexts -> Contexts
 useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 
-createMetaVar :: Term -> TypeCheck Term
-createMetaVar mt = do
+createMetaVar :: Term -> BoundContext -> TypeCheck Term
+createMetaVar mt bc = do
   st <- get
   let mid = metaID st
-  put st { metaID=mid + 1, mctx=(mid, mt) : mctx st }
+  put st { metaID=mid + 1, mctx=(mid, MetaData { mtype=mt, mbctx=bc }) : mctx st }
 
-  return $ Var $ Meta mid
+  let n = length bc
+
+  -- Create a spine of bound variables that the meta is 'applied' to
+  return $ Var $ Meta mid [Var $ Bound i | i <- reverse [0..(n - 1)]]

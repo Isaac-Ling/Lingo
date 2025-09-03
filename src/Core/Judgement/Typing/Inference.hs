@@ -56,12 +56,12 @@ runInferType (Var (Free x))                            = do
     Just t  -> return (Var $ Free x, t)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
-runInferType (Var (Meta i))                            = do
+runInferType (Var (Meta i sp))                         = do
   st <- get
 
   case lookup i $ mctx st of
-    Just t  -> return (Var $ Meta i, t)
-    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i))
+    Just d  -> return (Var $ Meta i sp, mtype d)
+    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i sp))
 
 runInferType (Pi (x, t, ex) m)                         = do
   ctxs <- ask
@@ -123,9 +123,9 @@ runInferType (App m (n, ex))                           = do
               return (App m (n, Imp), at)
             else do
               -- Otherwise, create a meta variable and continue with type inference
-              mv <- createMetaVar t
+              mv <- createMetaVar t $ bctx ctxs
               let m'  = App m (mv, Imp)
-              let m't = bumpDown $ open mv t'
+              let m't = bumpDown $ open (bumpUp mv) t'
 
               inferAppType m' (n, ex) m't
           _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
