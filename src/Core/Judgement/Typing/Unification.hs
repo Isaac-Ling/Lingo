@@ -8,10 +8,11 @@ import Core.Judgement.Typing.Context
 
 import GHC.Base (when)
 import Control.Monad (unless)
+import Data.List (elemIndex)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import Data.ByteString.Lazy.Char8 (empty)
+import Data.ByteString.Lazy.Char8 (pack)
 
 type MetaSolution  = (Int, Term)
 type MetaSolutions = [MetaSolution]
@@ -56,16 +57,20 @@ solveConstraints env cs = do
           let et  = eval $ expandMetas (sols st) t
           let et' = eval $ expandMetas (sols st) t'
 
-          -- Skip constraint if the two terms are definitionally equal
+          -- Skip constraint if the two terms are definitionally equal (rigid-rigid positive case)
           unless (equal env et et') $ do
             -- Attempt to decompose constraint if terms have same rigid head
+            -- (rigid-rigid negative case handled here)
             decomposed <- decompose bc et et'
 
-            unless decomposed $
-              tryTrivialSolve et et'
+            unless decomposed $ do
+              -- Try to solve the flex-rigid case
+              flexRigidSolved <- tryFlexRigidSolve et et'
 
-              -- TODO: Solve non-trivial cases
-      
+              unless flexRigidSolved $ do
+                -- TODO: Solve flex-flex case
+                return ()
+
           -- Loop with remaining constraints
           dropConstraint
           runUnification
@@ -79,18 +84,48 @@ solveConstraints env cs = do
         (c:cs) -> do
           put $ st { csts=cs }
 
-    tryTrivialSolve :: Term -> Term -> Unification ()
-    tryTrivialSolve t (Var (Meta i sp)) = do
-      when (isRigid t) $ do
-        addSolution i $ abstractOverCtx t sp
-    tryTrivialSolve (Var (Meta i sp)) t = do
-      when (isRigid t) $ do
-        addSolution i $ abstractOverCtx t sp
-    -- TODO: Trivial solve meta applied to a list of args
+    tryFlexRigidSolve :: Term -> Term -> Unification Bool
+    tryFlexRigidSolve t (Var (Meta i sp)) | isRigid t = do
+      addSolution i $ abstractOverCtx t sp
+      return True
+    tryFlexRigidSolve (Var (Meta i sp)) t | isRigid t = do
+      addSolution i $ abstractOverCtx t sp
+      return True
+    tryFlexRigidSolve _ _                            = return False
 
     abstractOverCtx :: Term -> [Term] -> Term
-    abstractOverCtx m []     = m
-    abstractOverCtx m (n:ns) = abstractOverCtx (Lam (empty, Nothing, Exp) m) ns
+    abstractOverCtx m sp = go 0 (remapCtxToSpine m sp) sp
+      where
+        go :: Int -> Term -> [Term] -> Term
+        go i m []     = m
+        go i m (n:ns) = go (i + 1) (Lam (pack ("!m" ++ show i), Nothing, Exp) m) ns
+
+    -- Remaps a term to the context in the provided metas spine
+    remapCtxToSpine :: Term -> [Term] -> Term
+    remapCtxToSpine (Var (Bound i)) sp
+      | Var (Bound i) `elem` sp = Var $ Bound (fromMaybe 0 $ elemIndex (Var $ Bound i) $ reverse sp)
+      | otherwise               = Var $ Bound i
+    remapCtxToSpine (Lam (x, Just t, ex) n) sp  = Lam (x, Just $ remapCtxToSpine t sp, ex) (remapCtxToSpine n sp)
+    remapCtxToSpine (Lam (x, Nothing, ex) n) sp = Lam (x, Nothing, ex) (remapCtxToSpine n sp)
+    remapCtxToSpine (Pi (x, t, ex) n) sp        = Pi (x, remapCtxToSpine t sp, ex) (remapCtxToSpine n sp)
+    remapCtxToSpine (Sigma (x, t) n) sp         = Sigma (x, remapCtxToSpine t sp) (remapCtxToSpine n sp)
+    remapCtxToSpine (Pair t n) sp               = Pair (remapCtxToSpine t sp) (remapCtxToSpine n sp)
+    remapCtxToSpine (IdFam t) sp                = IdFam $ remapCtxToSpine t sp
+    remapCtxToSpine (Id mt t n) sp              = Id (fmap (`remapCtxToSpine` sp) mt) (remapCtxToSpine t sp) (remapCtxToSpine n sp)
+    remapCtxToSpine (Sum t n) sp                = Sum (remapCtxToSpine t sp) (remapCtxToSpine n sp)
+    remapCtxToSpine (App t (n, ex)) sp          = App (remapCtxToSpine t sp) (remapCtxToSpine n sp, ex)
+    remapCtxToSpine (Inl n) sp                  = Inl $ remapCtxToSpine n sp
+    remapCtxToSpine (Inr n) sp                  = Inr $ remapCtxToSpine n sp
+    remapCtxToSpine (Refl n) sp                 = Refl $ remapCtxToSpine n sp
+    remapCtxToSpine (Succ n) sp                 = Succ $ remapCtxToSpine n sp
+    remapCtxToSpine (Funext p) sp               = Funext $ remapCtxToSpine p sp
+    remapCtxToSpine (Univalence a) sp           = Univalence $ remapCtxToSpine a sp
+    remapCtxToSpine (Ind t m' c a) sp           = Ind (remapCtxToSpine t sp) (remapCtxToSpineInBoundTerm m' sp) (map (`remapCtxToSpineInBoundTerm` sp) c) (remapCtxToSpine a sp)
+      where
+        remapCtxToSpineInBoundTerm :: BoundTerm -> [Term] -> BoundTerm
+        remapCtxToSpineInBoundTerm (NoBind n) sp = NoBind (remapCtxToSpine n sp)
+        remapCtxToSpineInBoundTerm (Bind x n) sp = Bind x (remapCtxToSpineInBoundTerm n sp)
+    remapCtxToSpine n _                         = n
 
     addSolution :: Int -> Term -> Unification ()
     addSolution i m = do
@@ -102,8 +137,10 @@ solveConstraints env cs = do
       appendConstraint bc t t'
       appendConstraint ((Just x, t) : bc) m m'
       return True
-    decompose bc (Lam _ m) (Lam _ m')                            = do
-      appendConstraint bc m m'
+    decompose bc (Lam (x, Nothing, _) m) (Lam _ m')              = do
+      -- We don't know the type of x here, but need to add something
+      -- to the bound context. Add Top for now (TODO?)
+      appendConstraint ((Nothing, Top) : bc) m m'
       return True
     decompose bc (Pi (x, t, _) m) (Pi (_, t', _) m')             = do
       appendConstraint bc t t'
@@ -122,8 +159,6 @@ solveConstraints env cs = do
       appendConstraint bc m m'
       appendConstraint bc n n'
       return True
-    decompose bc (App (Var (Meta _ _)) _) _                      = return False
-    decompose bc _ (App (Var (Meta _ _)) _)                      = return False
     decompose bc (App m (n, _)) (App m' (n', _))                 = do
       appendConstraint bc m m'
       appendConstraint bc n n'
