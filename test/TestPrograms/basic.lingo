@@ -1,16 +1,32 @@
 -- Identity
-id : (A : U) -> A -> A
-id := \A. \a. a
+id : {A : U} -> A -> A
+id := \a. a
 
-#check id
+#check id 32
 
 -- Projections
-fst : (A : U) -> (B : A -> U) -> (a : A) x B a -> A
-fst := \A. \B. \p. ind[(a : A) x B a](A, a. b. a, p)
+dfst : {A : U} -> (B : A -> U) -> (a : A) x B a -> A
+dfst := \B. \p. ind[(a : A) x B a](A, a. b. a, p)
 
-#check fst
+#check dfst
 
-snd : (A : U) -> (B : A -> U) -> (p : (a : A) x B a) -> B (fst A B p)
-snd := \A. \B. \p. ind[(a : A) x B a](p. B (fst A B p), a. b. b, p)
+dsnd : {A : U} -> (B : A -> U) -> (p : (a : A) x B a) -> B (dfst B p)
+dsnd := \B. \p. ind[(a : A) x B a](p. B (dfst B p), a. b. b, p)
 
-#check snd
+#check dsnd
+
+fst : {A : U} -> {B : U} -> A x B -> A
+fst := \p. dfst (\(a : A). B) p
+
+#check fst (*, _|_)
+
+snd : {A : U} -> {B : U} -> A x B -> B
+snd := \p. dsnd (\(a : A). B) p
+
+#check snd (*, _|_)
+
+-- Composition
+comp : {A : U} -> {B : U} -> {C : U} -> (B -> C) -> (A -> B) -> A -> C
+comp := \g. \f. \a. g (f a)
+
+#check comp

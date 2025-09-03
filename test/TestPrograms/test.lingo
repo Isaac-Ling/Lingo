@@ -3,7 +3,4 @@
 #include "test/TestPrograms/terminal"
 #include "test/TestPrograms/identity"
 #include "test/TestPrograms/naturals"
-
--- Type theoretic axiom of choice
-ac : (A : U) -> (B : U) -> (R : A -> B -> U) -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> (R a (f a))))
-ac := \A. \B. \R. \g. (\(a : A). fst B (\(b : B). R a b) (g a), \(a : A). snd B (\(b : B). R a b) (g a))
+#include "test/TestPrograms/hott"

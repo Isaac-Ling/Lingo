@@ -18,37 +18,41 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 --%expect 0
 
 %token
-  '\n'      { PositionedToken TkNewL _ }
-  '\\'      { PositionedToken TkBackslash _ }
-  '.'       { PositionedToken TkDot _ }
-  ','       { PositionedToken TkComma _ }
-  'x'       { PositionedToken TkCross _ }
-  '+'       { PositionedToken TkPlus _ }
-  '('       { PositionedToken TkLParen _ }
-  ')'       { PositionedToken TkRParen _ }
-  '['       { PositionedToken TkLSqParen _ }
-  ']'       { PositionedToken TkRSqParen _ }
-  ':='      { PositionedToken TkColonEqual _ }
-  ':'       { PositionedToken TkColon _ }
-  '='       { PositionedToken TkEq _ }
-  '->'      { PositionedToken TkRArrow _ }
-  '*'       { PositionedToken TkStar _ }
-  'ind'     { PositionedToken TkInd pos }
-  'check'   { PositionedToken TkCheck _ }
-  'type'    { PositionedToken TkType _ }
-  'eval'    { PositionedToken TkEval _ }
-  'include' { PositionedToken TkInclude _ }
-  'inl'     { PositionedToken TkInl _ }
-  'inr'     { PositionedToken TkInr _ }
-  'refl'    { PositionedToken TkRefl _ }
-  'Nat'     { PositionedToken TkNat _ }
-  'succ'    { PositionedToken TkSucc _ }
-  'T'       { PositionedToken (TkTop) _ }
-  '_|_'     { PositionedToken (TkBot) _ }
-  univ      { PositionedToken (TkUniv $$) _ }
-  var       { PositionedToken (TkVar $$) _ }
-  int       { PositionedToken (TkInt $$) _ }
-  string    { PositionedToken (TkString $$) _ }
+  '\n'     { PositionedToken TkNewL _ }
+  '\\'     { PositionedToken TkBackslash _ }
+  '.'      { PositionedToken TkDot _ }
+  ','      { PositionedToken TkComma _ }
+  'x'      { PositionedToken TkCross _ }
+  '+'      { PositionedToken TkPlus _ }
+  '('      { PositionedToken TkLParen _ }
+  ')'      { PositionedToken TkRParen _ }
+  '{'      { PositionedToken TkLCurlyParen _ }
+  '}'      { PositionedToken TkRCurlyParen _ }
+  '['      { PositionedToken TkLSqParen _ }
+  ']'      { PositionedToken TkRSqParen _ }
+  ':='     { PositionedToken TkColonEqual _ }
+  ':'      { PositionedToken TkColon _ }
+  '='      { PositionedToken TkEq _ }
+  '->'     { PositionedToken TkRArrow _ }
+  '*'      { PositionedToken TkStar _ }
+  'ind'    { PositionedToken TkInd pos }
+  'check'  { PositionedToken TkCheck _ }
+  'type'   { PositionedToken TkType _ }
+  'eval'   { PositionedToken TkEval _ }
+  'include'{ PositionedToken TkInclude _ }
+  'inl'    { PositionedToken TkInl _ }
+  'inr'    { PositionedToken TkInr _ }
+  'refl'   { PositionedToken TkRefl _ }
+  'Nat'    { PositionedToken TkNat _ }
+  'succ'   { PositionedToken TkSucc _ }
+  'funext' { PositionedToken TkFunext _ }
+  'ua'     { PositionedToken TkUnivalence _ }
+  'T'      { PositionedToken (TkTop) _ }
+  '_|_'    { PositionedToken (TkBot) _ }
+  univ     { PositionedToken (TkUniv $$) _ }
+  var      { PositionedToken (TkVar $$) _ }
+  int      { PositionedToken (TkInt $$) _ }
+  string   { PositionedToken (TkString $$) _ }
 
 %nonassoc ':='
 %nonassoc ':' '.' ','
@@ -56,7 +60,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ int '(' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ'
+%nonassoc var univ int '(' '{' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua'
 %nonassoc APP
 
 %%
@@ -97,18 +101,24 @@ Term :: { NamedTerm }
   | Pair         { $1 }
   | NatNums      { $1 }
   | Induction    { $1 }
+  | Funext       { $1 }
+  | Univalence   { $1 }
   | '*'          { NStar }
 
 Application :: { NamedTerm }
-  : Term Term %prec APP { NApp $1 $2 }
+  : Term Term         %prec APP { NApp $1 ($2, Exp) }
+  | Term '{' Term '}' %prec APP { NApp $1 ($3, Imp) }
 
 Abstraction :: { NamedTerm }
-  : '\\' '(' var ':' Term ')' '.' Term { NLam ($3, Just $5) $8 }
-  | '\\' var '.' Term                  { NLam ($2, Nothing) $4 }
+  : '\\' '(' var ':' Term ')' '.' Term { NLam ($3, Just $5, Exp) $8 }
+  | '\\' '{' var ':' Term '}' '.' Term { NLam ($3, Just $5, Imp) $8 }
+  | '\\' var '.' Term                  { NLam ($2, Nothing, Exp) $4 }
+  | '\\' '{' var '}' '.' Term          { NLam ($3, Nothing, Imp) $6 }
 
 PiType :: { NamedTerm }
-  : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4) $7 }
-  | Term '->' Term                 { NPi (Nothing, $1) $3 }
+  : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4, Exp) $7 }
+  | '{' var ':' Term '}' '->' Term { NPi (Just $2, $4, Imp) $7 }
+  | Term '->' Term                 { NPi (Nothing, $1, Exp) $3 }
 
 Terminal :: { NamedTerm }
   : 'T'          { NTop }
@@ -136,6 +146,12 @@ NatNums :: { NamedTerm }
   : 'Nat'               { NNat }
   | 'succ' '(' Term ')' { NSucc $3 }
   | int                 { parseNum $1 }
+
+Funext :: { NamedTerm }
+  : 'funext' '(' Term ')' { NFunext $3 }
+
+Univalence :: { NamedTerm }
+  : 'ua' '(' Term ')' { NUnivalence $3 }
 
 BoundTerm :: { NamedBoundTerm }
   : Term              { NNoBind $1 }

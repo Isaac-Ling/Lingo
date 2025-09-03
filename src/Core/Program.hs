@@ -2,132 +2,157 @@ module Core.Program where
 
 import Core.Term
 import Core.Error
-import Core.Judgement.Utils
-import Core.Judgement.Typing
-import Core.Judgement.Evaluation
-import IO.Source ( readSource )
 import Parsing.Parser
+import Core.Judgement.Utils
+import Core.Judgement.Evaluation
+import Core.Judgement.Typing.Context
+import Core.Judgement.Typing.Inference
+import IO.Source (readSource)
 
 import Control.Monad (when)
-import System.Directory ( makeAbsolute )
+import System.Directory (makeAbsolute)
 import Control.Monad.Reader
-import Data.ByteString.Lazy.Char8 ( ByteString, unpack )
+import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
 type Includes = [FilePath]
 
-type Runtime a = ReaderT (Environment, Context, [FilePath]) (CanErrorT IO) a
+type NamedTypeContext = [(ByteString, NamedTerm)]
+
+data RuntimeContext = RuntimeContext
+  { rtenv :: Environment
+  , rtctx :: Context
+  , ntctx :: NamedTypeContext
+  , incs  :: [FilePath]
+  }
+
+type Runtime a = CanErrorT (ReaderT RuntimeContext IO) a
 
 run :: Program -> FilePath -> IO (CanError ())
-run p f = runCanErrorT $ runReaderT (go p) ([], [], [f])
+run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
   where
+    initRuntimeContext = RuntimeContext { rtenv=[], rtctx=[], ntctx=[], incs=[f] }
+
     go :: Program -> Runtime ()
-    go []                    = success
+    go []                      = success
 
-    go (Def (x, m'):ds)       = do
-      (env, ctx, is) <- ask
+    go (Def (x, m'):ds)        = do
+      ctxs <- askRTCtx
 
-      case lookup x env of
+      case lookup x $ rtenv ctxs of
         Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
         _      -> success
 
-      let m = toDeBruijn m'
+      let m = case lookup x $ ntctx ctxs of
+                Just t' -> toDeBruijn $ elaborate m' t'
+                _       -> toDeBruijn m'
 
-      t <- case lookup x ctx of
-        Just t -> tryRun $ checkType env ctx m t
-        _      -> tryRun $ inferType env ctx m
+      case lookup x $ rtctx ctxs of
+        Just t -> do
+          (em, _) <- tryRun $ checkType (rtenv ctxs) (rtctx ctxs) m t
+          continue (addToRTEnv (x, em)) (go ds)
+        _      -> do
+          (em, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+          continue (addToRTEnv (x, em) . addToRTCtx (x, t)) (go ds)
 
-      local (addToRuntime (x, m) (x, t)) (go ds)
-
-    go (Signature (x, t'):ds) = do
-      (env, ctx, _) <- ask
+    go (Signature (x, t'):ds)  = do
+      ctxs <- askRTCtx
 
       let t = toDeBruijn t'
-      tt <- tryRun $ inferType env ctx t
-      let p = local (addToCtx (x, t)) (go ds)
+      (et, _) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) t
+      let p = continue (addToRTCtx (x, et) . addToNamedTypeCtx (x, t')) (go ds)
 
-      case lookup x ctx of
-        Just t2 -> if equal env t t2
+      case lookup x $ rtctx ctxs of
+        Just t2 -> if equal (rtenv ctxs) t t2
           then p
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))
         _       -> p
 
-    go (Pragma (Check m'):ds) = do
-      (env, ctx, _) <- ask
+    go (Pragma (Check m'):ds)  = do
+      ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType env ctx m
-      let ert = eval $ elaborate env m
-      liftIO $ putStrLn (show m ++ " =>* " ++ show ert ++ " : " ++ show t)
+      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+
+      let erf = eval $ resolve (rtenv ctxs) f
+      let et = eval t
+      liftIO $ putStrLn (show f ++ " =>* " ++ show erf ++ " : " ++ show et)
 
       go ds
 
-    go (Pragma (Type m'):ds) = do
-      (env, ctx, _) <- ask
+    go (Pragma (Type m'):ds)   = do
+      ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType env ctx m
-      liftIO $ putStrLn (show m ++ " : " ++ show t)
+      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+      let et = eval t
+      liftIO $ putStrLn (show f ++ " : " ++ show et)
 
       go ds
 
-    go (Pragma (Eval m'):ds) = do
-      (env, ctx, _) <- ask
+    go (Pragma (Eval m'):ds)   = do
+      ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      t <- tryRun $ inferType env ctx m
-      let ert = eval $ elaborate env m
-      liftIO $ putStrLn (show m ++ " =>* " ++ show ert)
+      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+      let erf = eval $ resolve (rtenv ctxs) f
+      liftIO $ putStrLn (show f ++ " =>* " ++ show erf)
 
       go ds
 
     go (Pragma (Include f):ds) = do
-      (_, _, inc) <- ask
+      ctxs <- askRTCtx
 
       let includeWithExtension = f ++ ".lingo"
 
       file <- liftIO $ makeAbsolute includeWithExtension
 
       -- Ensure file has not been included already
-      if file `elem` inc
+      if file `elem` incs ctxs
       then abort CircularDependency $ Just ("Circular dependency on the file " ++ file)
       else do
         msource <- liftIO $ readSource file
         source <- case msource of
           Result s -> return s
-          err      -> lift $ CanErrorT $ return err
+          err      -> CanErrorT $ return err
 
         program <- case parse source of
           Result p -> return p
-          err      -> lift $ CanErrorT $ return err
+          err      -> CanErrorT $ return err
 
-        local (addToIncludes file) (go (program ++ ds))
+        continue (addToIncludes file) (go (program ++ ds))
 
 tryRun :: CanError a -> Runtime a
-tryRun = lift . CanErrorT . return
+tryRun = CanErrorT . return
 
 success :: Runtime ()
 success = return ()
 
+askRTCtx :: Runtime RuntimeContext
+askRTCtx = lift ask
+
+continue :: (RuntimeContext -> RuntimeContext) -> Runtime () -> Runtime ()
+continue f m = CanErrorT $ local f $ runCanErrorT m
+
 abort :: ErrorCode -> Maybe String -> Runtime ()
-abort errc ms = lift $ CanErrorT $ return $ Error errc ms
+abort errc ms = CanErrorT $ return $ Error errc ms
 
-addToEnv :: Alias -> ((Environment, a, b) -> (Environment, a, b))
-addToEnv def (env, a, b) = (def : env, a, b)
+addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
+addToRTEnv def ctxs = ctxs { rtenv=def : rtenv ctxs }
 
-addToCtx :: Assumption -> ((a, Context, c) -> (a, Context, c))
-addToCtx sig (a, ctx, c) = (a, sig : ctx, c)
+addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
+addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
 
-addToIncludes :: FilePath -> ((a, b, Includes) -> (a, b, Includes))
-addToIncludes f (a, b, inc) = (a, b, f : inc)
+addToNamedTypeCtx :: (ByteString, NamedTerm) -> (RuntimeContext -> RuntimeContext)
+addToNamedTypeCtx nt ctxs = ctxs { ntctx=nt : ntctx ctxs }
 
-addToRuntime :: Alias -> Assumption -> ((Environment, Context, a) -> (Environment, Context, a))
-addToRuntime def sig = addToCtx sig . addToEnv def
+addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
+addToIncludes f ctxs = ctxs { incs=f : incs ctxs }
 
 instance Show Declaration where
   show (Signature (x, t')) = unpack x ++ " : " ++ show (toDeBruijn t')
-  show (Def (x, m'))  = unpack x ++ " := " ++ show (toDeBruijn m')
-  show (Pragma p)    = show p
+  show (Def (x, m'))       = unpack x ++ " := " ++ show (toDeBruijn m')
+  show (Pragma p)          = show p
 
 instance Show Pragma where
-  show (Check m') = "#check " ++ show (toDeBruijn m')
+  show (Check m')  = "#check " ++ show (toDeBruijn m')
   show (Include f) = "#include " ++ f

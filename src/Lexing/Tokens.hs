@@ -15,6 +15,8 @@ data Token
   | TkColon
   | TkLParen
   | TkRParen
+  | TkLCurlyParen
+  | TkRCurlyParen
   | TkLSqParen
   | TkRSqParen
   -- Symbols
@@ -40,6 +42,8 @@ data Token
   | TkRefl
   | TkNat
   | TkSucc
+  | TkFunext
+  | TkUnivalence
   -- Misc
   | TkNewL
   | TkEOF

@@ -33,22 +33,22 @@ lMul0 := \a. refl[0]
 powFlipped : Nat -> Nat -> Nat
 powFlipped := \n. ind[Nat](Nat -> Nat, \n. 1, n'. g. \m. multiply m (g m), n)
 
-flip : (A : U) -> (B : U) -> (C : U) -> (A -> B -> C) -> B -> A -> C
-flip := \A. \B. \C. \f. \b. \a. f a b
+flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
+flip := \f. \b. \a. f a b
 
-pow := flip Nat Nat Nat powFlipped
+pow := flip powFlipped
 
 #check pow 2 5
 
 rAddId : (a : Nat) -> add a 0 = a
-rAddId := \a. ind[Nat](n. add n 0 = n, refl[0], m. g. cong Nat (add m 0) m g Nat (\(n : Nat). succ(n)), a)
+rAddId := \a. ind[Nat](n. add n 0 = n, refl[0], m. g. cong g (\(n : Nat). succ(n)), a)
 
 #check rAddId
 
 addCommLemma : (a : Nat) -> (b : Nat) -> add a succ(b) = add succ(a) b
-addCommLemma := \a. \b. ind[Nat](n. add n succ(b) = add succ(n) b, refl[succ(b)], m. g. cong Nat (add m succ(b)) (add succ(m) b) g Nat (\(n : Nat). succ(n)), a)
+addCommLemma := \a. \b. ind[Nat](n. add n succ(b) = add succ(n) b, refl[succ(b)], m. g. cong g (\(n : Nat). succ(n)), a)
 
 addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
-addComm := \a. \b. ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans Nat (add a succ(m)) (add succ(a) m) (add succ(m) a) (addCommLemma a m) (cong Nat (add a m) (add m a) g Nat (\(n : Nat). succ(n))), b)
+addComm := \a. \b. ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans (addCommLemma a m) (cong g (\(n : Nat). succ(n))), b)
 
 #type addComm

@@ -38,6 +38,8 @@ lingo :-
 <0> \(                 { createTk TkLParen }
 <0> \)                 { createTk TkRParen }
 <0> \)                 { createTk TkRParen }
+<0> \{                 { createTk TkLCurlyParen }
+<0> \}                 { createTk TkRCurlyParen }
 <0> \[                 { createTk TkLSqParen }
 <0> \]                 { createTk TkRSqParen }
 <0> ":="               { createTk TkColonEqual }
@@ -55,6 +57,8 @@ lingo :-
 <0> "refl"             { createTk TkRefl }
 <0> "Nat"              { createTk TkNat }
 <0> "succ"             { createTk TkSucc }
+<0> "funext"           { createTk TkFunext }
+<0> "ua"               { createTk TkUnivalence }
 <0> @univ              { createUnivTk }
 <0> \U                 { createTk $ TkUniv 0 }
 <0> \T                 { createTk TkTop }
