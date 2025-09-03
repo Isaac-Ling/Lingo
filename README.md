@@ -37,6 +37,30 @@ double : Nat -> Nat
 double := \n. ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
 ```
 
+# Implicits
+
+Leading pi types can be left explicit by writing `{A : U} -> ...`. Semantically this is equivalent to a standard pi type, but it doesn't need a corresponding leading lambda in its definition. It also can be left out when applying another term to a term of this type.
+
+For example, we can define and use the identity function with implicits like so:
+
+```
+id : {A : U} -> A -> A
+id := \a. a
+
+#check id 32
+```
+
+The check on the last line with give `id {Nat} 32 =>* 32 : Nat`.
+
+Implicits can be made explicit in both a lambda and an application by using curly braces:
+
+```
+id : {A : U} -> A -> A
+id := \{B}. \(a : B). a
+
+#check id {Nat} 32
+```
+
 # Pragmas
 
 Use the `#check` pragma to print out the normal form of the term supplied, along with it's type.
