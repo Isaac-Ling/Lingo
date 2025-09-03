@@ -61,7 +61,7 @@ id := \{B}. \(a : B). a
 #check id {Nat} 32
 ```
 
-# Pragmas
+## Pragmas
 
 Use the `#check` pragma to print out the normal form of the term supplied, along with it's type.
 
