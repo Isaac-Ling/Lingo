@@ -14,3 +14,11 @@ homotopic : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> U
 homotopic := \f. \g. (a : A) -> f a = g a
 
 #check homotopic id1 id2
+
+dhomotopic : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> U
+dhomotopic := \f. \g. (a : A) -> f a = g a
+
+homotopyRefl : {A : U} -> (P : A -> U) -> (f : (a : A) -> P a) -> dhomotopic f f
+--homotopyRefl := \P. \f. 
+
+#check homotopyRefl
