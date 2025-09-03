@@ -37,7 +37,7 @@ double : Nat -> Nat
 double := \n. ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
 ```
 
-# Implicits
+## Implicits
 
 Leading pi types can be left explicit by writing `{A : U} -> ...`. Semantically this is equivalent to a standard pi type, but it doesn't need a corresponding leading lambda in its definition. It also can be left out when applying another term to a term of this type.
 
