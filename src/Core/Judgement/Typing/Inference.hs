@@ -66,29 +66,29 @@ runInferType (Var (Meta i sp))                         = do
 runInferType (Pi (x, t, ex) m)                         = do
   ctxs <- ask
 
-  (et, tt) <- runInferType t
-  (em, mt) <- local (addToBoundCtx (x, et)) (runInferType m)
+  (et, tt) <- runInferEvaluatedType t
+  (em, mt) <- local (addToBoundCtx (x, et)) (runInferEvaluatedType m)
 
   case (tt, mt) of
     (Univ i, Univ j) -> return (Pi (x, et, ex) em, Univ $ max i j)
     (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
-    (_, _)           -> typeError TypeMismatch $ Just (show et ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
 runInferType (Sigma (x, t) m)                          = do
   ctxs <- ask
 
-  (et, tt) <- runInferType t
-  (em, mt) <- local (addToBoundCtx (x, et)) (runInferType m)
+  (et, tt) <- runInferEvaluatedType t
+  (em, mt) <- local (addToBoundCtx (x, et)) (runInferEvaluatedType m)
 
   case (tt, mt) of
     (Univ i, Univ j) -> return (Sigma (x, et) em, Univ $ max i j)
     (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
-    (_, _)           -> typeError TypeMismatch $ Just (show et ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
 runInferType (Lam (x, Just t, ex) m)                   = do
   ctxs <- ask
 
-  (et, tt) <- runInferType t
+  (et, tt) <- runInferEvaluatedType t
   (em, mt) <- local (addToBoundCtx (Just x, et)) (runInferType m)
 
   case tt of
@@ -101,7 +101,7 @@ runInferType (Lam (x, Nothing, ex) m)                  = do
   typeError FailedToInferType $ Just ("Cannot infer type of implicit lambda " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) m))
 
 runInferType (App m (n, ex))                           = do
-  (em, mt) <- runInferType m
+  (em, mt) <- runInferEvaluatedType m
   inferAppType em (n, ex) mt
     where
       inferAppType :: Term -> (Term, Explicitness) -> Term -> TypeCheck (Term, Term)
@@ -139,8 +139,8 @@ runInferType (Pair m n)                                = do
 runInferType (Sum m n)                                 = do
   ctxs <- ask
 
-  (em, mt) <- runInferType m
-  (en, nt) <- runInferType n
+  (em, mt) <- runInferEvaluatedType m
+  (en, nt) <- runInferEvaluatedType n
 
   case (mt, nt) of
     (Univ i, Univ j) -> return (Sum em en, Univ $ max i j)
@@ -162,7 +162,7 @@ runInferType Zero                                      = return (Zero, Nat)
 runInferType (Succ m)                                  = do
   ctxs <- ask
 
-  (em, mt) <- runInferType m
+  (em, mt) <- runInferEvaluatedType m
 
   case mt of
     Nat -> return (Succ em, Nat)
@@ -173,7 +173,7 @@ runInferType (Funext p)                                = do
 
   (ep, pt) <- runInferType p
 
-  case pt of
+  case resolve (env ctxs) pt of
     Pi _ (Id _ (App f (Var (Bound 0), Exp)) (App g (Var (Bound 0), Exp))) -> do
       runInferType pt
       return (Funext ep, Id Nothing f g)
@@ -183,7 +183,7 @@ runInferType (Funext p)                                = do
 runInferType (Univalence f)                            = do
   ctxs <- ask
 
-  (ef, ft) <- runInferType f
+  (ef, ft) <- runInferEvaluatedType f
 
   case ft of
     Top -> return (Univalence ef, Top)
@@ -194,7 +194,7 @@ runInferType (IdFam t)                                 = do
 
   (et, tt) <- runInferType t
 
-  case tt of
+  case eval $ resolve (env ctxs) tt of
     Univ i -> return (IdFam et, Pi (Nothing, et, Exp) $ Pi (Nothing, et, Exp) tt)
     _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
@@ -217,7 +217,7 @@ runInferType (Ind Bot (NoBind m) [] a)                 = runInferType (Ind Bot (
 runInferType (Ind Bot (Bind x (NoBind m)) [] a)        = do
   ctxs <- ask
 
-  (em, mt) <- local (addToBoundCtx (x, Bot)) (runInferType m)
+  (em, mt) <- local (addToBoundCtx (x, Bot)) (runInferEvaluatedType m)
   (ea, at) <- runCheckType a Bot
 
   case mt of
@@ -229,7 +229,7 @@ runInferType (Ind Top (NoBind m) [NoBind c] a)          = runInferType (Ind Top 
 runInferType (Ind Top (Bind x (NoBind m)) [NoBind c] a) = do
   ctxs <- ask
 
-  (em, mt) <- local (addToBoundCtx (x, Top)) (runInferType m)
+  (em, mt) <- local (addToBoundCtx (x, Top)) (runInferEvaluatedType m)
   (ec, ct) <- local useBoundCtx $ runCheckEvaluatedType c (bumpDown $ open Star em)
   (ea, at) <- runCheckType a Top
 
@@ -250,7 +250,7 @@ runInferType (Ind
   a)                                                    = do
   ctxs <- ask
 
-  (em, mt) <- local (addToBoundCtx (z, Sigma (x, t) n)) (runInferType m)
+  (em, mt) <- local (addToBoundCtx (z, Sigma (x, t) n)) (runInferEvaluatedType m)
   (ef, ft) <- local (useBoundCtx . addToBoundCtx (y, n) . addToBoundCtx (w, t)) (runCheckEvaluatedType f $ openFor (Pair (Var $ Bound 1) (Var $ Bound 0)) 1 (bumpUp em))
   (ea, at) <- runCheckEvaluatedType a (Sigma (x, t) n)
 
@@ -275,7 +275,7 @@ runInferType (Ind
   a)                                                    = do
   ctxs <- ask
 
-  (em, mt) <- local (addToBoundCtx (z, Sum t n)) (runInferType m)
+  (em, mt) <- local (addToBoundCtx (z, Sum t n)) (runInferEvaluatedType m)
   (ec, ct) <- local (useBoundCtx . addToBoundCtx (x, t)) (runCheckEvaluatedType c $ open (Inl $ Var $ Bound 1) em)
   (ed, dt) <- local (useBoundCtx . addToBoundCtx (y, n)) (runCheckEvaluatedType d $ open (Inr $ Var $ Bound 1) em)
   (ea, at) <- runCheckEvaluatedType a (Sum t n)
@@ -310,7 +310,7 @@ runInferType (Ind
   (ea, at) <- runCheckEvaluatedType a t
   (eb, bt) <- runCheckEvaluatedType b t
 
-  (em, mt)   <- local (addToBoundCtx (p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp t) . addToBoundCtx (x, t)) (runInferType m)
+  (em, mt)   <- local (addToBoundCtx (p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp t) . addToBoundCtx (x, t)) (runInferEvaluatedType m)
   (ec, ct)   <- local (useBoundCtx . addToBoundCtx (z, t)) (runCheckEvaluatedType c $ shift (-2) $ openFor (Var $ Bound 2) 2 $ openFor (Var $ Bound 2) 1 $ open (Refl $ Var $ Bound 2) em)
   (ep', p't) <- local useBoundCtx $ runCheckEvaluatedType p' (Id (Just t) ea eb)
 
@@ -343,7 +343,7 @@ runInferType (Ind
   ctxs <- ask
 
   (en, nt)   <- runCheckType n Nat
-  (em, mt)   <- local (addToBoundCtx (x, Nat)) (runInferType m)
+  (em, mt)   <- local (addToBoundCtx (x, Nat)) (runInferEvaluatedType m)
   (ec0, c0t) <- local useBoundCtx $ runCheckEvaluatedType c0 $ bumpDown $ open Zero em
   (ecs, cst) <- local (useBoundCtx . addToBoundCtx (z, em) . addToBoundCtx (w, Nat)) (runCheckEvaluatedType cs $ bumpUp $ open (Succ $ Var $ Bound 0) em)
 
@@ -356,6 +356,13 @@ runInferType (Ind
     _      -> typeError TypeMismatch $ Just (showTermWithContext ((x, Nat) : bctx ctxs) em ++ " is not a term of a universe")
 
 runInferType (Ind t m c a)                              = typeError FailedToInferType $ Just ("Invalid induction " ++ show (Ind t m c a))
+
+runInferEvaluatedType :: Term -> TypeCheck (Term, Term)
+runInferEvaluatedType m = do
+  ctxs <- ask
+
+  (et, mt) <- runInferType m
+  return (et, eval $ resolve (env ctxs) mt)
 
 runCheckEvaluatedType :: Term -> Term -> TypeCheck (Term, Term)
 runCheckEvaluatedType m t = do
@@ -376,8 +383,8 @@ runCheckType m (Var (Free x))                             = do
 runCheckType (Lam (x, Just t, ex) m) (Pi (x', t', ex') n) = do
   ctxs <- ask
 
-  (et, tt)   <- runInferType t
-  (et', t't) <- local useTypeBoundCtx (runInferType t')
+  (et, tt)   <- runInferEvaluatedType t
+  (et', t't) <- local useTypeBoundCtx (runInferEvaluatedType t')
   (em, mt)   <- local (addToBoundCtxs (Just x, et) (x', et')) (runCheckType m n)
 
   case (tt, t't, ex == ex') of
@@ -391,7 +398,7 @@ runCheckType (Lam (x, Just t, ex) m) (Pi (x', t', ex') n) = do
 runCheckType (Lam (x, Nothing, ex) m) (Pi (x', t, ex') n) = do
   ctxs <- ask
 
-  (et, tt) <- local useTypeBoundCtx (runInferType t)
+  (et, tt) <- local useTypeBoundCtx (runInferEvaluatedType t)
   (em, mt) <- local (addToBoundCtxs (Just x, et) (x', et)) (runCheckType m n)
 
   case tt of
@@ -403,8 +410,8 @@ runCheckType (Lam (x, Nothing, ex) m) (Pi (x', t, ex') n) = do
 runCheckType (Pair m n) (Sigma (x, t) t')                 = do
   ctxs <- ask
 
-  (et, tt)   <- runInferType t
-  (et', t't) <- local (addToBoundCtx (x, et) . useTypeBoundCtx) (runInferType t')
+  (et, tt)   <- runInferEvaluatedType t
+  (et', t't) <- local (addToBoundCtx (x, et) . useTypeBoundCtx) (runInferEvaluatedType t')
   (em, mt)   <- runCheckType m et
   (en, nt)   <- runCheckType n (bumpDown $ open (bumpUp em) et')
 
@@ -417,8 +424,8 @@ runCheckType (Inl m) (Sum t t')                           = do
   ctxs <- ask
 
   (em, mt)   <- runCheckType m t
-  (et, tt)   <- local useTypeBoundCtx (runInferType t)
-  (et', t't) <- local useTypeBoundCtx (runInferType t')
+  (et, tt)   <- local useTypeBoundCtx (runInferEvaluatedType t)
+  (et', t't) <- local useTypeBoundCtx (runInferEvaluatedType t')
 
   case (tt, t't) of
     (Univ _, Univ _) -> return (Inl em, Sum et et')
@@ -429,8 +436,8 @@ runCheckType (Inr m) (Sum t t')                           = do
   ctxs <- ask
 
   (em, mt)   <- runCheckType m t'
-  (et, tt)   <- local useTypeBoundCtx (runInferType t)
-  (et', t't) <- local useTypeBoundCtx (runInferType t')
+  (et, tt)   <- local useTypeBoundCtx (runInferEvaluatedType t)
+  (et', t't) <- local useTypeBoundCtx (runInferEvaluatedType t')
 
   case (tt, t't) of
     (Univ _, Univ _) -> return (Inr em, Sum et et')

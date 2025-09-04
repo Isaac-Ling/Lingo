@@ -93,15 +93,15 @@ solveConstraints env cs = do
       return True
     tryFlexRigidSolve _ _                            = return False
 
-    abstractOverCtx :: Term -> [Term] -> Term
+    abstractOverCtx :: Term -> Spine -> Term
     abstractOverCtx m sp = go 0 (remapCtxToSpine m sp) sp
       where
-        go :: Int -> Term -> [Term] -> Term
+        go :: Int -> Term -> Spine -> Term
         go i m []     = m
         go i m (n:ns) = go (i + 1) (Lam (pack ("!m" ++ show i), Nothing, Exp) m) ns
 
     -- Remaps a term to the context in the provided metas spine
-    remapCtxToSpine :: Term -> [Term] -> Term
+    remapCtxToSpine :: Term -> Spine -> Term
     remapCtxToSpine (Var (Bound i)) sp
       | Var (Bound i) `elem` sp = Var $ Bound (fromMaybe 0 $ elemIndex (Var $ Bound i) $ reverse sp)
       | otherwise               = Var $ Bound i
@@ -122,7 +122,7 @@ solveConstraints env cs = do
     remapCtxToSpine (Univalence a) sp           = Univalence $ remapCtxToSpine a sp
     remapCtxToSpine (Ind t m' c a) sp           = Ind (remapCtxToSpine t sp) (remapCtxToSpineInBoundTerm m' sp) (map (`remapCtxToSpineInBoundTerm` sp) c) (remapCtxToSpine a sp)
       where
-        remapCtxToSpineInBoundTerm :: BoundTerm -> [Term] -> BoundTerm
+        remapCtxToSpineInBoundTerm :: BoundTerm -> Spine -> BoundTerm
         remapCtxToSpineInBoundTerm (NoBind n) sp = NoBind (remapCtxToSpine n sp)
         remapCtxToSpineInBoundTerm (Bind x n) sp = Bind x (remapCtxToSpineInBoundTerm n sp)
     remapCtxToSpine n _                         = n
@@ -195,7 +195,17 @@ solveConstraints env cs = do
     -- TODO: Decompose induction
     decompose bc (Var (Meta _ _)) _                              = return False
     decompose bc _ (Var (Meta _ _))                              = return False
-    decompose bc t t'                                            = unificationError $ Just ("Failed to unify types " ++ showTermWithContext bc t ++ " and " ++ showTermWithContext bc t')
+    decompose bc t t'                                            = do
+      env <- ask
+      
+      -- Try resolving terms to see if that changes them, if so try to decompose the
+      -- resolved terms
+      let et  = eval $ resolve env t
+      let et' = eval $ resolve env t'
+
+      if et /= t || et' /= t'
+      then decompose bc et et'
+      else unificationError $ Just ("Failed to unify types " ++ showTermWithContext bc t ++ " and " ++ showTermWithContext bc t')
 
     metaOccursIn :: Int -> Term -> Bool
     metaOccursIn k (Var (Meta i _))
@@ -234,7 +244,7 @@ expandMetas sols (Var (Meta i sp))        = case lookup i sols of
   Just t -> applyTermToSpine t sp
   _      -> Var (Meta i sp)
   where
-    applyTermToSpine :: Term -> [Term] -> Term
+    applyTermToSpine :: Term -> Spine -> Term
     applyTermToSpine m []     = m
     applyTermToSpine m (n:ns) = eval $ applyTermToSpine (App m (n, Exp)) ns
 expandMetas sols (Lam (x, Just t, ex) n)  = Lam (x, Just $ expandMetas sols t, ex) (expandMetas sols n)

@@ -18,7 +18,17 @@ homotopic := \f. \g. (a : A) -> f a = g a
 dhomotopic : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> U
 dhomotopic := \f. \g. (a : A) -> f a = g a
 
-homotopyRefl : {A : U} -> (P : A -> U) -> (f : (a : A) -> P a) -> dhomotopic f f
---homotopyRefl := \P. \f. 
+homotopyRefl : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> dhomotopic f f
+homotopyRefl := \f. \(a : A). refl[f a]
 
 #check homotopyRefl
+
+homotopySymm : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> dhomotopic f g -> dhomotopic g f
+homotopySymm := \f. \g. \hfg. \(a : A). idSymm (hfg a)
+
+#check homotopySymm
+
+homotopyTrans : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> (h : (a : A) -> P a) -> dhomotopic f g -> dhomotopic g h -> dhomotopic f h
+homotopyTrans := \f. \g. \h. \hfg. \hgh. \(a : A). idTrans (hfg a) (hgh a)
+
+#check homotopyTrans
