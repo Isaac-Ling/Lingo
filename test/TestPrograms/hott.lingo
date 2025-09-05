@@ -18,6 +18,7 @@ homotopic := \f. \g. (a : A) -> f a = g a
 dhomotopic : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> U
 dhomotopic := \f. \g. (a : A) -> f a = g a
 
+-- Homotopy equivalence relation
 homotopyRefl : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> dhomotopic f f
 homotopyRefl := \f. \(a : A). refl[f a]
 
@@ -32,3 +33,9 @@ homotopyTrans : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) 
 homotopyTrans := \f. \g. \h. \hfg. \hgh. \(a : A). idTrans (hfg a) (hgh a)
 
 #check homotopyTrans
+
+-- Quasi-inverse
+qinv : {A : U} -> {B : U} -> (f : A -> B) -> U
+qinv := \f. (g : B -> A) x ((homotopic (comp f g) (id {B})) x (homotopic (comp g f) (id {A})))
+
+#check qinv

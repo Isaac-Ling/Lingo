@@ -91,7 +91,7 @@ solveConstraints env cs = do
     tryFlexRigidSolve (Var (Meta i sp)) t | isRigid t = do
       addSolution i $ abstractOverCtx t sp
       return True
-    tryFlexRigidSolve _ _                            = return False
+    tryFlexRigidSolve _ _                             = return False
 
     abstractOverCtx :: Term -> Spine -> Term
     abstractOverCtx m sp = go 0 (remapCtxToSpine m sp) sp
@@ -192,7 +192,12 @@ solveConstraints env cs = do
     decompose bc (IdFam m) (IdFam m')                            = do
       appendConstraint bc m m'
       return True
-    -- TODO: Decompose induction
+    decompose bc (Ind t m cs a) (Ind t' m' cs' a')               = do
+      appendConstraint bc t t'
+      appendConstraintFromBoundContext bc m m'
+      appendBoundConstraints bc cs cs'
+      appendConstraint bc a a'
+      return True
     decompose bc (Var (Meta _ _)) _                              = return False
     decompose bc _ (Var (Meta _ _))                              = return False
     decompose bc t t'                                            = do
@@ -235,6 +240,17 @@ solveConstraints env cs = do
     appendConstraint bc t t' = do
       st <- get
       put $ st { csts=csts st ++ [(bc, t, t')] }
+    
+    appendBoundConstraints :: BoundContext -> [BoundTerm] -> [BoundTerm] -> Unification ()
+    appendBoundConstraints _ [] []            = return ()
+    appendBoundConstraints bc (c:cs) (c':cs') = do
+      appendConstraintFromBoundContext bc c c'
+      appendBoundConstraints bc cs cs'
+    appendBoundConstraints _ _ _              = unificationError $ Just "Incompatible number of bound terms to unify"
+
+    appendConstraintFromBoundContext :: BoundContext -> BoundTerm -> BoundTerm -> Unification ()
+    appendConstraintFromBoundContext bc (NoBind m) (NoBind m') = appendConstraint bc m m'
+    appendConstraintFromBoundContext bc (Bind x m) (Bind _ m') = appendConstraintFromBoundContext ((x, Top) : bc) m m'
 
     unificationError :: Maybe String -> Unification a
     unificationError ms = lift $ lift $ Error UnificationError ms
