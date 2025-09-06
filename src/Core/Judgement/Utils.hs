@@ -233,7 +233,11 @@ showTermWithBinders bs (App m (Sigma xt n, ex))               = showTermWithBind
 showTermWithBinders bs (App (Pi xt m) (n, ex))                = "(" ++ showTermWithBinders bs (Pi xt m) ++ ") " ++ showTermWithBinders bs n
 showTermWithBinders bs (App (Sigma xt m) (n, ex))             = "(" ++ showTermWithBinders bs (Sigma xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
 showTermWithBinders bs (App m (n, ex))                        = showTermWithBinders bs m ++ " " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
-showTermWithBinders bs (Pair m n)                             = "(" ++ showTermWithBinders bs m ++ ", " ++ showTermWithBinders bs n ++ ")"
+showTermWithBinders bs (Pair m n)                             = "(" ++ showTermWithBinders bs m ++ ", " ++ showPairElement bs n ++  ")"
+  where
+    showPairElement :: Binders -> Term -> String
+    showPairElement bc (Pair m n) = showTermWithBinders bc m ++ ", " ++ showPairElement bc n
+    showPairElement bc m          = showTermWithBinders bc m
 showTermWithBinders bs (IdFam t)                              = "=[" ++ showTermWithBinders bs t ++ "]"
 showTermWithBinders bs (Id (Just t) m n)                      = showTermWithBinders bs m ++ " =[" ++ showTermWithBinders bs t ++ "] " ++ showTermWithBinders bs n
 showTermWithBinders bs (Id Nothing m n)                       = showTermWithBinders bs m ++ " = " ++ showTermWithBinders bs n
@@ -252,6 +256,7 @@ showTermWithBinders bs (Refl m)                               = "refl[" ++ showT
 showTermWithBinders bs (Funext p)                             = "funext(" ++ showTermWithBinders bs p ++ ")"
 showTermWithBinders bs (Univalence a)                         = "univalence(" ++ showTermWithBinders bs a ++ ")"
 showTermWithBinders bs (Sigma (Just x, t) m)                  = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") x " ++ showSigmaOperarands (Just x : bs) m
+showTermWithBinders bs (Sigma (Nothing, Sigma x n) m)         = "(" ++ showTermWithBinders bs (Sigma x n) ++ ") x " ++ showSigmaOperarands (Nothing : bs) m
 showTermWithBinders bs (Sigma (Nothing, t) m)                 = showSigmaOperarands bs t ++ " x " ++ showSigmaOperarands (Nothing : bs) m
 showTermWithBinders bs (Pi (Nothing, Pi (y, t, ex') m, ex) n) = showExLParen ex ++ showTermWithBinders bs (Pi (y, t, ex') m) ++ showExRParen ex ++ " -> " ++ showTermWithBinders (Nothing : bs) n
 showTermWithBinders bs (Pi (Just x, t, ex) m)                 = showExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ showExRParen ex ++ " -> " ++ showTermWithBinders (Just x : bs) m
@@ -304,7 +309,6 @@ showExRParenOrNone Imp = "}"
 showSigmaOperarands :: Binders -> Term -> String
 showSigmaOperarands bs (App m n)   = "(" ++ showTermWithBinders bs (App m n) ++ ")"
 showSigmaOperarands bs (Pi t m)    = "(" ++ showTermWithBinders bs (Pi t m) ++ ")"
-showSigmaOperarands bs (Sigma t m) = "(" ++ showTermWithBinders bs (Sigma t m) ++ ")"
 showSigmaOperarands bs (Sum m n)   = "(" ++ showTermWithBinders bs (Sum m n) ++ ")"
 showSigmaOperarands bs (Id mt m n) = "(" ++ showTermWithBinders bs (Id mt m n) ++ ")"
 showSigmaOperarands bs m           = showTermWithBinders bs m
