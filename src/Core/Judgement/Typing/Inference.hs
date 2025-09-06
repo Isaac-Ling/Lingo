@@ -25,7 +25,7 @@ inferType env ctx m = do
 
 checkType :: Environment-> Context -> Term -> Term -> CanError (Term, Term)
 checkType env ctx m t = do
-  result <- runStateT (runReaderT (runCheckType m t) initContexts) initState
+  result <- runStateT (runReaderT (runCheckType m $ eval $ resolve env t) initContexts) initState
   msol   <- solveConstraints env $ mcsts $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
@@ -134,7 +134,7 @@ runInferType (Pair m n)                                = do
   (em, mt) <- runInferType m
   (en, nt) <- runInferType n
 
-  return (Pair em en, Sigma (Nothing, mt) nt)
+  return (Pair em en, Sigma (Nothing, mt) $ bumpUp nt)
 
 runInferType (Sum m n)                                 = do
   ctxs <- ask

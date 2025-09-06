@@ -8,7 +8,10 @@ id2 := \b. b
 id1PointwiseEqualsId2 : (a : T) -> id1 a = id2 a
 id1PointwiseEqualsId2 := \c. refl[c]
 
-#check funext(id1PointwiseEqualsId2)
+id1EqualsId2 : id1 = id2
+id1EqualsId2 := funext(id1PointwiseEqualsId2)
+
+#check id1EqualsId2
 
 homotopic : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> U
 homotopic := \f. \g. (a : A) -> f a = g a
@@ -38,4 +41,9 @@ homotopyTrans := \f. \g. \h. \hfg. \hgh. \(a : A). idTrans (hfg a) (hgh a)
 qinv : {A : U} -> {B : U} -> (f : A -> B) -> U
 qinv := \f. (g : B -> A) x (homotopic (comp f g) (id {B})) x (homotopic (comp g f) (id {A}))
 
-#check qinv
+#eval qinv
+
+idSelfInverse : {A : U} -> qinv (id {A})
+idSelfInverse := (id {A}, \(a : A). refl[a], \(a : A). refl[a])
+
+#check idSelfInverse
