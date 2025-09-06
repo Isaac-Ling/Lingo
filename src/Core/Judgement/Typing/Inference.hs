@@ -205,7 +205,12 @@ runInferType (Id Nothing m n)                          = do
 
   return (Id Nothing em en, mtt)
 
-runInferType (Id (Just t) m n)                         = runCheckEvaluatedType (Id Nothing m n) t
+runInferType (Id (Just t) m n)                         = do
+  (et, tt) <- runInferType t
+  (em, mt) <- runCheckEvaluatedType m t
+  (en, nt) <- runCheckEvaluatedType n t
+
+  return (Id (Just et) em en, tt)
 
 runInferType (Refl m)                                  = do
   (em, mt) <- runInferType m

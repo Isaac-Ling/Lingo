@@ -41,14 +41,14 @@ pow := flip powFlipped
 #check pow 2 5
 
 rAddId : (a : Nat) -> add a 0 = a
-rAddId := \a. ind[Nat](n. add n 0 = n, refl[0], m. g. cong g (\(n : Nat). succ(n)), a)
+rAddId := \a. ind[Nat](n. add n 0 = n, refl[0], m. g. lift (\(n : Nat). succ(n)) g, a)
 
 #check rAddId
 
 addCommLemma : (a : Nat) -> (b : Nat) -> add a succ(b) = add succ(a) b
-addCommLemma := \a. \b. ind[Nat](n. add n succ(b) = add succ(n) b, refl[succ(b)], m. g. cong g (\(n : Nat). succ(n)), a)
+addCommLemma := \a. \b. ind[Nat](n. add n succ(b) = add succ(n) b, refl[succ(b)], m. g. lift (\(n : Nat). succ(n)) g, a)
 
 addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
-addComm := \a. \b. ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans (addCommLemma a m) (cong g (\(n : Nat). succ(n))), b)
+addComm := \a. \b. ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans (addCommLemma a m) (lift (\(n : Nat). succ(n)) g), b)
 
 #type addComm
