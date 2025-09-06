@@ -98,7 +98,7 @@ Term :: { NamedTerm }
   | Identity     { $1 }
   | SigmaType    { $1 }
   | CoProduct    { $1 }
-  | Pair         { $1 }
+  | Tuple        { $1 }
   | NatNums      { $1 }
   | Induction    { $1 }
   | Funext       { $1 }
@@ -139,8 +139,17 @@ CoProduct :: { NamedTerm }
   | 'inl' '(' Term ')' { NInl $3 }
   | 'inr' '(' Term ')' { NInr $3 }
 
-Pair :: { NamedTerm }
-  : '(' Term ',' Term ')' { NPair $2 $4 }
+Terms :: { [NamedTerm] }
+  : Term           { [$1] }
+  | Term ',' Terms { $1 : $3 }
+
+Tuple :: { NamedTerm }
+  : '(' Term ',' Terms ')'
+  {
+    case $4 of
+      []     -> outputParseError $5
+      (m:ms) -> parseTuple $2 m ms
+  }
 
 NatNums :: { NamedTerm }
   : 'Nat'               { NNat }
@@ -211,4 +220,8 @@ parse s = case runAlex s parser of
 parseNum :: Integer -> NamedTerm
 parseNum 0 = NZero
 parseNum n = NSucc $ parseNum (n - 1)
+
+parseTuple :: NamedTerm -> NamedTerm -> [NamedTerm] -> NamedTerm
+parseTuple m n []     = NPair m n
+parseTuple m n (t:ts) = NPair m $ parseTuple n t ts
 }
