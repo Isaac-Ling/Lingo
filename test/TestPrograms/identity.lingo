@@ -24,16 +24,13 @@ lift := \f. \p. ind[=[A]](a. b. p. f a = f b, z. refl[f z], a, b, p)
 #check lift
 
 -- Transport
-transport : {A : U} -> {P : A -> U} -> {a : A} -> {b : A} -> a = b -> P a -> P b
-transport := \p. ind[=[A]](a. b. p. P a -> P b, z. id {P z}, a, b, p)
+transport : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> a = b -> P a -> P b
+transport := \P. \p. ind[=[A]](a. b. p. P a -> P b, z. id {P z}, a, b, p)
 
 #check transport
 
 -- Identity on type constructors
 productPath : {A : U} -> {B : U} -> (a : A x B) -> (b : A x B) -> (p : a = b) -> (fst a = fst b) x (snd a = snd b)
-
--- TODO: Unification needs to make its own new metas to allow lift fst p to be written
--- as it tries to unify {A : U} -> {B : U} -> A x B -> A with ?a -> A
-productPath := \a. \b. \p. (lift (fst {A} {B}) p, lift (snd {A} {B}) p)
+productPath := \a. \b. \p. (lift fst p, lift snd p)
 
 #type productPath

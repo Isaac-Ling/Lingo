@@ -23,17 +23,17 @@ dhomotopic := \f. \g. (a : A) -> f a = g a
 
 -- Homotopy equivalence relation
 homotopyRefl : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> dhomotopic f f
-homotopyRefl := \f. \(a : A). refl[f a]
+homotopyRefl := \f. \a. refl[f a]
 
 #check homotopyRefl
 
 homotopySymm : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> dhomotopic f g -> dhomotopic g f
-homotopySymm := \f. \g. \hfg. \(a : A). idSymm (hfg a)
+homotopySymm := \f. \g. \hfg. \a. idSymm (hfg a)
 
 #check homotopySymm
 
 homotopyTrans : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> (h : (a : A) -> P a) -> dhomotopic f g -> dhomotopic g h -> dhomotopic f h
-homotopyTrans := \f. \g. \h. \hfg. \hgh. \(a : A). idTrans (hfg a) (hgh a)
+homotopyTrans := \f. \g. \h. \hfg. \hgh. \a. idTrans (hfg a) (hgh a)
 
 #check homotopyTrans
 
@@ -41,9 +41,10 @@ homotopyTrans := \f. \g. \h. \hfg. \hgh. \(a : A). idTrans (hfg a) (hgh a)
 qinv : {A : U} -> {B : U} -> (f : A -> B) -> U
 qinv := \f. (g : B -> A) x (homotopic (comp f g) (id {B})) x (homotopic (comp g f) (id {A}))
 
+-- TODO: Need to unify in flex-flex cases to allow removal of id {-}
 #eval qinv
 
 idSelfInverse : {A : U} -> qinv (id {A})
-idSelfInverse := (id {A}, \(a : A). refl[a], \(a : A). refl[a])
+idSelfInverse := (id {A}, \a. refl[a], \a. refl[a])
 
 #check idSelfInverse
