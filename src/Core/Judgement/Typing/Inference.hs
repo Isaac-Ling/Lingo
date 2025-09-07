@@ -89,7 +89,7 @@ runInferType (Lam (x, Just t, ex) m)                   = do
   ctxs <- ask
 
   (et, tt) <- runInferEvaluatedType t
-  (em, mt) <- local (addToBoundCtx (Just x, et)) (runInferType m)
+  (em, mt) <- local (addToBoundCtx (Just x, et)) (runInferTypeAndElab m)
 
   case tt of
     Univ i -> return (Lam (x, Just et, ex) em, Pi (if isBinderUsed mt then Just x else Nothing, et, ex) mt)
@@ -101,8 +101,10 @@ runInferType (Lam (x, Nothing, ex) m)                  = do
   typeError FailedToInferType $ Just ("Cannot infer type of implicit lambda " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) m))
 
 runInferType (App m (n, ex))                           = do
-  (em, mt) <- runInferEvaluatedType m
-  inferAppType em (n, ex) mt
+  ctxs <- ask
+  -- Don't elaborate returned type, as inferAppType deals with implicit/explicit params
+  (em, mt) <- runInferType m
+  inferAppType em (n, ex) $ eval $ resolve (env ctxs) mt
     where
       inferAppType :: Term -> (Term, Explicitness) -> Term -> TypeCheck (Term, Term)
       inferAppType m (n, ex') mt = do
@@ -110,7 +112,7 @@ runInferType (App m (n, ex))                           = do
 
         case mt of
           Pi (x, t, Exp) t' -> do
-            (en, nt) <- runInferType n
+            (en, nt) <- runInferTypeAndElab n
 
             unify t nt $ Just (showTermWithContext (bctx ctxs) m ++ " of type " ++ showTermWithContext (bctx ctxs) mt ++ " cannot be applied to " ++ showTermWithContext (bctx ctxs) en ++ " of type " ++ showTermWithContext (bctx ctxs) nt)
             return (App m (en, ex'), bumpDown $ open (bumpUp en) t')
@@ -131,8 +133,8 @@ runInferType (App m (n, ex))                           = do
           _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
 
 runInferType (Pair m n)                                = do
-  (em, mt) <- runInferType m
-  (en, nt) <- runInferType n
+  (em, mt) <- runInferTypeAndElab m
+  (en, nt) <- runInferTypeAndElab n
 
   return (Pair em en, Sigma (Nothing, mt) $ bumpUp nt)
 
@@ -171,7 +173,7 @@ runInferType (Succ m)                                  = do
 runInferType (Funext p)                                = do
   ctxs <- ask
 
-  (ep, pt) <- runInferType p
+  (ep, pt) <- runInferTypeAndElab p
 
   case resolve (env ctxs) pt of
     Pi _ (Id _ (App f (Var (Bound 0), Exp)) (App g (Var (Bound 0), Exp))) -> do
@@ -192,28 +194,28 @@ runInferType (Univalence f)                            = do
 runInferType (IdFam t)                                 = do
   ctxs <- ask
 
-  (et, tt) <- runInferType t
+  (et, tt) <- runInferTypeAndElab t
 
   case eval $ resolve (env ctxs) tt of
     Univ i -> return (IdFam et, Pi (Nothing, et, Exp) $ Pi (Nothing, et, Exp) tt)
     _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
 runInferType (Id Nothing m n)                          = do
-  (em, mt)   <- runInferType m
-  (emt, mtt) <- runInferType mt
+  (em, mt)   <- runInferTypeAndElab m
+  (emt, mtt) <- runInferTypeAndElab mt
   (en, nt)   <- runCheckEvaluatedType n mt
 
   return (Id Nothing em en, mtt)
 
 runInferType (Id (Just t) m n)                         = do
-  (et, tt) <- runInferType t
+  (et, tt) <- runInferTypeAndElab t
   (em, mt) <- runCheckEvaluatedType m t
   (en, nt) <- runCheckEvaluatedType n t
 
   return (Id (Just et) em en, tt)
 
 runInferType (Refl m)                                  = do
-  (em, mt) <- runInferType m
+  (em, mt) <- runInferTypeAndElab m
 
   return (Refl em, Id Nothing em em)
 
@@ -362,19 +364,6 @@ runInferType (Ind
 
 runInferType (Ind t m c a)                              = typeError FailedToInferType $ Just ("Invalid induction " ++ show (Ind t m c a))
 
-runInferEvaluatedType :: Term -> TypeCheck (Term, Term)
-runInferEvaluatedType m = do
-  ctxs <- ask
-
-  (et, mt) <- runInferType m
-  return (et, eval $ resolve (env ctxs) mt)
-
-runCheckEvaluatedType :: Term -> Term -> TypeCheck (Term, Term)
-runCheckEvaluatedType m t = do
-  ctxs <- ask
-
-  runCheckType m (eval $ resolve (env ctxs) t)
-
 runCheckType :: Term -> Term -> TypeCheck (Term, Term)
 runCheckType m (Var (Free x))                             = do
   ctxs <- ask
@@ -455,6 +444,34 @@ unifyInferredType :: Term -> Term -> TypeCheck (Term, Term)
 unifyInferredType m t = do
   ctxs <- ask
 
-  (em, mt) <- runInferType m
+  (em, mt) <- runInferTypeAndElab m
   unify mt t $ Just ("The type of " ++ showTermWithContext (bctx ctxs) em ++ " is " ++ showTermWithContext (bctx ctxs) (eval mt) ++ " but expected " ++ showTermWithContext (tbctx ctxs) t)
   return (em, t)
+
+runInferEvaluatedType :: Term -> TypeCheck (Term, Term)
+runInferEvaluatedType m = do
+  ctxs <- ask
+
+  (em, mt) <- runInferTypeAndElab m
+  return (em, eval $ resolve (env ctxs) mt)
+
+runCheckEvaluatedType :: Term -> Term -> TypeCheck (Term, Term)
+runCheckEvaluatedType m t = do
+  ctxs <- ask
+
+  runCheckType m (eval $ resolve (env ctxs) t)
+
+instantiateImplicits :: Term -> Term -> TypeCheck (Term, Term)
+instantiateImplicits em (Pi (x, t, Imp) t') = do
+  ctxs <- ask
+
+  mv <- createMetaVar t $ bctx ctxs
+  let em'  = App em (mv, Imp)
+  let em't = bumpDown $ open (bumpUp mv) t'
+  instantiateImplicits em' em't
+instantiateImplicits em mt                  = return (em, mt)
+
+runInferTypeAndElab :: Term -> TypeCheck (Term, Term)
+runInferTypeAndElab m = do
+  (em, mt) <- runInferType m
+  instantiateImplicits em mt
