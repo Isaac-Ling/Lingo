@@ -26,7 +26,7 @@ eval (App m (n, ex))
   | otherwise   = eval $ beta $ App f (n, ex)
   where
     f = eval m
-eval (Ind Top _ [NoBind c] _)                                         = eval c
+eval (Ind Top _ [NoBind c] Star)                                      = eval c
 eval (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))      = eval $ App (App (Lam (pack "w", Nothing, Exp) $ Lam (pack "y", Nothing, Exp) f) (a, Exp)) (b, Exp)
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a)) = eval $ App (Lam (pack "x", Nothing, Exp) c) (a, Exp)
 eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b)) = eval $ App (Lam (pack "y", Nothing, Exp) d) (b, Exp)
@@ -69,7 +69,7 @@ isNeutral (Refl m)                                                              
 isNeutral (Succ n)                                                              = isValue n
 isNeutral (Funext p)                                                            = isValue p
 isNeutral (Univalence a)                                                        = isValue a
-isNeutral (Ind Top _ [NoBind _] _)                                              = False
+isNeutral (Ind Top _ [NoBind _] Star)                                           = False
 isNeutral (Ind (Sigma _ _) _ [Bind w (Bind y (NoBind f))] (Pair a b))           = False
 isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a))      = False
 isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b))      = False
