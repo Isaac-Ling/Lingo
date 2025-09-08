@@ -68,8 +68,8 @@ solveConstraints env cs = do
               flexRigidSolved <- tryFlexRigidSolve et et'
 
               unless flexRigidSolved $ do
-                -- TODO: Solve flex-flex case
-                return ()
+                -- Postpone flex-flex constraint
+                appendConstraint bc t t'
 
           -- Loop with remaining constraints
           dropConstraint

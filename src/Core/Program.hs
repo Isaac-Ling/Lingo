@@ -16,7 +16,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
 type Includes = [FilePath]
 
-type NamedTypeContext = [(ByteString, NamedTerm)]
+type NamedTypeContext = [(ByteString, SourceTerm)]
 
 data RuntimeContext = RuntimeContext
   { rtenv :: Environment
@@ -142,7 +142,7 @@ addToRTEnv def ctxs = ctxs { rtenv=def : rtenv ctxs }
 addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
 addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
 
-addToNamedTypeCtx :: (ByteString, NamedTerm) -> (RuntimeContext -> RuntimeContext)
+addToNamedTypeCtx :: (ByteString, SourceTerm) -> (RuntimeContext -> RuntimeContext)
 addToNamedTypeCtx nt ctxs = ctxs { ntctx=nt : ntctx ctxs }
 
 addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
