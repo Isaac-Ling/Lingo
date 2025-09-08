@@ -78,7 +78,7 @@ Declarations :: { Program }
 Definition :: { Declaration }
   : var ':=' Term { Def ($1, $3) }
 
-Signature :: { NamedAssumption }
+Signature :: { SourceAssumption }
   : var ':' Term { ($1, $3) }
 
 Pragma :: { Pragma }
@@ -87,11 +87,11 @@ Pragma :: { Pragma }
   | 'eval' Term      { Eval $2 }
   | 'include' string { Include $ unpack $2 }
 
-Term :: { NamedTerm }
+Term :: { SourceTerm }
   : '(' Term ')' { $2 }
-  | var          { NVar $1 }
+  | var          { SVar $1 }
   | Terminal     { $1 }
-  | univ         { NUniv $1 }
+  | univ         { SUniv $1 }
   | Abstraction  { $1 }
   | Application  { $1 }
   | PiType       { $1 }
@@ -103,47 +103,47 @@ Term :: { NamedTerm }
   | Induction    { $1 }
   | Funext       { $1 }
   | Univalence   { $1 }
-  | '*'          { NStar }
+  | '*'          { SStar }
 
-Application :: { NamedTerm }
-  : Term Term         %prec APP { NApp $1 ($2, Exp) }
-  | Term '{' Term '}' %prec APP { NApp $1 ($3, Imp) }
+Application :: { SourceTerm }
+  : Term Term         %prec APP { SApp $1 ($2, Exp) }
+  | Term '{' Term '}' %prec APP { SApp $1 ($3, Imp) }
 
-Abstraction :: { NamedTerm }
-  : '\\' '(' var ':' Term ')' '.' Term { NLam ($3, Just $5, Exp) $8 }
-  | '\\' '{' var ':' Term '}' '.' Term { NLam ($3, Just $5, Imp) $8 }
-  | '\\' var '.' Term                  { NLam ($2, Nothing, Exp) $4 }
-  | '\\' '{' var '}' '.' Term          { NLam ($3, Nothing, Imp) $6 }
+Abstraction :: { SourceTerm }
+  : '\\' '(' var ':' Term ')' '.' Term { SLam ($3, Just $5, Exp) $8 }
+  | '\\' '{' var ':' Term '}' '.' Term { SLam ($3, Just $5, Imp) $8 }
+  | '\\' var '.' Term                  { SLam ($2, Nothing, Exp) $4 }
+  | '\\' '{' var '}' '.' Term          { SLam ($3, Nothing, Imp) $6 }
 
-PiType :: { NamedTerm }
-  : '(' var ':' Term ')' '->' Term { NPi (Just $2, $4, Exp) $7 }
-  | '{' var ':' Term '}' '->' Term { NPi (Just $2, $4, Imp) $7 }
-  | Term '->' Term                 { NPi (Nothing, $1, Exp) $3 }
+PiType :: { SourceTerm }
+  : '(' var ':' Term ')' '->' Term { SPi (Just $2, $4, Exp) $7 }
+  | '{' var ':' Term '}' '->' Term { SPi (Just $2, $4, Imp) $7 }
+  | Term '->' Term                 { SPi (Nothing, $1, Exp) $3 }
 
-Terminal :: { NamedTerm }
-  : 'T'          { NTop }
-  | '_|_'        { NBot }
+Terminal :: { SourceTerm }
+  : 'T'          { STop }
+  | '_|_'        { SBot }
 
-Identity :: { NamedTerm }
-  : Term '=' Term              { NId Nothing $1 $3 }
-  | '=' '[' Term ']'           { NIdFam $3 }
-  | Term '=' '[' Term ']' Term { NId (Just $4) $1 $6 }
-  | 'refl' '[' Term ']'        { NRefl $3 }
+Identity :: { SourceTerm }
+  : Term '=' Term              { SId Nothing $1 $3 }
+  | '=' '[' Term ']'           { SIdFam $3 }
+  | Term '=' '[' Term ']' Term { SId (Just $4) $1 $6 }
+  | 'refl' '[' Term ']'        { SRefl $3 }
 
-SigmaType :: { NamedTerm }
-  : '(' var ':' Term ')' 'x' Term { NSigma (Just $2, $4) $7 }
-  | Term 'x' Term                 { NSigma (Nothing, $1) $3 }
+SigmaType :: { SourceTerm }
+  : '(' var ':' Term ')' 'x' Term { SSigma (Just $2, $4) $7 }
+  | Term 'x' Term                 { SSigma (Nothing, $1) $3 }
 
-CoProduct :: { NamedTerm }
-  : Term '+' Term      { NSum $1 $3 }
-  | 'inl' '(' Term ')' { NInl $3 }
-  | 'inr' '(' Term ')' { NInr $3 }
+CoProduct :: { SourceTerm }
+  : Term '+' Term      { SSum $1 $3 }
+  | 'inl' '(' Term ')' { SInl $3 }
+  | 'inr' '(' Term ')' { SInr $3 }
 
-Terms :: { [NamedTerm] }
+Terms :: { [SourceTerm] }
   : Term           { [$1] }
   | Term ',' Terms { $1 : $3 }
 
-Tuple :: { NamedTerm }
+Tuple :: { SourceTerm }
   : '(' Term ',' Terms ')'
   {
     case $4 of
@@ -151,52 +151,52 @@ Tuple :: { NamedTerm }
       (m:ms) -> parseTuple $2 m ms
   }
 
-NatNums :: { NamedTerm }
-  : 'Nat'               { NNat }
-  | 'succ' '(' Term ')' { NSucc $3 }
+NatNums :: { SourceTerm }
+  : 'Nat'               { SNat }
+  | 'succ' '(' Term ')' { SSucc $3 }
   | int                 { parseNum $1 }
 
-Funext :: { NamedTerm }
-  : 'funext' '(' Term ')' { NFunext $3 }
+Funext :: { SourceTerm }
+  : 'funext' '(' Term ')' { SFunext $3 }
 
-Univalence :: { NamedTerm }
-  : 'ua' '(' Term ')' { NUnivalence $3 }
+Univalence :: { SourceTerm }
+  : 'ua' '(' Term ')' { SUnivalence $3 }
 
-BoundTerm :: { NamedBoundTerm }
-  : Term              { NNoBind $1 }
-  | var '.' BoundTerm { NBind $1 $3 }
+BoundTerm :: { SourceBoundTerm }
+  : Term              { SNoBind $1 }
+  | var '.' BoundTerm { SBind $1 $3 }
 
-BoundTerms :: { [NamedBoundTerm] }
+BoundTerms :: { [SourceBoundTerm] }
   :                          { [] }
   | BoundTerm                { [$1] }
   | BoundTerm ',' BoundTerms { $1 : $3 }
 
-BoundTermsList :: { [NamedBoundTerm] }
+BoundTermsList :: { [SourceBoundTerm] }
   :                { [] }
   | ',' BoundTerms { $2 }
 
-Induction :: { NamedTerm }
+Induction :: { SourceTerm }
   : 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ')' 
   {
     case $7 of
       []          -> outputParseError $8
-      [NNoBind a] -> NInd $3 $6 [] a
+      [SNoBind a] -> SInd $3 $6 [] a
       (_:xs)      -> case last xs of
-        NBind _ _ -> outputParseError $8
-        NNoBind a -> NInd $3 $6 (init $7) a 
+        SBind _ _ -> outputParseError $8
+        SNoBind a -> SInd $3 $6 (init $7) a 
       _           -> outputParseError $8
   }
 
 {
 data Pragma
-  = Check NamedTerm
-  | Type NamedTerm
-  | Eval NamedTerm
+  = Check SourceTerm
+  | Type SourceTerm
+  | Eval SourceTerm
   | Include FilePath
 
 data Declaration
-  = Def NamedAlias
-  | Signature NamedAssumption
+  = Def SourceAlias
+  | Signature SourceAssumption
   | Pragma Pragma
 
 type Program = [Declaration]
@@ -217,11 +217,11 @@ parse s = case runAlex s parser of
     ""     -> Error SyntaxError Nothing
     (x:xs) -> Error SyntaxError (Just (toUpper x : xs))
 
-parseNum :: Integer -> NamedTerm
-parseNum 0 = NZero
-parseNum n = NSucc $ parseNum (n - 1)
+parseNum :: Integer -> SourceTerm
+parseNum 0 = SZero
+parseNum n = SSucc $ parseNum (n - 1)
 
-parseTuple :: NamedTerm -> NamedTerm -> [NamedTerm] -> NamedTerm
-parseTuple m n []     = NPair m n
-parseTuple m n (t:ts) = NPair m $ parseTuple n t ts
+parseTuple :: SourceTerm -> SourceTerm -> [SourceTerm] -> SourceTerm
+parseTuple m n []     = SPair m n
+parseTuple m n (t:ts) = SPair m $ parseTuple n t ts
 }

@@ -39,12 +39,19 @@ homotopyTrans := \f. \g. \h. \hfg. \hgh. \a. idTrans (hfg a) (hgh a)
 
 -- Quasi-inverse
 qinv : {A : U} -> {B : U} -> (f : A -> B) -> U
-qinv := \f. (g : B -> A) x (homotopic (comp f g) (id {B})) x (homotopic (comp g f) (id {A}))
+qinv := \f. (g : B -> A) x (homotopic (comp f g) id) x (homotopic (comp g f) id)
 
--- TODO: Need to unify in flex-flex cases to allow removal of id {-}
 #eval qinv
 
+-- TODO: Unification hangs if {A} removed from id in type
 idSelfInverse : {A : U} -> qinv (id {A})
-idSelfInverse := (id {A}, \a. refl[a], \a. refl[a])
+idSelfInverse := (id, \a. refl[a], \a. refl[a])
 
 #check idSelfInverse
+
+unsatisfiable : {A : U} -> Nat -> Nat
+unsatisfiable := \a. succ(a)
+
+-- TODO: Unsolved metas will continue past the term, so will need a global meta
+-- state available to other terms too
+#check unsatisfiable 3

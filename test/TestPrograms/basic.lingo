@@ -18,12 +18,12 @@ dsnd := \p. ind[(a : A) x B a](p. B (dfst p), a. b. b, p)
 fst : {A : U} -> {B : U} -> A x B -> A
 fst := \p. dfst {A} {\(a : A). B} p
 
-#check fst (*, _|_)
+#check fst (*, 32)
 
 snd : {A : U} -> {B : U} -> A x B -> B
 snd := \p. dsnd {A} {\(a : A). B} p
 
-#check snd (*, _|_)
+#check snd (*, 32)
 
 -- Composition
 comp : {A : U} -> {B : U} -> {C : U} -> (B -> C) -> (A -> B) -> A -> C

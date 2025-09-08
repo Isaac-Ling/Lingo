@@ -26,6 +26,7 @@ executable lingo
                      , Core.Program
                      , Core.Judgement.Utils
                      , Core.Judgement.Evaluation
+                     , Core.Judgement.Typing.Type
                      , Core.Judgement.Typing.Context
                      , Core.Judgement.Typing.Inference
                      , Core.Judgement.Typing.Unification

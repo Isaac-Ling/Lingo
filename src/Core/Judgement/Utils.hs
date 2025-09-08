@@ -13,45 +13,45 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 type Binders = [Maybe ByteString]
 
 -- TODO: Add implicit lambdas inside sub-terms ??
-elaborate :: NamedTerm -> NamedTerm -> NamedTerm
-elaborate (NLam (x, t, Imp) m) (NPi (_, _, Imp) n) = NLam (x, t, Imp) $ elaborate m n
-elaborate m (NPi (Just x, t, Imp) n)               = NLam (x, Just t, Imp) $ elaborate m n
-elaborate (NLam (x, t, Exp) m) (NPi (_, _, Exp) n) = NLam (x, t, Exp) $ elaborate m n
+elaborate :: SourceTerm -> SourceTerm -> SourceTerm
+elaborate (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = SLam (x, t, Imp) $ elaborate m n
+elaborate m (SPi (Just x, t, Imp) n)               = SLam (x, Just t, Imp) $ elaborate m n
+elaborate (SLam (x, t, Exp) m) (SPi (_, _, Exp) n) = SLam (x, t, Exp) $ elaborate m n
 elaborate m _                                      = m
 
-toDeBruijn :: NamedTerm -> Term
+toDeBruijn :: SourceTerm -> Term
 toDeBruijn = go []
   where
-    go :: Binders -> NamedTerm -> Term
-    go bs (NVar x)              = case elemIndex (Just x) bs of
+    go :: Binders -> SourceTerm -> Term
+    go bs (SVar x)              = case elemIndex (Just x) bs of
       Just i  -> Var (Bound i)
       Nothing -> Var (Free x)
-    go bs (NLam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go (Just x : bs) m)
-    go bs (NLam (x, Just t, ex) m)  = Lam (x, Just $ go bs t, ex) (go (Just x : bs) m)
-    go bs (NPi (x, t, ex) m)        = Pi (x, go bs t, ex) (go (x : bs) m)
-    go bs (NSigma (x, t) m)         = Sigma (x, go bs t) (go (x : bs) m)
-    go bs (NApp m (n, ex))          = App (go bs m) (go bs n, ex)
-    go bs (NPair m n)               = Pair (go bs m) (go bs n)
-    go bs (NSum m n)                = Sum (go bs m) (go bs n)
-    go bs (NIdFam t)                = IdFam $ go bs t
-    go bs (NId t m n)               = Id (fmap (go bs) t) (go bs m) (go bs n)
-    go bs (NInd t m c a)            = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
-    go bs (NUniv i)                 = Univ i
-    go bs NBot                      = Bot
-    go bs NTop                      = Top
-    go bs NNat                      = Nat
-    go bs NZero                     = Zero
-    go bs (NSucc m)                 = Succ $ go bs m
-    go bs (NInl m)                  = Inl $ go bs m
-    go bs (NInr m)                  = Inr $ go bs m
-    go bs (NFunext p)               = Funext $ go bs p
-    go bs (NUnivalence f)           = Univalence $ go bs f
-    go bs (NRefl m)                 = Refl $ go bs m
-    go bs NStar                     = Star
+    go bs (SLam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go (Just x : bs) m)
+    go bs (SLam (x, Just t, ex) m)  = Lam (x, Just $ go bs t, ex) (go (Just x : bs) m)
+    go bs (SPi (x, t, ex) m)        = Pi (x, go bs t, ex) (go (x : bs) m)
+    go bs (SSigma (x, t) m)         = Sigma (x, go bs t) (go (x : bs) m)
+    go bs (SApp m (n, ex))          = App (go bs m) (go bs n, ex)
+    go bs (SPair m n)               = Pair (go bs m) (go bs n)
+    go bs (SSum m n)                = Sum (go bs m) (go bs n)
+    go bs (SIdFam t)                = IdFam $ go bs t
+    go bs (SId t m n)               = Id (fmap (go bs) t) (go bs m) (go bs n)
+    go bs (SInd t m c a)            = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
+    go bs (SUniv i)                 = Univ i
+    go bs SBot                      = Bot
+    go bs STop                      = Top
+    go bs SNat                      = Nat
+    go bs SZero                     = Zero
+    go bs (SSucc m)                 = Succ $ go bs m
+    go bs (SInl m)                  = Inl $ go bs m
+    go bs (SInr m)                  = Inr $ go bs m
+    go bs (SFunext p)               = Funext $ go bs p
+    go bs (SUnivalence f)           = Univalence $ go bs f
+    go bs (SRefl m)                 = Refl $ go bs m
+    go bs SStar                     = Star
 
-    boundTermToDeBruijn :: Binders -> NamedBoundTerm -> BoundTerm
-    boundTermToDeBruijn bs (NNoBind m) = NoBind $ go bs m
-    boundTermToDeBruijn bs (NBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
+    boundTermToDeBruijn :: Binders -> SourceBoundTerm -> BoundTerm
+    boundTermToDeBruijn bs (SNoBind m) = NoBind $ go bs m
+    boundTermToDeBruijn bs (SBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
 
 resolve :: Environment -> Term -> Term
 resolve env (Var (Free x))           = case lookup x env of
@@ -203,6 +203,11 @@ isRigid (Ind t m' c a)          = isRigid t && isBoundTermRigid m' && all isBoun
     isBoundTermRigid (NoBind m) = isRigid m
     isBoundTermRigid (Bind _ m) = isBoundTermRigid m
 isRigid m                       = True
+
+hasRigidHead :: Term -> Bool
+hasRigidHead (Var (Meta _ _)) = False
+hasRigidHead (App t _)        = hasRigidHead t
+hasRigidHead _                = True
 
 showTermWithBinders :: Binders -> Term -> String
 showTermWithBinders bs (Var (Free x))                = unpack x

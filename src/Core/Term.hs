@@ -7,44 +7,44 @@ data Explicitness
   | Imp
   deriving (Eq)
 
--- Named source terms --
+-- Source terms --
 
-type NamedAssumption = (ByteString, NamedTerm)
-type NamedAlias = (ByteString, NamedTerm)
+type SourceAssumption = (ByteString, SourceTerm)
+type SourceAlias = (ByteString, SourceTerm)
 
-type NamedBinder = (ByteString, NamedTerm)
+type SourceBinder = (ByteString, SourceTerm)
 
-type NamedLambdaBinder = (ByteString, Maybe NamedTerm, Explicitness)
-type NamedSigmaBinder = (Maybe ByteString, NamedTerm)
-type NamedPiBinder = (Maybe ByteString, NamedTerm, Explicitness)
+type SourceLambdaBinder = (ByteString, Maybe SourceTerm, Explicitness)
+type SourceSigmaBinder = (Maybe ByteString, SourceTerm)
+type SourcePiBinder = (Maybe ByteString, SourceTerm, Explicitness)
 
-data NamedBoundTerm
-  = NNoBind NamedTerm
-  | NBind ByteString NamedBoundTerm
+data SourceBoundTerm
+  = SNoBind SourceTerm
+  | SBind ByteString SourceBoundTerm
 
-data NamedTerm
-  = NVar ByteString
-  | NLam NamedLambdaBinder NamedTerm
-  | NApp NamedTerm (NamedTerm, Explicitness)
-  | NStar
-  | NPair NamedTerm NamedTerm
-  | NUniv Integer
-  | NBot
-  | NTop
-  | NNat
-  | NZero
-  | NSucc NamedTerm
-  | NSum NamedTerm NamedTerm
-  | NInr NamedTerm
-  | NInl NamedTerm
-  | NFunext NamedTerm
-  | NUnivalence NamedTerm
-  | NRefl NamedTerm
-  | NPi NamedPiBinder NamedTerm
-  | NIdFam NamedTerm
-  | NId (Maybe NamedTerm) NamedTerm NamedTerm
-  | NSigma NamedSigmaBinder NamedTerm
-  | NInd NamedTerm NamedBoundTerm [NamedBoundTerm] NamedTerm
+data SourceTerm
+  = SVar ByteString
+  | SLam SourceLambdaBinder SourceTerm
+  | SApp SourceTerm (SourceTerm, Explicitness)
+  | SStar
+  | SPair SourceTerm SourceTerm
+  | SUniv Integer
+  | SBot
+  | STop
+  | SNat
+  | SZero
+  | SSucc SourceTerm
+  | SSum SourceTerm SourceTerm
+  | SInr SourceTerm
+  | SInl SourceTerm
+  | SFunext SourceTerm
+  | SUnivalence SourceTerm
+  | SRefl SourceTerm
+  | SPi SourcePiBinder SourceTerm
+  | SIdFam SourceTerm
+  | SId (Maybe SourceTerm) SourceTerm SourceTerm
+  | SSigma SourceSigmaBinder SourceTerm
+  | SInd SourceTerm SourceBoundTerm [SourceBoundTerm] SourceTerm
 
 -- De Bruijn Terms --
 
