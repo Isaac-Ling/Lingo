@@ -204,6 +204,11 @@ isRigid (Ind t m' c a)          = isRigid t && isBoundTermRigid m' && all isBoun
     isBoundTermRigid (Bind _ m) = isBoundTermRigid m
 isRigid m                       = True
 
+hasRigidHead :: Term -> Bool
+hasRigidHead (Var (Meta _ _)) = False
+hasRigidHead (App t _)        = hasRigidHead t
+hasRigidHead _                = True
+
 showTermWithBinders :: Binders -> Term -> String
 showTermWithBinders bs (Var (Free x))                = unpack x
 showTermWithBinders bs (Var (Meta i sp))

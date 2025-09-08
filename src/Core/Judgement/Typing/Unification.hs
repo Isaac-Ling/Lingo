@@ -5,11 +5,13 @@ import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Context
+import Core.Judgement.Typing.Inference
 
 import GHC.Base (when)
+import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
 import Data.List (elemIndex)
-import Data.Maybe (fromMaybe)
+import Data.Bifunctor (second)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (pack)
@@ -17,37 +19,30 @@ import Data.ByteString.Lazy.Char8 (pack)
 type MetaSolution  = (Int, Term)
 type MetaSolutions = [MetaSolution]
 
-unify :: Term -> Term -> Maybe String -> TypeCheck ()
-unify t t' ms = do
-  ctxs <- ask
-  let errorString = fromMaybe ("Failed to unify types " ++ showTermWithContext (bctx ctxs) t ++ " and " ++ showTermWithContext (bctx ctxs) t') ms
-
-  if isRigid t && isRigid t'
-  then unless (equal (env ctxs) t t') $
-    typeError TypeMismatch $ Just errorString
-  else do
-    -- Add constraint
-    st <- get
-    let cst = (bctx ctxs, t, t')
-    put st { mcsts=cst : mcsts st }
-
 data UniState = UniState
-  { sols :: MetaSolutions
-  , csts :: Constraints
+  { sols  :: MetaSolutions
+  , csts  :: Constraints
   }
 
-type Unification a = ReaderT Environment (StateT UniState CanError) a
+data UniContexts = UniContexts
+  { uenv :: Environment
+  , uctx :: Context
+  , umctx :: MetaContext
+  }
 
-solveConstraints :: Environment -> Constraints -> CanError MetaSolutions
-solveConstraints env cs = do
-  result <- runStateT (runReaderT runUnification env) initState
-  return $ sols $ snd result
+type Unification a = ReaderT UniContexts (StateT UniState CanError) a
+
+solveConstraints :: Environment -> Context -> MetaContext -> Constraints -> CanError MetaSolutions
+solveConstraints env ctx mctx cs = do
+  result <- execStateT (runReaderT runUnification initContexts) initState
+  return $ sols result
   where
-    initState   = UniState { sols=[], csts=cs }
+    initState    = UniState { sols=[], csts=cs }
+    initContexts = UniContexts { uenv=env, uctx=ctx, umctx=mctx }
 
     runUnification :: Unification ()
     runUnification = do
-      env <- ask
+      ctxs <- ask
       st  <- get
 
       -- Get constraint from worklist
@@ -58,7 +53,7 @@ solveConstraints env cs = do
           let et' = eval $ expandMetas (sols st) t'
 
           -- Skip constraint if the two terms are definitionally equal (rigid-rigid positive case)
-          unless (equal env et et') $ do
+          unless (equal (uenv ctxs) et et') $ do
             -- Attempt to decompose constraint if terms have same rigid head
             -- (rigid-rigid negative case handled here)
             decomposed <- decompose bc et et'
@@ -85,13 +80,45 @@ solveConstraints env cs = do
           put $ st { csts=cs }
 
     tryFlexRigidSolve :: Term -> Term -> Unification Bool
-    tryFlexRigidSolve t (Var (Meta i sp)) | isRigid t = do
-      addSolution i $ abstractOverCtx t sp
+    tryFlexRigidSolve m (Var (Meta i sp)) | hasRigidHead m && not (metaOccursIn i m) = do
+      addSolution i sp m
       return True
-    tryFlexRigidSolve (Var (Meta i sp)) t | isRigid t = do
-      addSolution i $ abstractOverCtx t sp
-      return True
-    tryFlexRigidSolve _ _                             = return False
+    tryFlexRigidSolve (Var (Meta i sp)) t | hasRigidHead t && not (metaOccursIn i t) = tryFlexRigidSolve t $ Var $ Meta i sp
+    tryFlexRigidSolve _ _                                                             = return False
+
+    addSolution :: Int -> Spine -> Term -> Unification ()
+    addSolution i sp m = do
+      ctxs <- ask
+      st   <- get
+
+      let mClosed = abstractOverCtx m sp
+      let allSols = (i, mClosed) : sols st
+
+      -- Expand metas in existing solutions
+      let expandedSolutions = map (second $ expandMetas allSols) $ sols st
+      put $ st { sols=(i, mClosed) : expandedSolutions }
+      
+      case lookup i $ umctx ctxs of
+        Just md -> do
+          -- Create a constraint that the type of the solved meta must match the 
+          -- metas expected type in the meta context
+          mt <- inferSolutionType (mbctx md) $ remapCtxToSpine m sp
+          appendConstraint (mbctx md) (mtype md) mt
+        Nothing -> unificationError $ Just ("No expected type of " ++ show (Var $ Meta i []) ++ " found in meta context")
+
+    inferSolutionType :: BoundContext -> Term -> Unification Term
+    inferSolutionType bc m = do
+      ctxs <- ask
+      st   <- get
+
+      let initContexts = Contexts { env=uenv ctxs, ctx=uctx ctxs, bctx=bc, tbctx=[] }
+      -- TODO: metaID 0? No new metas *should* be created but still unsafe
+      let initState    = MetaState { mcsts=csts st, mctx=umctx ctxs, metaID=0 }
+      let mt = evalStateT (runReaderT (runInferType m) initContexts) initState
+      
+      case mt of
+        Result t     -> return $ snd t
+        Error errc s -> unificationError s
 
     abstractOverCtx :: Term -> Spine -> Term
     abstractOverCtx m sp = go 0 (remapCtxToSpine m sp) sp
@@ -126,11 +153,6 @@ solveConstraints env cs = do
         remapCtxToSpineInBoundTerm (NoBind n) sp = NoBind (remapCtxToSpine n sp)
         remapCtxToSpineInBoundTerm (Bind x n) sp = Bind x (remapCtxToSpineInBoundTerm n sp)
     remapCtxToSpine n _                         = n
-
-    addSolution :: Int -> Term -> Unification ()
-    addSolution i m = do
-      st <- get
-      put $ st { sols=(i, m) : sols st }
 
     decompose :: BoundContext -> Term -> Term -> Unification Bool
     decompose bc (Lam (x, Just t, _) m) (Lam (_, Just t', _) m') = do
@@ -201,12 +223,12 @@ solveConstraints env cs = do
     decompose bc (Var (Meta _ _)) _                              = return False
     decompose bc _ (Var (Meta _ _))                              = return False
     decompose bc t t'                                            = do
-      env <- ask
-      
+      ctxs <- ask
+
       -- Try resolving terms to see if that changes them, if so try to decompose the
       -- resolved terms
-      let et  = eval $ resolve env t
-      let et' = eval $ resolve env t'
+      let et  = eval $ resolve (uenv ctxs) t
+      let et' = eval $ resolve (uenv ctxs) t'
 
       if et /= t || et' /= t'
       then decompose bc et et'
@@ -240,7 +262,7 @@ solveConstraints env cs = do
     appendConstraint bc t t' = do
       st <- get
       put $ st { csts=csts st ++ [(bc, t, t')] }
-    
+
     appendBoundConstraints :: BoundContext -> [BoundTerm] -> [BoundTerm] -> Unification ()
     appendBoundConstraints _ [] []            = return ()
     appendBoundConstraints bc (c:cs) (c':cs') = do

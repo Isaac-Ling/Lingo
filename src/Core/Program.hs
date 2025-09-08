@@ -5,8 +5,8 @@ import Core.Error
 import Parsing.Parser
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
+import Core.Judgement.Typing.Type
 import Core.Judgement.Typing.Context
-import Core.Judgement.Typing.Inference
 import IO.Source (readSource)
 
 import Control.Monad (when)

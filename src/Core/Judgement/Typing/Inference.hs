@@ -1,39 +1,16 @@
-module Core.Judgement.Typing.Inference (inferType, checkType) where
+module Core.Judgement.Typing.Inference where
 
 import Core.Term
 import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Context
-import Core.Judgement.Typing.Unification
 
+import Data.Maybe (fromMaybe)
+import Control.Monad (unless)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (ByteString)
-
-inferType :: Environment -> Context -> Term -> CanError (Term, Term)
-inferType env ctx m = do
-  result <- runStateT (runReaderT (runInferType m) initContexts) initState
-  msol   <- solveConstraints env $ mcsts $ snd result
-  let ts = fst result
-  let e  = expandMetas msol $ fst ts
-  let t  = expandMetas msol $ snd ts
-  return (e, t)
-  where
-    initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
-    initState    = MetaState { mcsts=[], mctx=[], metaID=0 }
-
-checkType :: Environment-> Context -> Term -> Term -> CanError (Term, Term)
-checkType env ctx m t = do
-  result <- runStateT (runReaderT (runCheckType m $ eval $ resolve env t) initContexts) initState
-  msol   <- solveConstraints env $ mcsts $ snd result
-  let ts = fst result
-  let e  = expandMetas msol $ fst ts
-  let t  = expandMetas msol $ snd ts
-  return (e, t)
-  where
-    initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
-    initState    = MetaState { mcsts=[], mctx=[], metaID=0 }
 
 runInferType :: Term -> TypeCheck (Term, Term)
 runInferType (Univ i)                                  = return (Univ i, Univ (i + 1))
@@ -166,9 +143,8 @@ runInferType (Succ m)                                  = do
 
   (em, mt) <- runInferEvaluatedType m
 
-  case mt of
-    Nat -> return (Succ em, Nat)
-    _   -> typeError FailedToInferType $ Just ("Cannot apply succ to a term of type " ++ showTermWithContext (bctx ctxs) mt)
+  unify mt Nat $ Just ("Cannot apply succ to a term of type " ++ showTermWithContext (bctx ctxs) mt)
+  return (Succ em, Nat)
 
 runInferType (Funext p)                                = do
   ctxs <- ask
@@ -475,3 +451,17 @@ runInferTypeAndElab :: Term -> TypeCheck (Term, Term)
 runInferTypeAndElab m = do
   (em, mt) <- runInferType m
   instantiateImplicits em mt
+
+unify :: Term -> Term -> Maybe String -> TypeCheck ()
+unify t t' ms = do
+  ctxs <- ask
+  let errorString = fromMaybe ("Failed to unify types " ++ showTermWithContext (bctx ctxs) t ++ " and " ++ showTermWithContext (bctx ctxs) t') ms
+
+  if isRigid t && isRigid t'
+  then unless (equal (env ctxs) t t') $
+    typeError TypeMismatch $ Just errorString
+  else do
+    -- Add constraint
+    st <- get
+    let cst = (bctx ctxs, t, t')
+    put st { mcsts=cst : mcsts st }
