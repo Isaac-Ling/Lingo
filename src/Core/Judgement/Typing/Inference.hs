@@ -457,11 +457,12 @@ unify t t' ms = do
   ctxs <- ask
   let errorString = fromMaybe ("Failed to unify types " ++ showTermWithContext (bctx ctxs) t ++ " and " ++ showTermWithContext (bctx ctxs) t') ms
 
-  if isRigid t && isRigid t'
-  then unless (equal (env ctxs) t t') $
-    typeError TypeMismatch $ Just errorString
-  else do
+  if containsMeta t || containsMeta t'
+  then do
     -- Add constraint
     st <- get
     let cst = (bctx ctxs, t, t')
     put st { mcsts=cst : mcsts st }
+  else do
+    unless (equal (env ctxs) t t') $
+      typeError TypeMismatch $ Just errorString

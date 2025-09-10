@@ -7,21 +7,30 @@ import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Context
 import Core.Judgement.Typing.Inference
 
+import Data.Set (Set)
 import GHC.Base (when)
 import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
-import Data.List (elemIndex)
+import Data.List (elemIndex, delete)
 import Data.Bifunctor (second)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (pack)
+import qualified Data.Set as Set
 
 type MetaSolution  = (Int, Term)
 type MetaSolutions = [MetaSolution]
 
+-- A blocked constraint is a constraint that is unable to be solved
+-- Should any of the metas in the paired set be solved, the constraint
+-- should be awoken
+type BlockedConstraint  = (Constraint, Set Int)
+type BlockedConstraints = [BlockedConstraint]
+
 data UniState = UniState
   { sols  :: MetaSolutions
   , csts  :: Constraints
+  , bcsts :: BlockedConstraints
   }
 
 data UniContexts = UniContexts
@@ -37,7 +46,7 @@ solveConstraints env ctx mctx cs = do
   result <- execStateT (runReaderT runUnification initContexts) initState
   return $ sols result
   where
-    initState    = UniState { sols=[], csts=cs }
+    initState    = UniState { sols=[], csts=cs, bcsts=[] }
     initContexts = UniContexts { uenv=env, uctx=ctx, umctx=mctx }
 
     runUnification :: Unification ()
@@ -47,7 +56,13 @@ solveConstraints env ctx mctx cs = do
 
       -- Get constraint from worklist
       case csts st of
-        []              -> return ()
+        []              -> do
+          st <- get
+
+          -- Check if there are any blocked constraints
+          if null $ bcsts st
+          then return ()
+          else unificationError $ Just "Unsolved constraints"
         ((bc, t, t'):_) -> do
           let et  = eval $ expandMetas (sols st) t
           let et' = eval $ expandMetas (sols st) t'
@@ -63,8 +78,9 @@ solveConstraints env ctx mctx cs = do
               flexRigidSolved <- tryFlexRigidSolve et et'
 
               unless flexRigidSolved $ do
-                -- Postpone flex-flex constraint
-                appendConstraint bc t t'
+                -- Flex-flex constraints are blocked until one of the metas
+                -- is solved
+                appendBlockedConstraint bc t t'
 
           -- Loop with remaining constraints
           dropConstraint
@@ -80,11 +96,13 @@ solveConstraints env ctx mctx cs = do
           put $ st { csts=cs }
 
     tryFlexRigidSolve :: Term -> Term -> Unification Bool
-    tryFlexRigidSolve m (Var (Meta i sp)) | hasRigidHead m && not (metaOccursIn i m) = do
-      addSolution i sp m
-      return True
-    tryFlexRigidSolve (Var (Meta i sp)) t | hasRigidHead t && not (metaOccursIn i t) = tryFlexRigidSolve t $ Var $ Meta i sp
-    tryFlexRigidSolve _ _                                                             = return False
+    tryFlexRigidSolve (Var (Meta i sp)) m 
+      | isRigid m && not (metaOccursIn i m) = do
+        addSolution i sp m
+        return True
+    tryFlexRigidSolve m (Var (Meta i sp))
+      | isRigid m && not (metaOccursIn i m) = tryFlexRigidSolve (Var $ Meta i sp) m
+    tryFlexRigidSolve _ _                   = return False
 
     addSolution :: Int -> Spine -> Term -> Unification ()
     addSolution i sp m = do
@@ -97,7 +115,10 @@ solveConstraints env ctx mctx cs = do
       -- Expand metas in existing solutions
       let expandedSolutions = map (second $ expandMetas allSols) $ sols st
       put $ st { sols=(i, mClosed) : expandedSolutions }
-      
+
+      -- Wake up blocked constraints that are awaiting this metas solution
+      wakeUpBlockedConstraints i
+
       case lookup i $ umctx ctxs of
         Just md -> do
           -- Create a constraint that the type of the solved meta must match the 
@@ -105,6 +126,20 @@ solveConstraints env ctx mctx cs = do
           mt <- inferSolutionType (mbctx md) $ remapCtxToSpine m sp
           appendConstraint (mbctx md) (mtype md) mt
         Nothing -> unificationError $ Just ("No expected type of " ++ show (Var $ Meta i []) ++ " found in meta context")
+
+    wakeUpBlockedConstraints :: Int -> Unification ()
+    wakeUpBlockedConstraints i = do
+      st <- get
+      mapM_  (wakeUpBlockedConstraint i) $ bcsts st
+      where
+        wakeUpBlockedConstraint :: Int -> BlockedConstraint -> Unification ()
+        wakeUpBlockedConstraint i bc@(c, s) = do
+          when (i `Set.member` s) $ do
+            st <- get
+
+            let newBcsts = delete bc $ bcsts st
+            let newCsts = csts st ++ [c]
+            put $ st { csts=newCsts, bcsts=newBcsts }
 
     inferSolutionType :: BoundContext -> Term -> Unification Term
     inferSolutionType bc m = do
@@ -155,6 +190,11 @@ solveConstraints env ctx mctx cs = do
     remapCtxToSpine n _                         = n
 
     decompose :: BoundContext -> Term -> Term -> Unification Bool
+    -- Flex-flex case
+    decompose _ m m' | isFlex m && isFlex m'                     = return False
+    -- Flex-rigid case
+    decompose _ m m' | isFlex m /= isFlex m'                     = return False
+    -- Rigid-rigid cases
     decompose bc (Lam (x, Just t, _) m) (Lam (_, Just t', _) m') = do
       appendConstraint bc t t'
       appendConstraint ((Just x, t) : bc) m m'
@@ -216,23 +256,21 @@ solveConstraints env ctx mctx cs = do
       return True
     decompose bc (Ind t m cs a) (Ind t' m' cs' a')               = do
       appendConstraint bc t t'
-      appendConstraintFromBoundContext bc m m'
-      appendBoundConstraints bc cs cs'
+      appendBoundTermConstraint bc m m'
+      appendBoundTermConstraints bc cs cs'
       appendConstraint bc a a'
       return True
-    decompose bc (Var (Meta _ _)) _                              = return False
-    decompose bc _ (Var (Meta _ _))                              = return False
-    decompose bc t t'                                            = do
+    decompose bc m m'                                            = do
       ctxs <- ask
 
       -- Try resolving terms to see if that changes them, if so try to decompose the
       -- resolved terms
-      let et  = eval $ resolve (uenv ctxs) t
-      let et' = eval $ resolve (uenv ctxs) t'
+      let em  = eval $ resolve (uenv ctxs) m
+      let em' = eval $ resolve (uenv ctxs) m'
 
-      if et /= t || et' /= t'
-      then decompose bc et et'
-      else unificationError $ Just ("Failed to unify types " ++ showTermWithContext bc t ++ " and " ++ showTermWithContext bc t')
+      if em /= m || em' /= m'
+      then decompose bc em em'
+      else unificationError $ Just ("Failed to unify " ++ showTermWithContext bc m ++ " and " ++ showTermWithContext bc m')
 
     metaOccursIn :: Int -> Term -> Bool
     metaOccursIn k (Var (Meta i _))
@@ -259,20 +297,27 @@ solveConstraints env ctx mctx cs = do
     metaOccursIn k n                       = False
 
     appendConstraint :: BoundContext -> Term -> Term -> Unification ()
-    appendConstraint bc t t' = do
+    appendConstraint bc m m' = do
       st <- get
-      put $ st { csts=csts st ++ [(bc, t, t')] }
+      put $ st { csts=csts st ++ [(bc, m, m')] }
 
-    appendBoundConstraints :: BoundContext -> [BoundTerm] -> [BoundTerm] -> Unification ()
-    appendBoundConstraints _ [] []            = return ()
-    appendBoundConstraints bc (c:cs) (c':cs') = do
-      appendConstraintFromBoundContext bc c c'
-      appendBoundConstraints bc cs cs'
-    appendBoundConstraints _ _ _              = unificationError $ Just "Incompatible number of bound terms to unify"
+    appendBlockedConstraint :: BoundContext -> Term -> Term -> Unification ()
+    appendBlockedConstraint bc m m' = do
+      st <- get
+      put $ st { bcsts=bcsts st ++ [((bc, m, m'), getMetasInTerm m <> getMetasInTerm m')] }
 
-    appendConstraintFromBoundContext :: BoundContext -> BoundTerm -> BoundTerm -> Unification ()
-    appendConstraintFromBoundContext bc (NoBind m) (NoBind m') = appendConstraint bc m m'
-    appendConstraintFromBoundContext bc (Bind x m) (Bind _ m') = appendConstraintFromBoundContext ((x, Top) : bc) m m'
+    appendBoundTermConstraints :: BoundContext -> [BoundTerm] -> [BoundTerm] -> Unification ()
+    appendBoundTermConstraints _ [] []            = return ()
+    appendBoundTermConstraints bc (c:cs) (c':cs') = do
+      appendBoundTermConstraint bc c c'
+      appendBoundTermConstraints bc cs cs'
+    appendBoundTermConstraints _ _ _              = unificationError $ Just "Incompatible number of bound terms to unify"
+
+    appendBoundTermConstraint :: BoundContext -> BoundTerm -> BoundTerm -> Unification ()
+    appendBoundTermConstraint bc (NoBind m) (NoBind m') = appendConstraint bc m m'
+    -- We don't know the type of x here, but need to add something
+    -- to the bound context. Add Top for now (TODO?)
+    appendBoundTermConstraint bc (Bind x m) (Bind _ m') = appendBoundTermConstraint ((x, Top) : bc) m m'
 
     unificationError :: Maybe String -> Unification a
     unificationError ms = lift $ lift $ Error UnificationError ms

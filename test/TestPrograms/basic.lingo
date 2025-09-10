@@ -10,8 +10,8 @@ dfst := \p. ind[(a : A) x B a](A, a. b. a, p)
 
 #check dfst
 
-dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst p)
-dsnd := \p. ind[(a : A) x B a](p. B (dfst p), a. b. b, p)
+dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst {A} {B} p)
+dsnd := \p. ind[(a : A) x B a](p. B (dfst {A} {B} p), a. b. b, p)
 
 #check dsnd
 

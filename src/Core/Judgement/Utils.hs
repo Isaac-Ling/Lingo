@@ -3,10 +3,12 @@ module Core.Judgement.Utils where
 import Core.Term
 import Core.Error
 
+import Data.Set (Set)
 import Control.Monad (join)
 import Data.List (elemIndex, (!?))
 import Data.Maybe (fromMaybe)
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
+import qualified Data.Set as Set
 
 -- A list of binders, where the ith element is the ith binder away from the
 -- current term. Nothing is used if we should never match against that binder
@@ -181,33 +183,39 @@ isBinderUsed = go 0
     isBinderUsedInBoundTerm k (NoBind n) = go k n
     isBinderUsedInBoundTerm k (Bind x n) = isBinderUsedInBoundTerm (k + 1) n
 
-isRigid :: Term -> Bool
-isRigid (Var (Meta _ _))        = False
-isRigid (Lam (x, Just t, _) n)  = isRigid t && isRigid n
-isRigid (Lam (x, Nothing, _) n) = isRigid n
-isRigid (Pi (x, t, _) n)        = isRigid t && isRigid n
-isRigid (Sigma (x, t) n)        = isRigid t && isRigid n
-isRigid (Pair t n)              = isRigid t && isRigid n
-isRigid (App t (n, _))          = isRigid t && isRigid n
-isRigid (Id mt m n)             = maybe True isRigid mt && isRigid m && isRigid n
-isRigid (Refl m)                = isRigid m
-isRigid (Funext m)              = isRigid m
-isRigid (Univalence m)          = isRigid m
-isRigid (Succ m)                = isRigid m
-isRigid (Inl m)                 = isRigid m
-isRigid (Inr m)                 = isRigid m
-isRigid (IdFam m)               = isRigid m
-isRigid (Ind t m' c a)          = isRigid t && isBoundTermRigid m' && all isBoundTermRigid c && isRigid a
+getMetasInTerm :: Term -> Set Int
+getMetasInTerm (Var (Meta i _))        = Set.singleton i
+getMetasInTerm (Lam (x, Just t, _) n)  = getMetasInTerm t <> getMetasInTerm n
+getMetasInTerm (Lam (x, Nothing, _) n) = getMetasInTerm n
+getMetasInTerm (Pi (x, t, _) n)        = getMetasInTerm t <> getMetasInTerm n
+getMetasInTerm (Sigma (x, t) n)        = getMetasInTerm t <> getMetasInTerm n
+getMetasInTerm (Pair t n)              = getMetasInTerm t <> getMetasInTerm n
+getMetasInTerm (App t (n, _))          = getMetasInTerm t <> getMetasInTerm n
+getMetasInTerm (Id mt m n)             = maybe Set.empty getMetasInTerm mt <> getMetasInTerm m <> getMetasInTerm n
+getMetasInTerm (Refl m)                = getMetasInTerm m
+getMetasInTerm (Funext m)              = getMetasInTerm m
+getMetasInTerm (Univalence m)          = getMetasInTerm m
+getMetasInTerm (Succ m)                = getMetasInTerm m
+getMetasInTerm (Inl m)                 = getMetasInTerm m
+getMetasInTerm (Inr m)                 = getMetasInTerm m
+getMetasInTerm (IdFam m)               = getMetasInTerm m
+getMetasInTerm (Ind t m' c a)          = getMetasInTerm t <> getMetasInBoundTerm m' <> Set.unions (map getMetasInBoundTerm c) <> getMetasInTerm a
   where
-    isBoundTermRigid :: BoundTerm -> Bool
-    isBoundTermRigid (NoBind m) = isRigid m
-    isBoundTermRigid (Bind _ m) = isBoundTermRigid m
-isRigid m                       = True
+    getMetasInBoundTerm :: BoundTerm -> Set Int
+    getMetasInBoundTerm (NoBind m) = getMetasInTerm m
+    getMetasInBoundTerm (Bind _ m) = getMetasInBoundTerm m
+getMetasInTerm m                       = Set.empty
 
-hasRigidHead :: Term -> Bool
-hasRigidHead (Var (Meta _ _)) = False
-hasRigidHead (App t _)        = hasRigidHead t
-hasRigidHead _                = True
+containsMeta :: Term -> Bool
+containsMeta = not . Set.null . getMetasInTerm
+
+isRigid :: Term -> Bool
+isRigid (Var (Meta _ _)) = False
+isRigid (App m _)        = isRigid m
+isRigid _                = True
+
+isFlex :: Term -> Bool
+isFlex = not . isRigid
 
 showTermWithBinders :: Binders -> Term -> String
 showTermWithBinders bs (Var (Free x))                = unpack x

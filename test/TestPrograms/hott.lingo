@@ -18,21 +18,18 @@ homotopic := \f. \g. (a : A) -> f a = g a
 
 #check homotopic id1 id2
 
-dhomotopic : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> U
-dhomotopic := \f. \g. (a : A) -> f a = g a
-
 -- Homotopy equivalence relation
-homotopyRefl : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> dhomotopic f f
+homotopyRefl : {A : U} -> {B : U} -> (f : A -> B) -> homotopic f f
 homotopyRefl := \f. \a. refl[f a]
 
 #check homotopyRefl
 
-homotopySymm : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> dhomotopic f g -> dhomotopic g f
+homotopySymm : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> homotopic f g -> homotopic g f
 homotopySymm := \f. \g. \hfg. \a. idSymm (hfg a)
 
 #check homotopySymm
 
-homotopyTrans : {A : U} -> {P : A -> U} -> (f : (a : A) -> P a) -> (g : (a : A) -> P a) -> (h : (a : A) -> P a) -> dhomotopic f g -> dhomotopic g h -> dhomotopic f h
+homotopyTrans : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> (h : A -> B) -> homotopic f g -> homotopic g h -> homotopic f h
 homotopyTrans := \f. \g. \h. \hfg. \hgh. \a. idTrans (hfg a) (hgh a)
 
 #check homotopyTrans
@@ -43,7 +40,6 @@ qinv := \f. (g : B -> A) x (homotopic (comp f g) id) x (homotopic (comp g f) id)
 
 #eval qinv
 
--- TODO: Unification hangs if {A} removed from id in type
 idSelfInverse : {A : U} -> qinv (id {A})
 idSelfInverse := (id, \a. refl[a], \a. refl[a])
 
