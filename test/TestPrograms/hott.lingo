@@ -44,7 +44,7 @@ qinv := \f. (g : B -> A) x (homotopic (comp f g) id) x (homotopic (comp g f) id)
 #eval qinv
 
 -- TODO: Unification hangs if {A} removed from id in type
-idSelfInverse : {A : U} -> qinv (id {A})
+idSelfInverse : {A : U} -> qinv id
 idSelfInverse := (id, \a. refl[a], \a. refl[a])
 
 #check idSelfInverse
