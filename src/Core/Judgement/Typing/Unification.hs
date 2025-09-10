@@ -62,7 +62,7 @@ solveConstraints env ctx mctx cs = do
           -- Check if there are any blocked constraints
           if null $ bcsts st
           then return ()
-          else unificationError $ Just "Unsolved constraints remain"
+          else unificationError $ Just "Unsolved constraints"
         ((bc, t, t'):_) -> do
           let et  = eval $ expandMetas (sols st) t
           let et' = eval $ expandMetas (sols st) t'
@@ -100,11 +100,6 @@ solveConstraints env ctx mctx cs = do
       | isRigid m && not (metaOccursIn i m) = do
         addSolution i sp m
         return True
-    tryFlexRigidSolve (App (Var (Meta i sp)) m) n
-      | isRigid n && not (metaOccursIn i n) = do
-        
-    tryFlexRigidSolve n (App (Var (Meta i sp)) m)
-      | isRigid n && not (metaOccursIn i n) = tryFlexRigidSolve (Var $ Meta i sp) m
     tryFlexRigidSolve m (Var (Meta i sp))
       | isRigid m && not (metaOccursIn i m) = tryFlexRigidSolve (Var $ Meta i sp) m
     tryFlexRigidSolve _ _                   = return False
