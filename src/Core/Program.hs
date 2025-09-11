@@ -16,12 +16,12 @@ import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
 type Includes = [FilePath]
 
-type NamedTypeContext = [(ByteString, SourceTerm)]
+type SourceTypeContext = [(ByteString, SourceTerm)]
 
 data RuntimeContext = RuntimeContext
   { rtenv :: Environment
   , rtctx :: Context
-  , ntctx :: NamedTypeContext
+  , ntctx :: SourceTypeContext
   , incs  :: [FilePath]
   }
 
@@ -59,7 +59,7 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
       let t = toDeBruijn t'
       (et, _) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) t
-      let p = continue (addToRTCtx (x, et) . addToNamedTypeCtx (x, t')) (go ds)
+      let p = continue (addToRTCtx (x, et) . addToSourceTypeCtx (x, t')) (go ds)
 
       case lookup x $ rtctx ctxs of
         Just t2 -> if equal (rtenv ctxs) t t2
@@ -142,8 +142,8 @@ addToRTEnv def ctxs = ctxs { rtenv=def : rtenv ctxs }
 addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
 addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
 
-addToNamedTypeCtx :: (ByteString, SourceTerm) -> (RuntimeContext -> RuntimeContext)
-addToNamedTypeCtx nt ctxs = ctxs { ntctx=nt : ntctx ctxs }
+addToSourceTypeCtx :: (ByteString, SourceTerm) -> (RuntimeContext -> RuntimeContext)
+addToSourceTypeCtx nt ctxs = ctxs { ntctx=nt : ntctx ctxs }
 
 addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
 addToIncludes f ctxs = ctxs { incs=f : incs ctxs }
