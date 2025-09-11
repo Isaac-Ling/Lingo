@@ -13,7 +13,7 @@ import Control.Monad.State.Lazy
 
 inferType :: Environment -> Context -> Term -> CanError (Term, Term)
 inferType env ctx m = do
-  result <- runStateT (runReaderT (runInferType m) initContexts) initState
+  result <- runInferType initContexts initState m
   msol   <- solveConstraints env ctx (mctx $ snd result) (mcsts $ snd result)
   let ts = fst result
   let e  = expandMetas msol $ fst ts
@@ -25,7 +25,7 @@ inferType env ctx m = do
 
 checkType :: Environment-> Context -> Term -> Term -> CanError (Term, Term)
 checkType env ctx m t = do
-  result <- runStateT (runReaderT (runCheckType m $ eval $ resolve env t) initContexts) initState
+  result <- runCheckType initContexts initState m $ eval $ resolve env t
   msol   <- solveConstraints env ctx (mctx $ snd result) (mcsts $ snd result)
   let ts = fst result
   let e  = expandMetas msol $ fst ts
