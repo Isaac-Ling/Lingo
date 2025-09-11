@@ -32,7 +32,7 @@ comp := \g. \f. \a. g (f a)
 #check comp
 
 -- Propositional Logic
-modus_ponens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
-modus_ponens := \p. (snd p) (fst p)
+modusPonens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
+modusPonens := \p. (snd p) (fst p)
 
-#type modus_ponens
+#type modusPonens
