@@ -43,14 +43,14 @@ type Unification a = ReaderT UniContexts (StateT UniState CanError) a
 
 solveConstraints :: Environment -> Context -> MetaContext -> Constraints -> CanError MetaSolutions
 solveConstraints env ctx mctx cs = do
-  result <- execStateT (runReaderT runUnification initContexts) initState
+  result <- execStateT (runReaderT go initContexts) initState
   return $ sols result
   where
     initState    = UniState { sols=[], csts=cs, bcsts=[] }
     initContexts = UniContexts { uenv=env, uctx=ctx, umctx=mctx }
 
-    runUnification :: Unification ()
-    runUnification = do
+    go :: Unification ()
+    go = do
       ctxs <- ask
       st  <- get
 
@@ -84,7 +84,7 @@ solveConstraints env ctx mctx cs = do
 
           -- Loop with remaining constraints
           dropConstraint
-          runUnification
+          go
 
     dropConstraint :: Unification ()
     dropConstraint = do
@@ -149,7 +149,7 @@ solveConstraints env ctx mctx cs = do
       let initContexts = Contexts { env=uenv ctxs, ctx=uctx ctxs, bctx=bc, tbctx=[] }
       -- TODO: metaID 0? No new metas *should* be created but still unsafe
       let initState    = MetaState { mcsts=csts st, mctx=umctx ctxs, metaID=0 }
-      let mt = evalStateT (runReaderT (runInferType m) initContexts) initState
+      let mt = evalInferType initContexts initState m
       
       case mt of
         Result t     -> return $ snd t
