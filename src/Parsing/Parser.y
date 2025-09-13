@@ -15,6 +15,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %error { parseError }
 %monad { Alex }
 %lexer { lexer } { PositionedToken TkEOF _ }
+-- TODO: Resolve all shift-reduce conflicts
 --%expect 0
 
 %token
@@ -76,7 +77,21 @@ Declarations :: { Program }
   | Pragma     Declarations { Pragma $1 : $2 }
 
 Definition :: { Declaration }
-  : var ':=' Term { Def ($1, $3) }
+  : var Params ':=' Term
+  {
+    Def ($1, elaborateParams $2 $4)
+  }
+
+Param :: { SourceLambdaBinder }
+  : var                  { ($1, Nothing, Exp) }
+  | '(' var ')'          { ($2, Nothing, Exp) }
+  | '{' var '}'          { ($2, Nothing, Imp) }
+  | '(' var ':' Term ')' { ($2, Just $4, Exp) }
+  | '{' var ':' Term '}' { ($2, Just $4, Imp) }
+
+Params :: { [SourceLambdaBinder] }
+  :              { [] }
+  | Param Params { $1 : $2 }
 
 Signature :: { SourceAssumption }
   : var ':' Term { ($1, $3) }
@@ -224,4 +239,8 @@ parseNum n = SSucc $ parseNum (n - 1)
 parseTuple :: SourceTerm -> SourceTerm -> [SourceTerm] -> SourceTerm
 parseTuple m n []     = SPair m n
 parseTuple m n (t:ts) = SPair m $ parseTuple n t ts
+
+elaborateParams :: [SourceLambdaBinder] -> SourceTerm -> SourceTerm
+elaborateParams [] m     = m
+elaborateParams (b:bs) m = SLam b $ elaborateParams bs m
 }

@@ -1,36 +1,36 @@
 -- Identity Equivalence Relation
 idRefl : {A : U} -> (a : A) -> a = a
-idRefl := \a. refl[a]
+idRefl a := refl[a]
 
 #check idRefl
 
 idSymm : {A : U} -> {a : A} -> {b : A} -> a = b -> b = a
-idSymm := \p. ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p) 
+idSymm p := ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p) 
 
 #check idSymm
 
 idTransLemma : {A : U} -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
-idTransLemma := \a. \b. \p. ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
+idTransLemma a b p := ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
 
 idTrans : {A : U} -> {a : A} -> {b : A} -> {c : A} -> a = b -> b = c -> a = c
-idTrans := \p. idTransLemma a b p c
+idTrans p := idTransLemma a b p c
 
 #check idTrans
 
 -- Functoriality of functions
 lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
-lift := \f. \p. ind[=[A]](a. b. p. f a = f b, z. refl[f z], a, b, p)
+lift f p := ind[=[A]](a. b. p. f a = f b, z. refl[f z], a, b, p)
 
 #check lift
 
 -- Transport
 transport : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> a = b -> P a -> P b
-transport := \P. \p. ind[=[A]](a. b. p. P a -> P b, z. id {P z}, a, b, p)
+transport P p := ind[=[A]](a. b. p. P a -> P b, z. id {P z}, a, b, p)
 
 #check transport
 
 -- Identity on type constructors
 productPath : {A : U} -> {B : U} -> (a : A x B) -> (b : A x B) -> (p : a = b) -> (fst a = fst b) x (snd a = snd b)
-productPath := \a. \b. \p. (lift fst p, lift snd p)
+productPath a b p := (lift fst p, lift snd p)
 
 #type productPath

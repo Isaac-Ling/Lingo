@@ -1,16 +1,16 @@
 -- Uniqueness
 uniqT : (a : T) -> a = *
-uniqT := \b. ind[T](a. a = *, refl[*], b)
+uniqT a := ind[T](c. c = *, refl[*], a)
 
 #check uniqT
 
 -- Initial and terminal
 terminal : (A : U) -> T
-terminal := \A. *
+terminal A := *
 
 #check terminal
 
 initial : (A : U) -> _|_ -> A
-initial := \A. \a. ind[_|_](A, a)
+initial A a := ind[_|_](A, a)
 
 #check initial

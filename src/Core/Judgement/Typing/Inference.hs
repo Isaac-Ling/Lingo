@@ -362,7 +362,10 @@ goInferType (Ind
       en, bumpDown $ open (bumpUp en) em)
     _      -> typeError TypeMismatch $ Just (showTermWithContext ((x, Nat) : bctx ctxs) em ++ " is not a term of a universe")
 
-goInferType (Ind t m c a)                              = typeError FailedToInferType $ Just ("Invalid induction " ++ show (Ind t m c a))
+goInferType (Ind t m c a)                              = do
+  ctxs <- ask
+
+  typeError FailedToInferType $ Just ("Invalid induction " ++ showTermWithContext (bctx ctxs) (Ind t m c a))
 
 runCheckType :: Contexts -> MetaState -> Term -> Term -> CanError ((Term, Term), MetaState)
 runCheckType ctxs st m mt = runStateT (runReaderT (goCheckType m mt) ctxs) st
