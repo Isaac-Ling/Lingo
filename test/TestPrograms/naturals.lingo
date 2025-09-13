@@ -5,12 +5,12 @@ a := 5
 #check a
 
 double : Nat -> Nat
-double := \n. ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
+double n := ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
 
 #check double a
 
 add : Nat -> Nat -> Nat
-add := \n. ind[Nat](Nat -> Nat, \n. n, n. g. \m. succ(g m), n)
+add n := ind[Nat](Nat -> Nat, \n. n, n. g. \m. succ(g m), n)
 
 #check add
 #check add 2 2
@@ -21,34 +21,34 @@ twoPlusTwoIsFour := refl[4]
 #check twoPlusTwoIsFour
 
 multiply : Nat -> Nat -> Nat
-multiply := \n. ind[Nat](Nat -> Nat, \n. 0, n'. g. \m. add m (g m), n)
+multiply n := ind[Nat](Nat -> Nat, \n. 0, n'. g. \m. add m (g m), n)
 
 #check multiply 2 4
 
 lMul0 : (a : Nat) -> multiply 0 a = 0
-lMul0 := \a. refl[0]
+lMul0 a := refl[0]
 
 #check lMul0
 
 powFlipped : Nat -> Nat -> Nat
-powFlipped := \n. ind[Nat](Nat -> Nat, \n. 1, n'. g. \m. multiply m (g m), n)
+powFlipped n := ind[Nat](Nat -> Nat, \n. 1, n'. g. \m. multiply m (g m), n)
 
 flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
-flip := \f. \b. \a. f a b
+flip f b a := f a b
 
 pow := flip powFlipped
 
 #check pow 2 5
 
 rAddId : (a : Nat) -> add a 0 = a
-rAddId := \a. ind[Nat](n. add n 0 = n, refl[0], m. g. lift (\(n : Nat). succ(n)) g, a)
+rAddId a := ind[Nat](n. add n 0 = n, refl[0], m. g. lift (\(n : Nat). succ(n)) g, a)
 
 #check rAddId
 
 addCommLemma : (a : Nat) -> (b : Nat) -> add a succ(b) = add succ(a) b
-addCommLemma := \a. \b. ind[Nat](n. add n succ(b) = add succ(n) b, refl[succ(b)], m. g. lift (\(n : Nat). succ(n)) g, a)
+addCommLemma a b := ind[Nat](n. add n succ(b) = add succ(n) b, refl[succ(b)], m. g. lift (\(n : Nat). succ(n)) g, a)
 
 addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
-addComm := \a. \b. ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans (addCommLemma a m) (lift (\(n : Nat). succ(n)) g), b)
+addComm a b := ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans (addCommLemma a m) (lift (\(n : Nat). succ(n)) g), b)
 
 #type addComm

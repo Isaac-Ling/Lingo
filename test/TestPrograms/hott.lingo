@@ -6,7 +6,7 @@ id2 : T -> T
 id2 := \b. b
 
 id1PointwiseEqualsId2 : (a : T) -> id1 a = id2 a
-id1PointwiseEqualsId2 := \c. refl[c]
+id1PointwiseEqualsId2 a := refl[a]
 
 id1EqualsId2 : id1 = id2
 id1EqualsId2 := funext(id1PointwiseEqualsId2)
@@ -14,29 +14,29 @@ id1EqualsId2 := funext(id1PointwiseEqualsId2)
 #check id1EqualsId2
 
 homotopic : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> U
-homotopic := \f. \g. (a : A) -> f a = g a
+homotopic f g := (a : A) -> f a = g a
 
 #check homotopic id1 id2
 
 -- Homotopy equivalence relation
 homotopyRefl : {A : U} -> {B : U} -> (f : A -> B) -> homotopic f f
-homotopyRefl := \f. \a. refl[f a]
+homotopyRefl f a := refl[f a]
 
 #check homotopyRefl
 
 homotopySymm : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> homotopic f g -> homotopic g f
-homotopySymm := \f. \g. \hfg. \a. idSymm (hfg a)
+homotopySymm f g hfg a := idSymm (hfg a)
 
 #check homotopySymm
 
 homotopyTrans : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> (h : A -> B) -> homotopic f g -> homotopic g h -> homotopic f h
-homotopyTrans := \f. \g. \h. \hfg. \hgh. \a. idTrans (hfg a) (hgh a)
+homotopyTrans f g h hfg hgh a := idTrans (hfg a) (hgh a)
 
 #check homotopyTrans
 
 -- Quasi-inverse
 qinv : {A : U} -> {B : U} -> (f : A -> B) -> U
-qinv := \f. (g : B -> A) x (homotopic (comp f g) id) x (homotopic (comp g f) id)
+qinv f := (g : B -> A) x (homotopic (comp f g) id) x (homotopic (comp g f) id)
 
 #eval qinv
 

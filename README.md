@@ -28,15 +28,6 @@ An implementation of Martin-Löf Type Theory, following closely to the Homotopy 
 | Type annotation         | $a : A$              | `a : A`          |
 | Definition              | $a := \text{foo}$    | `a := foo`       |
 
-## Induction
-
-The notation for induction operators follows that of the HoTT book, e.g. defining the double function using natural induction would be:
-
-```
-double : Nat -> Nat
-double := \n. ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
-```
-
 ## Implicits
 
 Leading pi types can be left explicit by writing `{A : U} -> ...`. Semantically this is equivalent to a standard pi type, but it doesn't need a corresponding leading lambda in its definition. It also can be left out when applying another term to a term of this type.
@@ -52,13 +43,31 @@ id := \a. a
 
 The check on the last line will give `id {Nat} 32 =>* 32 : Nat`.
 
+Equivalently, declarations can have parameter lists of leading lambdas to reduce boilerplate:
+
+```
+id : {A : U} -> A -> A
+id a := a
+
+#check id 32
+```
+
 Implicits can be made explicit in both a lambda and an application by using curly braces:
 
 ```
 id : {A : U} -> A -> A
-id := \{B}. \(a : B). a
+id {B} (a : B) := a
 
 #check id {Nat} 32
+```
+
+## Induction
+
+The notation for induction operators follows that of the HoTT book, e.g. defining the double function using natural induction would be:
+
+```
+double : Nat -> Nat
+double n := ind[Nat](Nat, 0, n. y. succ(succ(y)), n)
 ```
 
 ## Pragmas

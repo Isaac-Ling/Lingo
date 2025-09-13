@@ -43,22 +43,22 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
         _      -> success
 
       let m = case lookup x $ ntctx ctxs of
-                Just t' -> toDeBruijn $ elaborate m' t'
+                Just t' -> toDeBruijn $ elaborateSource m' t'
                 _       -> toDeBruijn m'
 
       case lookup x $ rtctx ctxs of
         Just t -> do
-          (em, _) <- tryRun $ checkType (rtenv ctxs) (rtctx ctxs) m t
+          em <- tryRun $ elaborateWithType (rtenv ctxs) (rtctx ctxs) m t
           continue (addToRTEnv (x, em)) (go ds)
         _      -> do
-          (em, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+          (em, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
           continue (addToRTEnv (x, em) . addToRTCtx (x, t)) (go ds)
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
 
       let t = toDeBruijn t'
-      (et, _) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) t
+      et <- tryRun $ elaborate (rtenv ctxs) (rtctx ctxs) t
       let p = continue (addToRTCtx (x, et) . addToSourceTypeCtx (x, t')) (go ds)
 
       case lookup x $ rtctx ctxs of
@@ -71,7 +71,7 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+      (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
 
       let erf = eval $ resolve (rtenv ctxs) f
       let et = eval t
@@ -83,7 +83,7 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+      (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
       let et = eval t
       liftIO $ putStrLn (show f ++ " : " ++ show et)
 
@@ -93,7 +93,7 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toDeBruijn m'
-      (f, t) <- tryRun $ inferType (rtenv ctxs) (rtctx ctxs) m
+      (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
       let erf = eval $ resolve (rtenv ctxs) f
       liftIO $ putStrLn (show f ++ " =>* " ++ show erf)
 

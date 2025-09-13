@@ -15,11 +15,11 @@ import qualified Data.Set as Set
 type Binders = [Maybe ByteString]
 
 -- TODO: Add implicit lambdas inside sub-terms ??
-elaborate :: SourceTerm -> SourceTerm -> SourceTerm
-elaborate (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = SLam (x, t, Imp) $ elaborate m n
-elaborate m (SPi (Just x, t, Imp) n)               = SLam (x, Just t, Imp) $ elaborate m n
-elaborate (SLam (x, t, Exp) m) (SPi (_, _, Exp) n) = SLam (x, t, Exp) $ elaborate m n
-elaborate m _                                      = m
+elaborateSource :: SourceTerm -> SourceTerm -> SourceTerm
+elaborateSource (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = SLam (x, t, Imp) $ elaborateSource m n
+elaborateSource m (SPi (Just x, t, Imp) n)               = SLam (x, Just t, Imp) $ elaborateSource m n
+elaborateSource (SLam (x, t, Exp) m) (SPi (_, _, Exp) n) = SLam (x, t, Exp) $ elaborateSource m n
+elaborateSource m _                                      = m
 
 toDeBruijn :: SourceTerm -> Term
 toDeBruijn = go []
