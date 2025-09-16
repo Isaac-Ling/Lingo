@@ -181,7 +181,7 @@ goInferType (Funext p)                                = do
       return (Funext ep, Id Nothing f g)
     _                                                                     -> typeError FailedToInferType $ Just ("Cannot apply funext to a term of type " ++ showTermWithContext (bctx ctxs) pt)
 
--- TODO: Type check univalence
+-- TODO: Type check univalence with half adjoint equivalences
 goInferType (Univalence f)                            = do
   ctxs <- ask
 
@@ -471,14 +471,15 @@ goCheckEvaluatedType m t = do
   goCheckType m (eval $ resolve (env ctxs) t)
 
 instantiateImplicits :: Term -> Term -> TypeCheck (Term, Term)
-instantiateImplicits em (Pi (x, t, Imp) t') = do
+instantiateImplicits m@(Lam (_, _, Imp) _) mt@(Pi (_, _, Imp) _) = return (m, mt)
+instantiateImplicits m (Pi (x, t, Imp) t')                       = do
   ctxs <- ask
 
   mv <- createMetaVar t $ bctx ctxs
-  let em'  = App em (mv, Imp)
-  let em't = bumpDown $ open (bumpUp mv) t'
-  instantiateImplicits em' em't
-instantiateImplicits em mt                  = return (em, mt)
+  let m'  = App m (mv, Imp)
+  let m't = bumpDown $ open (bumpUp mv) t'
+  instantiateImplicits m' m't
+instantiateImplicits m mt                                        = return (m, mt)
 
 goInferTypeAndElab :: Term -> TypeCheck (Term, Term)
 goInferTypeAndElab m = do
