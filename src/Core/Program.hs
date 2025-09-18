@@ -1,4 +1,4 @@
-module Core.Program where
+module Core.Program (run, Option(..), Options) where
 
 import Core.Term
 import Core.Error
@@ -14,8 +14,13 @@ import System.Directory (makeAbsolute)
 import Control.Monad.Reader
 import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 
-type Includes = [FilePath]
+data Option
+  = None
+  | HideImplicits
+  deriving Eq
 
+type Options = [Option]
+type Includes = [FilePath]
 type SourceTypeContext = [(ByteString, SourceTerm)]
 
 data RuntimeContext = RuntimeContext
@@ -27,8 +32,8 @@ data RuntimeContext = RuntimeContext
 
 type Runtime a = CanErrorT (ReaderT RuntimeContext IO) a
 
-run :: Program -> FilePath -> IO (CanError ())
-run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
+run :: Program -> FilePath -> Options -> IO (CanError ())
+run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
   where
     initRuntimeContext = RuntimeContext { rtenv=[], rtctx=[], ntctx=[], incs=[f] }
 
@@ -62,7 +67,7 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       let p = continue (addToRTCtx (x, et) . addToSourceTypeCtx (x, t')) (go ds)
 
       case lookup x $ rtctx ctxs of
-        Just t2 -> if equal (rtenv ctxs) t t2
+        Just t2 -> if equal (rtenv ctxs) et t2
           then p
           else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))
         _       -> p
@@ -75,7 +80,8 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
       let erf = eval $ resolve (rtenv ctxs) f
       let et = eval t
-      liftIO $ putStrLn (show f ++ " =>* " ++ show erf ++ " : " ++ show et)
+
+      liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf ++ " : " ++ showTerm et)
 
       go ds
 
@@ -85,7 +91,7 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       let m = toDeBruijn m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
       let et = eval t
-      liftIO $ putStrLn (show f ++ " : " ++ show et)
+      liftIO $ putStrLn (showTerm f ++ " : " ++ showTerm et)
 
       go ds
 
@@ -95,7 +101,7 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
       let m = toDeBruijn m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
       let erf = eval $ resolve (rtenv ctxs) f
-      liftIO $ putStrLn (show f ++ " =>* " ++ show erf)
+      liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf)
 
       go ds
 
@@ -121,32 +127,35 @@ run p f = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
         continue (addToIncludes file) (go (program ++ ds))
 
-tryRun :: CanError a -> Runtime a
-tryRun = CanErrorT . return
+    tryRun :: CanError a -> Runtime a
+    tryRun = CanErrorT . return
 
-success :: Runtime ()
-success = return ()
+    success :: Runtime ()
+    success = return ()
 
-askRTCtx :: Runtime RuntimeContext
-askRTCtx = lift ask
+    askRTCtx :: Runtime RuntimeContext
+    askRTCtx = lift ask
 
-continue :: (RuntimeContext -> RuntimeContext) -> Runtime () -> Runtime ()
-continue f m = CanErrorT $ local f $ runCanErrorT m
+    continue :: (RuntimeContext -> RuntimeContext) -> Runtime () -> Runtime ()
+    continue f m = CanErrorT $ local f $ runCanErrorT m
 
-abort :: ErrorCode -> Maybe String -> Runtime ()
-abort errc ms = CanErrorT $ return $ Error errc ms
+    abort :: ErrorCode -> Maybe String -> Runtime ()
+    abort errc ms = CanErrorT $ return $ Error errc ms
 
-addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
-addToRTEnv def ctxs = ctxs { rtenv=def : rtenv ctxs }
+    addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
+    addToRTEnv def ctxs = ctxs { rtenv=def : rtenv ctxs }
 
-addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
-addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
+    addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
+    addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
 
-addToSourceTypeCtx :: (ByteString, SourceTerm) -> (RuntimeContext -> RuntimeContext)
-addToSourceTypeCtx nt ctxs = ctxs { ntctx=nt : ntctx ctxs }
+    addToSourceTypeCtx :: (ByteString, SourceTerm) -> (RuntimeContext -> RuntimeContext)
+    addToSourceTypeCtx nt ctxs = ctxs { ntctx=nt : ntctx ctxs }
 
-addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
-addToIncludes f ctxs = ctxs { incs=f : incs ctxs }
+    addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
+    addToIncludes f ctxs = ctxs { incs=f : incs ctxs }
+
+    showTerm :: Term -> String 
+    showTerm = if HideImplicits `elem` opts then showTermWithoutImplicits else show
 
 instance Show Declaration where
   show (Signature (x, t')) = unpack x ++ " : " ++ show (toDeBruijn t')

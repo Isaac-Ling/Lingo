@@ -217,9 +217,15 @@ isRigid _                = True
 isFlex :: Term -> Bool
 isFlex = not . isRigid
 
-showTermWithBinders :: Binders -> Term -> String
-showTermWithBinders bs (Var (Free x))                = unpack x
-showTermWithBinders bs (Var (Meta i sp))
+showTermWithBindersWithImplicits :: Binders -> Term -> String
+showTermWithBindersWithImplicits = showTermWithBinders True
+
+showTermWithBindersWithoutImplicits :: Binders -> Term -> String
+showTermWithBindersWithoutImplicits = showTermWithBinders False
+
+showTermWithBinders :: Bool -> Binders -> Term -> String
+showTermWithBinders b bs (Var (Free x))                = unpack x
+showTermWithBinders b bs (Var (Meta i sp))
   | i >= 0    = "?" ++ vars !! i
   | otherwise = errorString
   where
@@ -228,7 +234,7 @@ showTermWithBinders bs (Var (Meta i sp))
     
     errorString :: String
     errorString = "!ERROR"
-showTermWithBinders bs (Var (Bound i))
+showTermWithBinders b bs (Var (Bound i))
   | i >= 0    = unpack $ fromMaybe (pack errorString) a
   | otherwise = errorString
   where
@@ -237,47 +243,52 @@ showTermWithBinders bs (Var (Bound i))
 
     errorString :: String
     errorString = "!ERROR"
-showTermWithBinders bs Star                                   = "*"
-showTermWithBinders bs (App (Lam xt m) (Lam yt n, ex))        = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders bs (Lam yt n) ++ showExRParen ex
-showTermWithBinders bs (App (Lam xt m) (App p n, ex))         = "(" ++ showTermWithBinders bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders bs (App p n) ++ showExRParen ex
-showTermWithBinders bs (App m (Lam xt n, ex))                 = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (Lam xt n) ++ showExRParen ex
-showTermWithBinders bs (App m (App p n, ex))                  = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (App p n) ++ showExRParen ex
-showTermWithBinders bs (App m (Sigma xt n, ex))               = showTermWithBinders bs m ++ " " ++ showExLParen ex ++ showTermWithBinders bs (Sigma xt n) ++ showExRParen ex
-showTermWithBinders bs (App (Pi xt m) (n, ex))                = "(" ++ showTermWithBinders bs (Pi xt m) ++ ") " ++ showTermWithBinders bs n
-showTermWithBinders bs (App (Sigma xt m) (n, ex))             = "(" ++ showTermWithBinders bs (Sigma xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
-showTermWithBinders bs (App m (n, ex))                        = showTermWithBinders bs m ++ " " ++ showExLParenOrNone ex ++ showTermWithBinders bs n ++ showExRParenOrNone ex
-showTermWithBinders bs (Pair m n)                             = "(" ++ showTermWithBinders bs m ++ ", " ++ showPairElement bs n ++  ")"
+showTermWithBinders b bs Star                                   = "*"
+showTermWithBinders False bs (App m (n, Imp))                   = showTermWithBinders False bs m
+showTermWithBinders b bs (App (Lam xt m) (Lam yt n, ex))        = "(" ++ showTermWithBinders b bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders b bs (Lam yt n) ++ showExRParen ex
+showTermWithBinders b bs (App (Lam xt m) (App p n, ex))         = "(" ++ showTermWithBinders b bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders b bs (App p n) ++ showExRParen ex
+showTermWithBinders b bs (App m (Lam xt n, ex))                 = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Lam xt n) ++ showExRParen ex
+showTermWithBinders b bs (App m (App p n, ex))                  = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (App p n) ++ showExRParen ex
+showTermWithBinders b bs (App m (Sigma xt n, ex))               = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Sigma xt n) ++ showExRParen ex
+showTermWithBinders b bs (App (Pi xt m) (n, ex))                = "(" ++ showTermWithBinders b bs (Pi xt m) ++ ") " ++ showTermWithBinders b bs n
+showTermWithBinders b bs (App (Sigma xt m) (n, ex))             = "(" ++ showTermWithBinders b bs (Sigma xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders b bs n ++ showExRParenOrNone ex
+showTermWithBinders b bs (App m (n, ex))                        = showTermWithBinders b bs m ++ " " ++ showExLParenOrNone ex ++ showTermWithBinders b bs n ++ showExRParenOrNone ex
+showTermWithBinders b bs (Pair m n)                             = "(" ++ showTermWithBinders b bs m ++ ", " ++ showPairElement b bs n ++  ")"
   where
-    showPairElement :: Binders -> Term -> String
-    showPairElement bc (Pair m n) = showTermWithBinders bc m ++ ", " ++ showPairElement bc n
-    showPairElement bc m          = showTermWithBinders bc m
-showTermWithBinders bs (IdFam t)                              = "=[" ++ showTermWithBinders bs t ++ "]"
-showTermWithBinders bs (Id (Just t) m n)                      = showTermWithBinders bs m ++ " =[" ++ showTermWithBinders bs t ++ "] " ++ showTermWithBinders bs n
-showTermWithBinders bs (Id Nothing m n)                       = showTermWithBinders bs m ++ " = " ++ showTermWithBinders bs n
-showTermWithBinders bs (Sum m n)                              = showTermWithBinders bs m ++ " + " ++ showTermWithBinders bs n
-showTermWithBinders bs (Lam (x, Just t, ex) m)                = "\\" ++ showExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ showExRParen ex ++ ". " ++ showTermWithBinders (Just x : bs) m
-showTermWithBinders bs (Lam (x, Nothing, ex) m)               = "\\" ++ unpack x ++ ". " ++ showTermWithBinders (Just x : bs) m
-showTermWithBinders bs (Univ 0)                               = "U"
-showTermWithBinders bs (Univ i)                               = "U" ++ show i
-showTermWithBinders bs Bot                                    = "_|_"
-showTermWithBinders bs Top                                    = "T"
-showTermWithBinders bs Nat                                    = "Nat"
-showTermWithBinders bs Zero                                   = "0"
-showTermWithBinders bs (Inl m)                                = "inl(" ++ showTermWithBinders bs m ++ ")"
-showTermWithBinders bs (Inr m)                                = "inr(" ++ showTermWithBinders bs m ++ ")"
-showTermWithBinders bs (Refl m)                               = "refl[" ++ showTermWithBinders bs m ++ "]"
-showTermWithBinders bs (Funext p)                             = "funext(" ++ showTermWithBinders bs p ++ ")"
-showTermWithBinders bs (Univalence a)                         = "univalence(" ++ showTermWithBinders bs a ++ ")"
-showTermWithBinders bs (Sigma (Just x, t) m)                  = "(" ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ ") x " ++ showSigmaOperarands (Just x : bs) m
-showTermWithBinders bs (Sigma (Nothing, Sigma x n) m)         = "(" ++ showTermWithBinders bs (Sigma x n) ++ ") x " ++ showSigmaOperarands (Nothing : bs) m
-showTermWithBinders bs (Sigma (Nothing, t) m)                 = showSigmaOperarands bs t ++ " x " ++ showSigmaOperarands (Nothing : bs) m
-showTermWithBinders bs (Pi (Nothing, Pi (y, t, ex') m, ex) n) = showExLParen ex ++ showTermWithBinders bs (Pi (y, t, ex') m) ++ showExRParen ex ++ " -> " ++ showTermWithBinders (Nothing : bs) n
-showTermWithBinders bs (Pi (Just x, t, ex) m)                 = showExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders bs t ++ showExRParen ex ++ " -> " ++ showTermWithBinders (Just x : bs) m
-showTermWithBinders bs (Pi (Nothing, t, ex) m)                = showTermWithBinders bs t ++ " -> " ++ showTermWithBinders (Nothing : bs) m
+    showPairElement :: Bool -> Binders -> Term -> String
+    showPairElement b bc (Pair m n) = showTermWithBinders b bc m ++ ", " ++ showPairElement b bc n
+    showPairElement b bc m          = showTermWithBinders b bc m
+showTermWithBinders b bs (IdFam t)                              = "=[" ++ showTermWithBinders b bs t ++ "]"
+showTermWithBinders b bs (Id (Just t) m n)                      = showTermWithBinders b bs m ++ " =[" ++ showTermWithBinders b bs t ++ "] " ++ showTermWithBinders b bs n
+showTermWithBinders b bs (Id Nothing m n)                       = showTermWithBinders b bs m ++ " = " ++ showTermWithBinders b bs n
+showTermWithBinders b bs (Sum m n)                              = showTermWithBinders b bs m ++ " + " ++ showTermWithBinders b bs n
+showTermWithBinders False bs (Lam (x, Just t, Imp) m)           = showTermWithBinders False (Just x : bs) m
+showTermWithBinders b bs (Lam (x, Just t, ex) m)                = "\\" ++ showExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders b bs t ++ showExRParen ex ++ ". " ++ showTermWithBinders b (Just x : bs) m
+showTermWithBinders False bs (Lam (x, Nothing, Imp) m)          = showTermWithBinders False (Just x : bs) m
+showTermWithBinders b bs (Lam (x, Nothing, ex) m)               = "\\" ++ showExLParenOrNone ex ++ unpack x ++ showExRParenOrNone ex ++ ". " ++ showTermWithBinders b (Just x : bs) m
+showTermWithBinders b bs (Univ 0)                               = "U"
+showTermWithBinders b bs (Univ i)                               = "U" ++ show i
+showTermWithBinders b bs Bot                                    = "_|_"
+showTermWithBinders b bs Top                                    = "T"
+showTermWithBinders b bs Nat                                    = "Nat"
+showTermWithBinders b bs Zero                                   = "0"
+showTermWithBinders b bs (Inl m)                                = "inl(" ++ showTermWithBinders b bs m ++ ")"
+showTermWithBinders b bs (Inr m)                                = "inr(" ++ showTermWithBinders b bs m ++ ")"
+showTermWithBinders b bs (Refl m)                               = "refl[" ++ showTermWithBinders b bs m ++ "]"
+showTermWithBinders b bs (Funext p)                             = "funext(" ++ showTermWithBinders b bs p ++ ")"
+showTermWithBinders b bs (Univalence a)                         = "univalence(" ++ showTermWithBinders b bs a ++ ")"
+showTermWithBinders b bs (Sigma (Just x, t) m)                  = "(" ++ unpack x ++ " : " ++ showTermWithBinders b bs t ++ ") x " ++ showSigmaOperarands b (Just x : bs) m
+showTermWithBinders b bs (Sigma (Nothing, Sigma x n) m)         = "(" ++ showTermWithBinders b bs (Sigma x n) ++ ") x " ++ showSigmaOperarands b (Nothing : bs) m
+showTermWithBinders b bs (Sigma (Nothing, t) m)                 = showSigmaOperarands b bs t ++ " x " ++ showSigmaOperarands b (Nothing : bs) m
+showTermWithBinders False bs (Pi (Just x, t, Imp) m)            = showTermWithBinders False (Just x : bs) m
+showTermWithBinders False bs (Pi (Nothing, t, Imp) m)           = showTermWithBinders False (Nothing : bs) m
+showTermWithBinders b bs (Pi (Nothing, Pi (y, t, ex') m, ex) n) = showExLParen ex ++ showTermWithBinders b bs (Pi (y, t, ex') m) ++ showExRParen ex ++ " -> " ++ showTermWithBinders b (Nothing : bs) n
+showTermWithBinders b bs (Pi (Just x, t, ex) m)                 = showExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders b bs t ++ showExRParen ex ++ " -> " ++ showTermWithBinders b (Just x : bs) m
+showTermWithBinders b bs (Pi (Nothing, t, ex) m)                = showTermWithBinders b bs t ++ " -> " ++ showTermWithBinders b (Nothing : bs) m
 
-showTermWithBinders bs (Succ m)
+showTermWithBinders b bs (Succ m)
   | isNum m   = showNum (Succ m)
-  | otherwise = showNonNum bs (Succ m)
+  | otherwise = showNonNum b bs (Succ m)
   where
     isNum :: Term -> Bool
     isNum Zero     = True
@@ -292,15 +303,15 @@ showTermWithBinders bs (Succ m)
         go (Succ m) i = go m (i + 1)
         go _        _ = "!ERROR"
 
-    showNonNum :: Binders -> Term -> String
-    showNonNum bs (Succ m) = "succ(" ++ showTermWithBinders bs m ++ ")"
-    showNonNum bs _        = showNonNum bs m
-showTermWithBinders bs (Ind t m c a)                 = "ind[" ++ showTermWithBinders bs t ++ "](" ++ showBoundTermWithBinders bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen bs c ++ ", " ++ showTermWithBinders bs a ++ ")"
+    showNonNum :: Bool -> Binders -> Term -> String
+    showNonNum b bs (Succ m) = "succ(" ++ showTermWithBinders b bs m ++ ")"
+    showNonNum b bs _        = showNonNum b bs m
+showTermWithBinders b bs (Ind t m c a)                 = "ind[" ++ showTermWithBinders b bs t ++ "](" ++ showBoundTermWithBinders b bs m ++ (if null c then "" else ", ") ++ showBoundTermsNoParen b bs c ++ ", " ++ showTermWithBinders b bs a ++ ")"
   where
-    showBoundTermsNoParen :: Binders -> [BoundTerm] -> String
-    showBoundTermsNoParen bs []     = ""
-    showBoundTermsNoParen bs [y]    = showBoundTermWithBinders bs y
-    showBoundTermsNoParen bs (y:ys) = showBoundTermWithBinders bs y ++ ", " ++ showBoundTermsNoParen bs ys
+    showBoundTermsNoParen :: Bool -> Binders -> [BoundTerm] -> String
+    showBoundTermsNoParen b bs []     = ""
+    showBoundTermsNoParen b bs [y]    = showBoundTermWithBinders b bs y
+    showBoundTermsNoParen b bs (y:ys) = showBoundTermWithBinders b bs y ++ ", " ++ showBoundTermsNoParen b bs ys
 
 showExLParen :: Explicitness -> String
 showExLParen Exp = "("
@@ -319,26 +330,32 @@ showExRParenOrNone Exp = ""
 showExRParenOrNone Imp = "}"
 
 -- TODO: Generalise this to support arbitrary terms with any precedence
-showSigmaOperarands :: Binders -> Term -> String
-showSigmaOperarands bs (App m n)   = "(" ++ showTermWithBinders bs (App m n) ++ ")"
-showSigmaOperarands bs (Pi t m)    = "(" ++ showTermWithBinders bs (Pi t m) ++ ")"
-showSigmaOperarands bs (Sum m n)   = "(" ++ showTermWithBinders bs (Sum m n) ++ ")"
-showSigmaOperarands bs (Id mt m n) = "(" ++ showTermWithBinders bs (Id mt m n) ++ ")"
-showSigmaOperarands bs m           = showTermWithBinders bs m
+showSigmaOperarands :: Bool -> Binders -> Term -> String
+showSigmaOperarands b bs (App m n)   = "(" ++ showTermWithBinders b bs (App m n) ++ ")"
+showSigmaOperarands b bs (Pi t m)    = "(" ++ showTermWithBinders b bs (Pi t m) ++ ")"
+showSigmaOperarands b bs (Sum m n)   = "(" ++ showTermWithBinders b bs (Sum m n) ++ ")"
+showSigmaOperarands b bs (Id mt m n) = "(" ++ showTermWithBinders b bs (Id mt m n) ++ ")"
+showSigmaOperarands b bs m           = showTermWithBinders b bs m
 
-showBoundTermWithBinders :: Binders -> BoundTerm -> String
-showBoundTermWithBinders bs (NoBind m)        = showTermWithBinders bs m
-showBoundTermWithBinders bs (Bind (Just x) m) = unpack x ++ ". " ++ showBoundTermWithBinders (Just x : bs) m
-showBoundTermWithBinders bs (Bind Nothing m)  = showBoundTermWithBinders (Nothing : bs) m
+showBoundTermWithBinders :: Bool -> Binders -> BoundTerm -> String
+showBoundTermWithBinders b bs (NoBind m)        = showTermWithBinders b bs m
+showBoundTermWithBinders b bs (Bind (Just x) m) = unpack x ++ ". " ++ showBoundTermWithBinders b (Just x : bs) m
+showBoundTermWithBinders b bs (Bind Nothing m)  = showBoundTermWithBinders b (Nothing : bs) m
+
+showTermWithoutImplicits :: Term -> String
+showTermWithoutImplicits = showTermWithBinders False binders
+  where
+    binders :: [Maybe ByteString]
+    binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
 instance Show Term where
-  show = showTermWithBinders binders
+  show = showTermWithBinders True binders
     where
       binders :: [Maybe ByteString]
       binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
 instance Show BoundTerm where
-  show = showBoundTermWithBinders binders
+  show = showBoundTermWithBinders True binders
     where
       binders :: [Maybe ByteString]
       binders = [Just $ pack ("!b" ++ show i) | i <- [0..]]

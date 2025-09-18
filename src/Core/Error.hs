@@ -4,8 +4,8 @@ import Control.Monad.Trans
 import qualified System.Exit as Sys ( ExitCode(ExitFailure), exitWith, exitSuccess)
 
 data ErrorCode
-  = NoCommandLineArgsSupplied
-  | InvalidCommandLineArgsSupplied
+  = NoCommandLineArgsProvided
+  | InvalidCommandLineArgsProvided
   | FailedToReadSourceFile
   | SyntaxError
   | FailedToInferType
@@ -63,8 +63,8 @@ instance MonadIO m => MonadIO (CanErrorT m) where
   liftIO io = CanErrorT (liftIO (Result <$> io))
 
 instance Show ErrorCode where
-  show NoCommandLineArgsSupplied      = "No command line arguments supplied"
-  show InvalidCommandLineArgsSupplied = "Invalid command line arguments supplied"
+  show NoCommandLineArgsProvided      = "No command line arguments provided"
+  show InvalidCommandLineArgsProvided = "Invalid command line arguments provided"
   show FailedToReadSourceFile         = "Failed to read source file"
   show SyntaxError                    = "Syntax error"
   show FailedToInferType              = "Failed to infer type"
@@ -79,8 +79,8 @@ instance Show (CanError a) where
   show (Error errc (Just s)) = "Error (" ++ show (getErrorCode errc) ++ ") - " ++ show errc ++ " - " ++ s
 
 getErrorCode :: ErrorCode -> Int
-getErrorCode NoCommandLineArgsSupplied      = 1
-getErrorCode InvalidCommandLineArgsSupplied = 2
+getErrorCode NoCommandLineArgsProvided      = 1
+getErrorCode InvalidCommandLineArgsProvided = 2
 getErrorCode FailedToReadSourceFile         = 3
 getErrorCode SyntaxError                    = 4
 getErrorCode FailedToInferType              = 5
