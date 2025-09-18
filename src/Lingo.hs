@@ -3,7 +3,7 @@ module Lingo (main) where
 import Core.Error
 import IO.Args
 import IO.Source
-import Core.Program (run)
+import Core.Program
 import Parsing.Parser (parse)
 import System.Directory (makeAbsolute)
 
@@ -17,12 +17,25 @@ main = do
     Result a -> return a
     err      -> exitWith err
 
-  case args of
-    Source f -> runFile f
-    Help     -> showHelp
+  executeArgs args
 
-runFile :: FilePath -> IO ()
-runFile s = do
+executeArgs :: Args -> IO ()
+executeArgs []   = exitWith $ Error NoCommandLineArgsProvided Nothing
+executeArgs args = go args [] Nothing
+  where
+    go :: Args -> Options -> Maybe FilePath -> IO ()
+    go args opts mf = case args of
+      []                   -> case mf of
+        Just f -> runFile f opts
+        _      -> exitWith $ Error InvalidCommandLineArgsProvided $ Just "No source file provided"
+      [Help]               -> showHelp
+      (Source f:as)        -> case mf of 
+        Just _ -> exitWith $ Error InvalidCommandLineArgsProvided $ Just "Multiple source files provided"
+        _      -> go as opts $ Just f
+      (ArgHideImplicits:as) -> go as (HideImplicits : opts) mf
+
+runFile :: FilePath -> Options -> IO ()
+runFile s opts = do
   -- Read source
   msource <- readSource s
   source <- case msource of
@@ -36,7 +49,7 @@ runFile s = do
 
   -- Run
   file <- makeAbsolute s
-  result <- run program file
+  result <- run program file opts
 
   -- Output result
   exitWith result

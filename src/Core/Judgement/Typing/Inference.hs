@@ -203,14 +203,14 @@ goInferType (IdFam t)                                 = do
 goInferType (Id Nothing m n)                          = do
   (em, mt)   <- goInferTypeAndElab m
   (emt, mtt) <- goInferTypeAndElab mt
-  (en, nt)   <- goCheckEvaluatedType n mt
+  (en, nt)   <- local useBoundCtx $ goCheckEvaluatedType n mt
 
   return (Id Nothing em en, mtt)
 
 goInferType (Id (Just t) m n)                         = do
   (et, tt) <- goInferTypeAndElab t
-  (em, mt) <- goCheckEvaluatedType m t
-  (en, nt) <- goCheckEvaluatedType n t
+  (em, mt) <- local useBoundCtx $ goCheckEvaluatedType m t
+  (en, nt) <- local useBoundCtx $ goCheckEvaluatedType n t
 
   return (Id (Just et) em en, tt)
 
@@ -259,7 +259,7 @@ goInferType (Ind
 
   (em, mt) <- local (addToBoundCtx (z, Sigma (x, t) n)) (goInferEvaluatedType m)
   (ef, ft) <- local (useBoundCtx . addToBoundCtx (y, n) . addToBoundCtx (w, t)) (goCheckEvaluatedType f $ openFor (Pair (Var $ Bound 1) (Var $ Bound 0)) 1 (bumpUp em))
-  (ea, at) <- goCheckEvaluatedType a (Sigma (x, t) n)
+  (ea, at) <- local useBoundCtx $ goCheckEvaluatedType a (Sigma (x, t) n)
 
   case mt of
     Univ _ -> return (Ind
@@ -285,7 +285,7 @@ goInferType (Ind
   (em, mt) <- local (addToBoundCtx (z, Sum t n)) (goInferEvaluatedType m)
   (ec, ct) <- local (useBoundCtx . addToBoundCtx (x, t)) (goCheckEvaluatedType c $ open (Inl $ Var $ Bound 1) em)
   (ed, dt) <- local (useBoundCtx . addToBoundCtx (y, n)) (goCheckEvaluatedType d $ open (Inr $ Var $ Bound 1) em)
-  (ea, at) <- goCheckEvaluatedType a (Sum t n)
+  (ea, at) <- local useBoundCtx $ goCheckEvaluatedType a (Sum t n)
 
   case mt of
     Univ _ -> return (Ind
@@ -314,8 +314,8 @@ goInferType (Ind
   p')                                                   = do
   ctxs <- ask
 
-  (ea, at) <- goCheckEvaluatedType a t
-  (eb, bt) <- goCheckEvaluatedType b t
+  (ea, at) <- local useBoundCtx $ goCheckEvaluatedType a t
+  (eb, bt) <- local useBoundCtx $ goCheckEvaluatedType b t
 
   (em, mt)   <- local (addToBoundCtx (p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp t) . addToBoundCtx (x, t)) (goInferEvaluatedType m)
   (ec, ct)   <- local (useBoundCtx . addToBoundCtx (z, t)) (goCheckEvaluatedType c $ shift (-2) $ openFor (Var $ Bound 2) 2 $ openFor (Var $ Bound 2) 1 $ open (Refl $ Var $ Bound 2) em)

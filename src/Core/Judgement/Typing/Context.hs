@@ -46,7 +46,10 @@ typeError :: ErrorCode -> Maybe String -> TypeCheck a
 typeError errc ms = lift $ lift $ Error errc ms
 
 showTermWithContext :: BoundContext -> Term -> String
-showTermWithContext bctx = showTermWithBinders (map fst bctx)
+showTermWithContext bctx = showTermWithBindersWithImplicits (map fst bctx)
+
+showTermWithContextWithoutImplicits :: BoundContext -> Term -> String
+showTermWithContextWithoutImplicits bctx = showTermWithBindersWithoutImplicits (map fst bctx)
 
 addToCtx :: Assumption -> (Contexts -> Contexts)
 addToCtx (x, t) ctxs = ctxs { ctx=(x, t) : ctx ctxs }
