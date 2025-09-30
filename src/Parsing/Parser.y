@@ -225,12 +225,12 @@ outputParseError t = errorWith (Error SyntaxError (Just ("Parsing error at line 
 lexer :: (PositionedToken -> Alex a) -> Alex a
 lexer = (=<< alexMonadScan)
 
-parse :: ByteString -> CanError Program
-parse s = case runAlex s parser of
+parse :: FilePath -> ByteString -> CanError Program
+parse f s = case runAlex s parser of
   Right t -> Result t
   Left er -> case er of
     ""     -> Error SyntaxError Nothing
-    (x:xs) -> Error SyntaxError (Just (toUpper x : xs))
+    (x:xs) -> Error SyntaxError (Just (toUpper x : xs ++ " in source file " ++ show f))
 
 parseNum :: Integer -> SourceTerm
 parseNum 0 = SZero

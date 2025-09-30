@@ -43,7 +43,7 @@ runFile s opts = do
     err      -> exitWith err
 
   -- Parse
-  program <- case parse source of
+  program <- case parse s source of
     Result p -> return p
     err      -> exitWith err
 

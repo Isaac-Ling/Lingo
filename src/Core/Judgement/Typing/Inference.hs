@@ -317,7 +317,7 @@ goInferType (Ind
   (ea, at) <- local useBoundCtx $ goCheckEvaluatedType a t
   (eb, bt) <- local useBoundCtx $ goCheckEvaluatedType b t
 
-  (em, mt)   <- local (addToBoundCtx (p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) . addToBoundCtx (y, bumpUp t) . addToBoundCtx (x, t)) (goInferEvaluatedType m)
+  (em, mt)   <- local (addToBoundCtx (p, Id (Just $ shift 2 t) (Var $ Bound 1) (Var $ Bound 0)) . addToBoundCtx (y, bumpUp t) . addToBoundCtx (x, t)) (goInferEvaluatedType m)
   (ec, ct)   <- local (useBoundCtx . addToBoundCtx (z, t)) (goCheckEvaluatedType c $ shift (-2) $ openFor (Var $ Bound 2) 2 $ openFor (Var $ Bound 2) 1 $ open (Refl $ Var $ Bound 2) em)
   (ep', p't) <- local useBoundCtx $ goCheckEvaluatedType p' (Id (Just t) ea eb)
 
