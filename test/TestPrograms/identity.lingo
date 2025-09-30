@@ -25,7 +25,7 @@ lift f p := ind[=[A]](a. b. p. f a = f b, z. refl[f z], a, b, p)
 
 -- Transport
 transport : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> a = b -> P a -> P b
-transport P p := ind[=[A]](a. b. p. P a -> P b, z. id {P z}, a, b, p)
+transport P p := ind[=[A]](a. b. p. P a -> P b, z. id, a, b, p)
 
 #check transport
 

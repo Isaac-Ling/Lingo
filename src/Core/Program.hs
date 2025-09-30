@@ -121,7 +121,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
           Result s -> return s
           err      -> CanErrorT $ return err
 
-        program <- case parse source of
+        program <- case parse includeWithExtension source of
           Result p -> return p
           err      -> CanErrorT $ return err
 

@@ -4,3 +4,10 @@
 #include "test/TestPrograms/identity"
 #include "test/TestPrograms/naturals"
 #include "test/TestPrograms/hott"
+
+unsatisfiable : {A : U} -> Nat -> Nat
+unsatisfiable := \a. succ(a)
+
+-- TODO: Unsolved metas will continue past the term, so will need a global meta
+-- state available to other terms too
+#check unsatisfiable 3
