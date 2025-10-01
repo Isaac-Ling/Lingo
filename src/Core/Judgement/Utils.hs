@@ -250,6 +250,7 @@ showTermWithBinders b bs (App (Lam xt m) (App p n, ex))         = "(" ++ showTer
 showTermWithBinders b bs (App m (Lam xt n, ex))                 = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Lam xt n) ++ showExRParen ex
 showTermWithBinders b bs (App m (App p n, ex))                  = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (App p n) ++ showExRParen ex
 showTermWithBinders b bs (App m (Sigma xt n, ex))               = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Sigma xt n) ++ showExRParen ex
+showTermWithBinders b bs (App m (Pi xt n, ex))                  = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Pi xt n) ++ showExRParen ex
 showTermWithBinders b bs (App m (Id t a b', ex))                = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Id t a b') ++ showExRParen ex
 showTermWithBinders b bs (App (Pi xt m) (n, ex))                = "(" ++ showTermWithBinders b bs (Pi xt m) ++ ") " ++ showTermWithBinders b bs n
 showTermWithBinders b bs (App (Sigma xt m) (n, ex))             = "(" ++ showTermWithBinders b bs (Sigma xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders b bs n ++ showExRParenOrNone ex

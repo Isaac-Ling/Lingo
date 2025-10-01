@@ -26,7 +26,7 @@ type SourceTypeContext = [(ByteString, SourceTerm)]
 data RuntimeContext = RuntimeContext
   { rtenv :: Environment
   , rtctx :: Context
-  , ntctx :: SourceTypeContext
+  , stctx :: SourceTypeContext
   , incs  :: [FilePath]
   }
 
@@ -35,7 +35,7 @@ type Runtime a = CanErrorT (ReaderT RuntimeContext IO) a
 run :: Program -> FilePath -> Options -> IO (CanError ())
 run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
   where
-    initRuntimeContext = RuntimeContext { rtenv=[], rtctx=[], ntctx=[], incs=[f] }
+    initRuntimeContext = RuntimeContext { rtenv=[], rtctx=[], stctx=[], incs=[f] }
 
     go :: Program -> Runtime ()
     go []                      = success
@@ -47,7 +47,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
         Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
         _      -> success
 
-      let m = case lookup x $ ntctx ctxs of
+      let m = case lookup x $ stctx ctxs of
                 Just t' -> toDeBruijn $ elaborateSource m' t'
                 _       -> toDeBruijn m'
 
@@ -149,7 +149,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
 
     addToSourceTypeCtx :: (ByteString, SourceTerm) -> (RuntimeContext -> RuntimeContext)
-    addToSourceTypeCtx nt ctxs = ctxs { ntctx=nt : ntctx ctxs }
+    addToSourceTypeCtx nt ctxs = ctxs { stctx=nt : stctx ctxs }
 
     addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
     addToIncludes f ctxs = ctxs { incs=f : incs ctxs }

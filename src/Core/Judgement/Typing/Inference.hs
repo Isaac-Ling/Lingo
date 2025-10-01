@@ -175,10 +175,10 @@ goInferType (Funext p)                                = do
 
   (ep, pt) <- goInferTypeAndElab p
 
-  case resolve (env ctxs) pt of
+  case eval $ resolve (env ctxs) pt of
     Pi _ (Id _ (App f (Var (Bound 0), Exp)) (App g (Var (Bound 0), Exp))) -> do
       goInferType pt
-      return (Funext ep, Id Nothing f g)
+      return (Funext ep, Id Nothing (bumpDown f) (bumpDown g))
     _                                                                     -> typeError FailedToInferType $ Just ("Cannot apply funext to a term of type " ++ showTermWithContext (bctx ctxs) pt)
 
 -- TODO: Type check univalence with half adjoint equivalences
