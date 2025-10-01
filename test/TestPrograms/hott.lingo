@@ -1,22 +1,19 @@
 -- Function extensionality
-id1 : T -> T
-id1 := \a. a
+fun1 : T -> T
+fun2 : T -> T
 
-id2 : T -> T
-id2 := \b. b
+fun1PointwiseEqualsFun2 : (a : T) -> fun1 a = fun2 a
+fun1PointwiseEqualsFun2 a := idTrans (uniqT (fun1 a)) (idSymm (uniqT (fun2 a)))
 
-id1PointwiseEqualsId2 : (a : T) -> id1 a = id2 a
-id1PointwiseEqualsId2 a := refl[a]
+fun1EqualsFun2 : fun1 = fun2
+fun1EqualsFun2 := funext(fun1PointwiseEqualsFun2)
 
---id1EqualsId2 : id1 = id2
---id1EqualsId2 := funext(id1PointwiseEqualsId2)
-
---#check id1EqualsId2
+#type fun1EqualsFun2
 
 homotopic : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> U
 homotopic f g := (a : A) -> f a = g a
 
-#check homotopic id1 id2
+#check homotopic fun1 fun2
 
 -- Homotopy equivalence relation
 homotopyRefl : {A : U} -> {B : U} -> (f : A -> B) -> homotopic f f
