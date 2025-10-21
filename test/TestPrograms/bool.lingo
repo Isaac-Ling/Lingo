@@ -20,7 +20,7 @@ itThenElse inr(*) c c' := c'
 
 #check ifThenElse
 
-not : Bool -> Bool
-not b := ifThenElse b false true
+boolNot : Bool -> Bool
+boolNot b := ifThenElse b false true
 
-#check not false
+#check boolNot false
