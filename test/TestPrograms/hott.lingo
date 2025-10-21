@@ -48,6 +48,11 @@ idSelfInverse := (id, \a. refl[a], \a. refl[a])
 
 #check idSelfInverse
 
+isequivRefl : (A : U) -> isequiv A A
+isequivRefl A := (id, idSelfInverse)
+
+#type isequivRefl
+
 -- Formalised from Theorem 2.8.1 in HoTT book
 
 allUnitEq : (a : T) -> (b : T) -> T -> a = b

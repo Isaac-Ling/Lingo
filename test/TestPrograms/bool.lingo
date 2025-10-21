@@ -14,7 +14,9 @@ false := inr(*)
 
 -- Conditional
 ifThenElse : {C : U} -> Bool -> C -> C -> C
-ifThenElse b c c' := ind[Bool](C, a. c, a. c', b)
+itThenElse inl(*) c c' := c
+itThenElse inr(*) c c' := c'
+--ifThenElse b c c' := ind[Bool](C, a. c, a. c', b)
 
 #check ifThenElse
 

@@ -44,6 +44,7 @@ data SourceTerm
   | SIdFam SourceTerm
   | SId (Maybe SourceTerm) SourceTerm SourceTerm
   | SSigma SourceSigmaBinder SourceTerm
+  | SPattern SourceTerm SourceTerm
   | SInd SourceTerm SourceBoundTerm [SourceBoundTerm] SourceTerm
 
 -- De Bruijn Terms --

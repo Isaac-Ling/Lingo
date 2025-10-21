@@ -74,7 +74,7 @@ Declarations :: { Program }
   | '\n' Declarations       { $2 }
   | Definition Declarations { $1 : $2 }
   | Signature Declarations  { Signature $1 : $2 }
-  | Pragma     Declarations { Pragma $1 : $2 }
+  | Pragma Declarations     { Pragma $1 : $2 }
 
 Definition :: { Declaration }
   : var Params ':=' Term
@@ -82,14 +82,17 @@ Definition :: { Declaration }
     Def ($1, elaborateParams $2 $4)
   }
 
-Param :: { SourceLambdaBinder }
-  : var                  { ($1, Nothing, Exp) }
-  | '(' var ')'          { ($2, Nothing, Exp) }
-  | '{' var '}'          { ($2, Nothing, Imp) }
-  | '(' var ':' Term ')' { ($2, Just $4, Exp) }
-  | '{' var ':' Term '}' { ($2, Just $4, Imp) }
+Param :: { Parameter }
+  : var                  { BinderParam ($1, Nothing, Exp) }
+  | '(' var ')'          { BinderParam ($2, Nothing, Exp) }
+  | '{' var '}'          { BinderParam ($2, Nothing, Imp) }
+  | '(' var ':' Term ')' { BinderParam ($2, Just $4, Exp) }
+  | '{' var ':' Term '}' { BinderParam ($2, Just $4, Imp) }
 
-Params :: { [SourceLambdaBinder] }
+  -- TODO: Complete possible constructor patterns
+  | Injection            { Pattern $1 }
+
+Params :: { [Parameter] }
   :              { [] }
   | Param Params { $1 : $2 }
 
@@ -136,8 +139,8 @@ PiType :: { SourceTerm }
   | Term '->' Term                 { SPi (Nothing, $1, Exp) $3 }
 
 Terminal :: { SourceTerm }
-  : 'T'          { STop }
-  | '_|_'        { SBot }
+  : 'T'   { STop }
+  | '_|_' { SBot }
 
 Identity :: { SourceTerm }
   : Term '=' Term              { SId Nothing $1 $3 }
@@ -150,8 +153,11 @@ SigmaType :: { SourceTerm }
   | Term 'x' Term                 { SSigma (Nothing, $1) $3 }
 
 CoProduct :: { SourceTerm }
-  : Term '+' Term      { SSum $1 $3 }
-  | 'inl' '(' Term ')' { SInl $3 }
+  : Term '+' Term { SSum $1 $3 }
+  | Injection     { $1 }
+
+Injection :: { SourceTerm }
+  : 'inl' '(' Term ')' { SInl $3 }
   | 'inr' '(' Term ')' { SInr $3 }
 
 Terms :: { [SourceTerm] }
@@ -214,6 +220,10 @@ data Declaration
   | Signature SourceAssumption
   | Pragma Pragma
 
+data Parameter
+  = BinderParam SourceLambdaBinder 
+  | Pattern SourceTerm
+
 type Program = [Declaration]
 
 parseError :: PositionedToken -> Alex a
@@ -240,7 +250,8 @@ parseTuple :: SourceTerm -> SourceTerm -> [SourceTerm] -> SourceTerm
 parseTuple m n []     = SPair m n
 parseTuple m n (t:ts) = SPair m $ parseTuple n t ts
 
-elaborateParams :: [SourceLambdaBinder] -> SourceTerm -> SourceTerm
+elaborateParams :: [Parameter] -> SourceTerm -> SourceTerm
 elaborateParams [] m     = m
-elaborateParams (b:bs) m = SLam b $ elaborateParams bs m
+elaborateParams ((BinderParam b):bs) m = SLam b $ elaborateParams bs m
+elaborateParams ((Pattern p):bs)     m = SPattern p $ elaborateParams bs m
 }
