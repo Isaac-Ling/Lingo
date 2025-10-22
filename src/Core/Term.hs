@@ -5,7 +5,7 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 data Explicitness
   = Exp
   | Imp
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- Source terms --
 
@@ -21,6 +21,7 @@ type SourcePiBinder = (Maybe ByteString, SourceTerm, Explicitness)
 data SourceBoundTerm
   = SNoBind SourceTerm
   | SBind ByteString SourceBoundTerm
+  deriving Show
 
 data SourceTerm
   = SVar ByteString
@@ -46,6 +47,7 @@ data SourceTerm
   | SSigma SourceSigmaBinder SourceTerm
   | SPattern SourceTerm SourceTerm
   | SInd SourceTerm SourceBoundTerm [SourceBoundTerm] SourceTerm
+  deriving Show
 
 -- De Bruijn Terms --
 

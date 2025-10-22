@@ -14,19 +14,6 @@ import qualified Data.Set as Set
 -- current term. Nothing is used if we should never match against that binder
 type Binders = [Maybe ByteString]
 
--- TODO: Add implicit lambdas inside sub-terms ??
-elaborateSource :: SourceTerm -> SourceTerm -> SourceTerm
-elaborateSource (SPattern m n) (SPi (_, _, _) n')        = SPattern m $ elaborateSource n n'
-elaborateSource (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = SLam (x, t, Imp) $ elaborateSource m n
-elaborateSource m (SPi (Just x, t, Imp) n)               = SLam (x, Just t, Imp) $ elaborateSource m n
-elaborateSource (SLam (x, t, Exp) m) (SPi (_, _, Exp) n) = SLam (x, t, Exp) $ elaborateSource m n
-elaborateSource m _                                      = m
-
-isPatternMatched :: SourceTerm -> Bool
-isPatternMatched (SPattern _ _)     = True
-isPatternMatched (SLam (_, _, _) m) = isPatternMatched m
-isPatternMatched m                  = False
-
 toDeBruijn :: SourceTerm -> Term
 toDeBruijn = go []
   where

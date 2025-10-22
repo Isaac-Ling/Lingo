@@ -3,6 +3,7 @@ module Core.Program (run, Option(..), Options) where
 import Core.Term
 import Core.Error
 import Parsing.Parser
+import Core.Elaboration
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Type
@@ -54,7 +55,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
             Just t -> return t
             _      -> abort FailedToInferType $ Just "Missing type signature for pattern matched definition"
 
-          let patterns = m' : map ((`elaborateSource` t') . unsafeGetDefinitionFromDeclaration) (takeWhile (isPatternMatchedDefinition x) ds)
+          let patterns = elaborateSource m' t' : map ((`elaborateSource` t') . unsafeGetDefinitionFromDeclaration) (takeWhile (isPatternMatchedDefinition x) ds)
           
           case toEliminator patterns t' of
             Result m     -> return $ toDeBruijn m
@@ -176,10 +177,6 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
     unsafeGetDefinitionFromDeclaration :: Declaration -> SourceTerm
     unsafeGetDefinitionFromDeclaration (Def (_, m')) = m'
-
-    toEliminator :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
-    toEliminator ds t = do
-      return STop
 
 instance Show Declaration where
   show (Signature (x, t')) = unpack x ++ " : " ++ show (toDeBruijn t')

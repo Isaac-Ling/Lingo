@@ -24,6 +24,7 @@ executable lingo
                      , Core.Term
                      , Core.Error
                      , Core.Program
+                     , Core.Elaboration
                      , Core.Judgement.Utils
                      , Core.Judgement.Evaluation
                      , Core.Judgement.Typing.Type
