@@ -12,7 +12,9 @@ double succ(n) := succ(succ(double n))
 #check double a
 
 add : Nat -> Nat -> Nat
-add n := ind[Nat](Nat -> Nat, \n. n, n. g. \m. succ(g m), n)
+add 0       m := m
+add succ(n) m := succ(add n m)
+--add n := ind[Nat](Nat -> Nat, \n. n, n. g. \m. succ(g m), n)
 
 #check add
 #check add 2 2

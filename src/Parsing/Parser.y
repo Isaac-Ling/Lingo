@@ -90,7 +90,9 @@ Param :: { Parameter }
   | '{' var ':' Term '}' { BinderParam ($2, Just $4, Imp) }
 
   -- TODO: Complete possible constructor patterns
-  | Injection            { Pattern $1 }
+  | '*'               { Pattern $ SStar }
+  | 'inl' '(' var ')' { Pattern $ SInl $ SVar $ $3 }
+  | 'inr' '(' var ')' { Pattern $ SInr $ SVar $ $3 }
 
 Params :: { [Parameter] }
   :              { [] }
@@ -154,10 +156,7 @@ SigmaType :: { SourceTerm }
 
 CoProduct :: { SourceTerm }
   : Term '+' Term { SSum $1 $3 }
-  | Injection     { $1 }
-
-Injection :: { SourceTerm }
-  : 'inl' '(' Term ')' { SInl $3 }
+  | 'inl' '(' Term ')' { SInl $3 }
   | 'inr' '(' Term ')' { SInr $3 }
 
 Terms :: { [SourceTerm] }

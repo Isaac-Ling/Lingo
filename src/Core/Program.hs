@@ -44,12 +44,25 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       case lookup x $ rtenv ctxs of
-        Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
+        Just _ -> abort DuplicateDefinitions $ Just ("Duplicate definintions of " ++ unpack x ++ " found")
         _      -> success
 
-      let m = case lookup x $ stctx ctxs of
-                Just t' -> toDeBruijn $ elaborateSource m' t'
-                _       -> toDeBruijn m'
+      -- If this definition uses pattern matching, read all patterns and elaborate into an eliminator
+      m <- if isPatternMatched m'
+        then do
+          t' <- case lookup x $ stctx ctxs of
+            Just t -> return t
+            _      -> abort FailedToInferType $ Just "Missing type signature for pattern matched definition"
+
+          let patterns = m' : map ((`elaborateSource` t') . unsafeGetDefinitionFromDeclaration) (takeWhile (isPatternMatchedDefinition x) ds)
+          
+          case toEliminator patterns t' of
+            Result m     -> return $ toDeBruijn m
+            Error errc s -> abort errc s
+        else do
+          case lookup x $ stctx ctxs of
+            Just t' -> return $ toDeBruijn $ elaborateSource m' t'
+            _       -> return $ toDeBruijn m'
 
       case lookup x $ rtctx ctxs of
         Just t -> do
@@ -139,7 +152,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     continue :: (RuntimeContext -> RuntimeContext) -> Runtime () -> Runtime ()
     continue f m = CanErrorT $ local f $ runCanErrorT m
 
-    abort :: ErrorCode -> Maybe String -> Runtime ()
+    abort :: ErrorCode -> Maybe String -> Runtime a
     abort errc ms = CanErrorT $ return $ Error errc ms
 
     addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
@@ -154,8 +167,19 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
     addToIncludes f ctxs = ctxs { incs=f : incs ctxs }
 
-    showTerm :: Term -> String 
+    showTerm :: Term -> String
     showTerm = if HideImplicits `elem` opts then showTermWithoutImplicits else show
+
+    isPatternMatchedDefinition :: ByteString -> Declaration -> Bool
+    isPatternMatchedDefinition b (Def (x, m')) = b == x && isPatternMatched m'
+    isPatternMatchedDefinition _ _             = False
+
+    unsafeGetDefinitionFromDeclaration :: Declaration -> SourceTerm
+    unsafeGetDefinitionFromDeclaration (Def (_, m')) = m'
+
+    toEliminator :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
+    toEliminator ds t = do
+      return STop
 
 instance Show Declaration where
   show (Signature (x, t')) = unpack x ++ " : " ++ show (toDeBruijn t')
