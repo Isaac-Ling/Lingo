@@ -5,7 +5,7 @@ dfst (a, b) := a
 #check dfst
 
 dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst {A} {B} p)
-dsnd p := ind[(a : A) x B a](p. B (dfst {A} {B} p), a. b. b, p)
+dsnd (a, b) := b
 
 #check dsnd
 
