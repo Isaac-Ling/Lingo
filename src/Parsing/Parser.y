@@ -90,9 +90,10 @@ Param :: { Parameter }
   | '{' var ':' Term '}' { BinderParam ($2, Just $4, Imp) }
 
   -- TODO: Complete possible constructor patterns
-  | '*'               { Pattern $ SStar }
-  | 'inl' '(' var ')' { Pattern $ SInl $ SVar $ $3 }
-  | 'inr' '(' var ')' { Pattern $ SInr $ SVar $ $3 }
+  | '*'                 { Pattern $ SStar }
+  | '(' var ',' var ')' { Pattern $ SPair (SVar $2) (SVar $4) }
+  | 'inl' '(' var ')'   { Pattern $ SInl $ SVar $ $3 }
+  | 'inr' '(' var ')'   { Pattern $ SInr $ SVar $ $3 }
 
 Params :: { [Parameter] }
   :              { [] }

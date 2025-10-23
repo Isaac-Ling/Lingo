@@ -1,15 +1,6 @@
--- Identity
-id : {A : U} -> A -> A
-id a := a
-
-#check id 32
-
-uniqT : (a : T) -> a = *
-uniqT * := refl[*]
-
 -- Projections
 dfst : {A : U} -> {B : A -> U} -> (a : A) x B a -> A
-dfst p := ind[(a : A) x B a](A, a. b. a, p)
+dfst (a, b) := a
 
 #check dfst
 

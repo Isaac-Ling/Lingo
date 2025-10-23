@@ -4,7 +4,7 @@ import Core.Term
 import Core.Error
 
 import Control.Monad ((<=<))
-import Data.ByteString.Lazy.Char8 (pack)
+import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 -- TODO: Add implicit lambdas inside sub-terms ??
 elaborateSource :: SourceTerm -> SourceTerm -> SourceTerm
@@ -21,9 +21,9 @@ isPatternMatched m                  = False
 
 data ConstructorPattern
   = CStar
-  | CPair
-  | CInl
-  | CInr
+  | CPair ByteString ByteString
+  | CInl ByteString
+  | CInr ByteString
   deriving (Eq, Ord)
 
 toEliminator :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
@@ -38,16 +38,17 @@ toEliminator ms t = do
     -- Get codomain of function to determine the motive
     peelT <- peelOffNLambdas t firstBinderCount
     
-    motive <- case snd peelT of
-      SPi (Just x, t, _) n  -> return $ SBind x $ SNoBind n
-      SPi (Nothing, t, _) n -> return $ SNoBind n
+    (indType, motive) <- case snd peelT of
+      SPi (Just x, t, _) n  -> return (t, SBind x $ SNoBind n)
+      SPi (Nothing, t, _) n -> return (t, SNoBind n)
       _                     -> Error TypeMismatch $ Just "Pattern matched function is not a Pi Type"
 
     patterns <- traverse (splitPattern . snd) splits
 
     -- Match constructor patterns against exhaustive list
     case patterns of
-      [(CStar, p)] -> return $ SLam (pack "!p", Nothing, Exp) $ SInd STop motive [SNoBind p] (SVar $ pack "!p")
+      [(CStar, p)]     -> return $ SLam (pack "!p", Nothing, Exp) $ SInd indType motive [SNoBind p] (SVar $ pack "!p")
+      [(CPair a b, p)] -> return $ SLam (pack "!p", Nothing, Exp) $ SInd indType motive [SBind a $ SBind b $ SNoBind p] (SVar $ pack "!p")
       _       -> Error SyntaxError $ Just "Invalid pattern matching constructors"
   else
     Error SyntaxError $ Just "Pattern matching parameter mismatch"
@@ -65,9 +66,9 @@ toEliminator ms t = do
 
     getConstructorPattern :: SourceTerm -> CanError ConstructorPattern
     getConstructorPattern SStar                     = return CStar
-    getConstructorPattern (SPair (SVar _) (SVar _)) = return CPair
-    getConstructorPattern (SInl (SVar _))           = return CInl
-    getConstructorPattern (SInr (SVar _))           = return CInr
+    getConstructorPattern (SPair (SVar a) (SVar b)) = return $ CPair a b
+    getConstructorPattern (SInl (SVar a))           = return $ CInl a
+    getConstructorPattern (SInr (SVar a))           = return $ CInr a
     getConstructorPattern _                         = Error SyntaxError $ Just "Invalid pattern matching constructor"
 
     peelOffLambdas :: SourceTerm -> ([SourceLambdaBinder], SourceTerm)
