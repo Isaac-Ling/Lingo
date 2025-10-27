@@ -4,6 +4,7 @@ import Core.Term
 import Core.Error
 
 import Control.Monad ((<=<))
+import Data.List (sortOn)
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 -- TODO: Add implicit lambdas inside sub-terms ??
@@ -51,11 +52,14 @@ toEliminator ms t = do
     patterns <- traverse (splitPattern . snd) splits
 
     -- Match constructor patterns against exhaustive list
-    case patterns of
-      -- Put peeled off lambdas back on the term
-      [(CStar, p)]     -> return $ applyBinders firstCaseBinders $ SLam (pack "!p", Nothing, Exp) $ SInd indType motive [SNoBind p] (SVar $ pack "!p")
-      [(CPair a b, p)] -> return $ applyBinders firstCaseBinders $ SLam (pack "!p", Nothing, Exp) $ SInd indType motive [SBind a $ SBind b $ SNoBind p] (SVar $ pack "!p")
-      _       -> Error SyntaxError $ Just "Invalid pattern matching constructors"
+    ind <- case sortOn fst patterns of
+      [(CStar, p)]                -> return $ SInd indType motive [SNoBind p] (SVar $ pack "!p")
+      [(CPair a b, p)]            -> return $ SInd indType motive [SBind a $ SBind b $ SNoBind p] (SVar $ pack "!p")
+      [(CInl a, p), (CInr b, p')] -> return $ SInd indType motive [SBind a $ SNoBind p, SBind b $ SNoBind p'] (SVar $ pack "!p")
+      _                           -> Error SyntaxError $ Just "Invalid pattern matching constructors"
+  
+    -- Put peeled off lambdas back on the term
+    return $ applyBinders firstCaseBinders $ SLam (pack "!p", Nothing, Exp) ind
   else
     Error SyntaxError $ Just "Pattern matching parameter mismatch"
 

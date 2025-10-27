@@ -49,29 +49,30 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
         _      -> success
 
       -- If this definition uses pattern matching, read all patterns and elaborate into an eliminator
-      m <- if isPatternMatched m'
+      (m, ds') <- if isPatternMatched m'
         then do
           t' <- case lookup x $ stctx ctxs of
             Just t -> return t
             _      -> abort FailedToInferType $ Just "Missing type signature for pattern matched definition"
 
-          let patterns = elaborateSource m' t' : map ((`elaborateSource` t') . unsafeGetDefinitionFromDeclaration) (takeWhile (isPatternMatchedDefinition x) ds)
+          let (cases, ds') = span (isPatternMatchedDefinition x) ds
+          let patterns = elaborateSource m' t' : map ((`elaborateSource` t') . unsafeGetDefinitionFromDeclaration) cases
           
           case toEliminator patterns t' of
-            Result m     -> return $ toDeBruijn m
+            Result m     -> return (toDeBruijn m, ds')
             Error errc s -> abort errc s
         else do
           case lookup x $ stctx ctxs of
-            Just t' -> return $ toDeBruijn $ elaborateSource m' t'
-            _       -> return $ toDeBruijn m'
+            Just t' -> return (toDeBruijn $ elaborateSource m' t', ds)
+            _       -> return (toDeBruijn m', ds)
 
       case lookup x $ rtctx ctxs of
         Just t -> do
           em <- tryRun $ elaborateWithType (rtenv ctxs) (rtctx ctxs) m t
-          continue (addToRTEnv (x, em)) (go ds)
+          continue (addToRTEnv (x, em)) (go ds')
         _      -> do
           (em, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, em) . addToRTCtx (x, t)) (go ds)
+          continue (addToRTEnv (x, em) . addToRTCtx (x, t)) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
