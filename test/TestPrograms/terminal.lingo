@@ -1,6 +1,6 @@
 -- Uniqueness
 uniqT : (a : T) -> a = *
-uniqT a := ind[T](c. c = *, refl[*], a)
+uniqT * := refl[*]
 
 #check uniqT
 
