@@ -44,7 +44,7 @@ isequiv A B := (f : A -> B) x (qinv f)
 #eval isequiv
 
 idSelfInverse : {A : U} -> qinv (id {A})
-idSelfInverse := (id, \a. refl[a], \a. refl[a])
+idSelfInverse := (id, \a. refl, \a. refl)
 
 #check idSelfInverse
 
@@ -56,10 +56,10 @@ isequivRefl A := (id, idSelfInverse)
 -- Formalised from Theorem 2.8.1 in HoTT book
 
 allUnitEq : (a : T) -> (b : T) -> T -> a = b
-allUnitEq a b u := ind[T](a. a = b, ind[T](b. * = b, refl[*], b), a)
+allUnitEq a b u := ind[T](a. a = b, ind[T](b. * = b, refl, b), a)
 
 unitPathEquivLemma : {a : T} -> {b : T} -> (p : a = b) -> allUnitEq a b * = p
-unitPathEquivLemma p := ind[=[T]](c. d. q. allUnitEq c d * = q, z. ind[T](z'. allUnitEq z' z' * = refl[z'], refl[refl[*]], z), a, b, p)
+unitPathEquivLemma p := ind[=[T]](c. d. q. allUnitEq c d * = q, z. ind[T](z'. allUnitEq z' z' * = refl, refl, z), a, b, p)
 
 unitPathEquiv : (a : T) -> (b : T) -> isequiv (a = b) T
 unitPathEquiv a b := (\(p : a = b). *, allUnitEq a b, \(a : T). idSymm (uniqT a), \(p : a = b). unitPathEquivLemma p)
@@ -67,7 +67,7 @@ unitPathEquiv a b := (\(p : a = b). *, allUnitEq a b, \(a : T). idSymm (uniqT a)
 #type unitPathEquiv
 
 happly : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> f = g -> (a : A) -> f a = g a
-happly f g p a := ind[=[A -> B]](f. g. p'. f a = g a, z. refl[z a], f, g, p)
+happly f g p a := ind[=[A -> B]](f. g. p'. f a = g a, z. refl, f, g, p)
 
 funextEta : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> ((a : A) -> f a = g a) -> f = g
 funextEta f g p := funext(p)

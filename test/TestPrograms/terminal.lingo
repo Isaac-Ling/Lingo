@@ -1,6 +1,6 @@
 -- Uniqueness
 uniqT : (a : T) -> a = *
-uniqT * := refl[*]
+uniqT * := refl
 
 #check uniqT
 
