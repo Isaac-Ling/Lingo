@@ -1,16 +1,16 @@
 -- Identity Equivalence Relation
 idRefl : {A : U} -> (a : A) -> a = a
-idRefl a := refl[a]
+idRefl a := refl
 
 #check idRefl
 
 idSymm : {A : U} -> {a : A} -> {b : A} -> a = b -> b = a
-idSymm p := ind[=[A]](a. b. p. b = a, z. refl[z], a, b, p) 
+idSymm p := ind[=[A]](a. b. p. b = a, z. refl, a, b, p) 
 
 #check idSymm
 
 idTransLemma : {A : U} -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
-idTransLemma a b p := ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl[z'], z, c, q), a, b, p)
+idTransLemma a b p := ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl, z, c, q), a, b, p)
 
 idTrans : {A : U} -> {a : A} -> {b : A} -> {c : A} -> a = b -> b = c -> a = c
 idTrans p := idTransLemma a b p c
@@ -19,7 +19,7 @@ idTrans p := idTransLemma a b p c
 
 -- Functoriality of functions
 lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
-lift f p := ind[=[A]](a. b. p. f a = f b, z. refl[f z], a, b, p)
+lift f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
 
 #check lift
 
@@ -36,6 +36,6 @@ productPath a b p := (lift fst p, lift snd p)
 #type productPath
 
 productUniqueness : {A : U} -> {B : U} -> (z : A x B) -> z = (fst z, snd z)
-productUniqueness z := ind[A x B](z. z = (fst z, snd z), a. b. refl[(a, b)], z)
+productUniqueness z := ind[A x B](z. z = (fst z, snd z), a. b. refl, z)
 
 #type productUniqueness

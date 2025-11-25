@@ -1,3 +1,7 @@
+-- Identity
+id : {A : U} -> A -> A
+id a := a
+
 -- Projections
 dfst : {A : U} -> {B : A -> U} -> (a : A) x B a -> A
 dfst (a, b) := a
@@ -10,12 +14,12 @@ dsnd (a, b) := b
 #check dsnd
 
 fst : {A : U} -> {B : U} -> A x B -> A
-fst p := dfst {A} {\(a : A). B} p
+fst p := dfst {A} {\a. B} p
 
 #check fst (*, 32)
 
 snd : {A : U} -> {B : U} -> A x B -> B
-snd p := dsnd {A} {\(a : A). B} p
+snd p := dsnd {A} {\a. B} p
 
 #check snd (*, 32)
 

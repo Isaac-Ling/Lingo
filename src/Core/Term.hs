@@ -40,7 +40,7 @@ data SourceTerm
   | SInl SourceTerm
   | SFunext SourceTerm
   | SUnivalence SourceTerm
-  | SRefl SourceTerm
+  | SRefl (Maybe SourceTerm)
   | SPi SourcePiBinder SourceTerm
   | SIdFam SourceTerm
   | SId (Maybe SourceTerm) SourceTerm SourceTerm
@@ -101,7 +101,7 @@ data Term
   | Inr Term
   | Funext Term
   | Univalence Term
-  | Refl Term
+  | Refl (Maybe Term)
   | Pi PiBinder Term
   | IdFam Term
   | Id (Maybe Term) Term Term

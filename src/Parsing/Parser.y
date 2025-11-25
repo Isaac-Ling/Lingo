@@ -149,7 +149,8 @@ Identity :: { SourceTerm }
   : Term '=' Term              { SId Nothing $1 $3 }
   | '=' '[' Term ']'           { SIdFam $3 }
   | Term '=' '[' Term ']' Term { SId (Just $4) $1 $6 }
-  | 'refl' '[' Term ']'        { SRefl $3 }
+  | 'refl' '[' Term ']'        { SRefl $ Just $3 }
+  | 'refl'                     { SRefl Nothing }
 
 SigmaType :: { SourceTerm }
   : '(' var ':' Term ')' 'x' Term { SSigma (Just $2, $4) $7 }

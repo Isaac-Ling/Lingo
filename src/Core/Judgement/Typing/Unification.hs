@@ -96,7 +96,7 @@ solveConstraints env ctx mctx cs = do
           put $ st { csts=cs }
 
     tryFlexRigidSolve :: Term -> Term -> Unification Bool
-    tryFlexRigidSolve (Var (Meta i sp)) m 
+    tryFlexRigidSolve (Var (Meta i sp)) m
       | isRigid m && not (metaOccursIn i m) = do
         addSolution i sp m
         return True
@@ -150,7 +150,7 @@ solveConstraints env ctx mctx cs = do
       -- TODO: metaID 0? No new metas *should* be created but still unsafe
       let initState    = MetaState { mcsts=csts st, mctx=umctx ctxs, metaID=0 }
       let mt = evalInferType initContexts initState m
-      
+
       case mt of
         Result t     -> return $ snd t
         Error errc s -> unificationError s
@@ -178,7 +178,7 @@ solveConstraints env ctx mctx cs = do
     remapCtxToSpine (App t (n, ex)) sp          = App (remapCtxToSpine t sp) (remapCtxToSpine n sp, ex)
     remapCtxToSpine (Inl n) sp                  = Inl $ remapCtxToSpine n sp
     remapCtxToSpine (Inr n) sp                  = Inr $ remapCtxToSpine n sp
-    remapCtxToSpine (Refl n) sp                 = Refl $ remapCtxToSpine n sp
+    remapCtxToSpine (Refl n) sp                 = Refl $ fmap (`remapCtxToSpine` sp) n
     remapCtxToSpine (Succ n) sp                 = Succ $ remapCtxToSpine n sp
     remapCtxToSpine (Funext p) sp               = Funext $ remapCtxToSpine p sp
     remapCtxToSpine (Univalence a) sp           = Univalence $ remapCtxToSpine a sp
@@ -248,7 +248,7 @@ solveConstraints env ctx mctx cs = do
     decompose bc (Univalence m) (Univalence m')                  = do
       appendConstraint bc m m'
       return True
-    decompose bc (Refl m) (Refl m')                              = do
+    decompose bc (Refl (Just m)) (Refl (Just m'))                = do
       appendConstraint bc m m'
       return True
     decompose bc (IdFam m) (IdFam m')                            = do
@@ -283,7 +283,7 @@ solveConstraints env ctx mctx cs = do
     metaOccursIn k (Pair t n)              = metaOccursIn k t || metaOccursIn k n
     metaOccursIn k (App t (n, _))          = metaOccursIn k t || metaOccursIn k n
     metaOccursIn k (Id mt m n)             = maybe False (metaOccursIn k) mt || metaOccursIn k m || metaOccursIn k n
-    metaOccursIn k (Refl m)                = metaOccursIn k m
+    metaOccursIn k (Refl m)                = maybe False (metaOccursIn k) m
     metaOccursIn k (Funext m)              = metaOccursIn k m
     metaOccursIn k (Univalence m)          = metaOccursIn k m
     metaOccursIn k (Succ m)                = metaOccursIn k m
@@ -337,7 +337,7 @@ expandMetas sols (Sigma (x, t) n)         = Sigma (x, expandMetas sols t) (expan
 expandMetas sols (Pair t n)               = Pair (expandMetas sols t) (expandMetas sols n)
 expandMetas sols (App t (n, ex))          = App (expandMetas sols t) (expandMetas sols n, ex)
 expandMetas sols (Id mt m n)              = Id (fmap (expandMetas sols) mt) (expandMetas sols m) (expandMetas sols n)
-expandMetas sols (Refl m)                 = Refl $ expandMetas sols m
+expandMetas sols (Refl m)                 = Refl $ fmap (expandMetas sols) m
 expandMetas sols (Funext m)               = Funext $ expandMetas sols m
 expandMetas sols (Univalence m)           = Univalence $ expandMetas sols m
 expandMetas sols (Succ m)                 = Succ $ expandMetas sols m
