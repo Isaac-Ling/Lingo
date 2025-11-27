@@ -5,48 +5,10 @@ import Core.Error
 
 import Data.Set (Set)
 import Control.Monad (join)
-import Data.List (elemIndex, (!?))
+import Data.List ((!?))
 import Data.Maybe (fromMaybe)
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 import qualified Data.Set as Set
-
--- A list of binders, where the ith element is the ith binder away from the
--- current term. Nothing is used if we should never match against that binder
-type Binders = [Maybe ByteString]
-
-toDeBruijn :: SourceTerm -> Term
-toDeBruijn = go []
-  where
-    go :: Binders -> SourceTerm -> Term
-    go bs (SVar x)              = case elemIndex (Just x) bs of
-      Just i  -> Var (Bound i)
-      Nothing -> Var (Free x)
-    go bs (SLam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go (Just x : bs) m)
-    go bs (SLam (x, Just t, ex) m)  = Lam (x, Just $ go bs t, ex) (go (Just x : bs) m)
-    go bs (SPi (x, t, ex) m)        = Pi (x, go bs t, ex) (go (x : bs) m)
-    go bs (SSigma (x, t) m)         = Sigma (x, go bs t) (go (x : bs) m)
-    go bs (SApp m (n, ex))          = App (go bs m) (go bs n, ex)
-    go bs (SPair m n)               = Pair (go bs m) (go bs n)
-    go bs (SSum m n)                = Sum (go bs m) (go bs n)
-    go bs (SIdFam t)                = IdFam $ go bs t
-    go bs (SId t m n)               = Id (fmap (go bs) t) (go bs m) (go bs n)
-    go bs (SInd t m c a)            = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
-    go bs (SUniv i)                 = Univ i
-    go bs SBot                      = Bot
-    go bs STop                      = Top
-    go bs SNat                      = Nat
-    go bs SZero                     = Zero
-    go bs (SSucc m)                 = Succ $ go bs m
-    go bs (SInl m)                  = Inl $ go bs m
-    go bs (SInr m)                  = Inr $ go bs m
-    go bs (SFunext p)               = Funext $ go bs p
-    go bs (SUnivalence f)           = Univalence $ go bs f
-    go bs (SRefl m)                 = Refl $ fmap (go bs) m
-    go bs SStar                     = Star
-
-    boundTermToDeBruijn :: Binders -> SourceBoundTerm -> BoundTerm
-    boundTermToDeBruijn bs (SNoBind m) = NoBind $ go bs m
-    boundTermToDeBruijn bs (SBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
 
 resolve :: Environment -> Term -> Term
 resolve env (Var (Free x))           = case lookup x env of

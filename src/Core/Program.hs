@@ -48,23 +48,23 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
         Just _ -> abort DuplicateDefinitions $ Just ("Duplicate definintions of " ++ unpack x ++ " found")
         _      -> success
 
-      -- If this definition uses pattern matching, read all patterns and elaborate into an eliminator
+      -- If this definition uses pattern matching, read all definitions and elaborate into an eliminator
       (m, ds') <- if isPatternMatched m'
         then do
           t' <- case lookup x $ stctx ctxs of
             Just t -> return t
             _      -> abort FailedToInferType $ Just "Missing type signature for pattern matched definition"
 
-          let (cases, ds') = span (isPatternMatchedDefinition x) ds
-          let patterns = elaborateSource m' t' : map ((`elaborateSource` t') . unsafeGetDefinitionFromDeclaration) cases
-          
-          case toEliminator patterns t' of
-            Result m     -> return (toDeBruijn m, ds')
+          let (cases, ds') = span (isSameDefinition x) ds
+          let patterns = addImplicitParameters m' t' : map ((`addImplicitParameters` t') . unsafeGetDefinitionFromDeclaration) cases
+
+          case elaboratePatternMatchedDefs patterns t' of
+            Result m     -> return (toCoreTerm m, ds')
             Error errc s -> abort errc s
         else do
           case lookup x $ stctx ctxs of
-            Just t' -> return (toDeBruijn $ elaborateSource m' t', ds)
-            _       -> return (toDeBruijn m', ds)
+            Just t' -> return (toCoreTerm $ addImplicitParameters m' t', ds)
+            _       -> return (toCoreTerm m', ds)
 
       case lookup x $ rtctx ctxs of
         Just t -> do
@@ -77,7 +77,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
 
-      let t = toDeBruijn t'
+      let t = toCoreTerm t'
       et <- tryRun $ elaborate (rtenv ctxs) (rtctx ctxs) t
       let p = continue (addToRTCtx (x, et) . addToSourceTypeCtx (x, t')) (go ds)
 
@@ -90,7 +90,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     go (Pragma (Check m'):ds)  = do
       ctxs <- askRTCtx
 
-      let m = toDeBruijn m'
+      let m = toCoreTerm m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
 
       let erf = eval $ resolve (rtenv ctxs) f
@@ -103,7 +103,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     go (Pragma (Type m'):ds)   = do
       ctxs <- askRTCtx
 
-      let m = toDeBruijn m'
+      let m = toCoreTerm m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
       let et = eval t
       liftIO $ putStrLn (showTerm f ++ " : " ++ showTerm et)
@@ -113,7 +113,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     go (Pragma (Eval m'):ds)   = do
       ctxs <- askRTCtx
 
-      let m = toDeBruijn m'
+      let m = toCoreTerm m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
       let erf = eval $ resolve (rtenv ctxs) f
       liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf)
@@ -172,18 +172,18 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     showTerm :: Term -> String
     showTerm = if HideImplicits `elem` opts then showTermWithoutImplicits else show
 
-    isPatternMatchedDefinition :: ByteString -> Declaration -> Bool
-    isPatternMatchedDefinition b (Def (x, m')) = b == x && isPatternMatched m'
-    isPatternMatchedDefinition _ _             = False
+    isSameDefinition :: ByteString -> Declaration -> Bool
+    isSameDefinition b (Def (x, _)) = b == x
+    isSameDefinition _ _             = False
 
     unsafeGetDefinitionFromDeclaration :: Declaration -> SourceTerm
     unsafeGetDefinitionFromDeclaration (Def (_, m')) = m'
 
 instance Show Declaration where
-  show (Signature (x, t')) = unpack x ++ " : " ++ show (toDeBruijn t')
-  show (Def (x, m'))       = unpack x ++ " := " ++ show (toDeBruijn m')
+  show (Signature (x, t')) = unpack x ++ " : " ++ show (toCoreTerm t')
+  show (Def (x, m'))       = unpack x ++ " := " ++ show (toCoreTerm m')
   show (Pragma p)          = show p
 
 instance Show Pragma where
-  show (Check m')  = "#check " ++ show (toDeBruijn m')
+  show (Check m')  = "#check " ++ show (toCoreTerm m')
   show (Include f) = "#include " ++ f

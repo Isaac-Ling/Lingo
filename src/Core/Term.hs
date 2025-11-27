@@ -7,6 +7,10 @@ data Explicitness
   | Imp
   deriving (Eq, Show)
 
+-- A list of binders, where the ith element is the ith binder away from the
+-- current term. Nothing is used if we should never match against that binder
+type Binders = [Maybe ByteString]
+
 -- Source terms --
 
 type SourceAssumption = (ByteString, SourceTerm)
@@ -17,6 +21,11 @@ type SourceBinder = (ByteString, SourceTerm)
 type SourceLambdaBinder = (ByteString, Maybe SourceTerm, Explicitness)
 type SourceSigmaBinder = (Maybe ByteString, SourceTerm)
 type SourcePiBinder = (Maybe ByteString, SourceTerm, Explicitness)
+
+data Parameter
+  = BinderParam SourceLambdaBinder 
+  | Pattern SourceTerm
+  deriving (Show)
 
 data SourceBoundTerm
   = SNoBind SourceTerm
@@ -45,11 +54,11 @@ data SourceTerm
   | SIdFam SourceTerm
   | SId (Maybe SourceTerm) SourceTerm SourceTerm
   | SSigma SourceSigmaBinder SourceTerm
-  | SPattern SourceTerm SourceTerm
   | SInd SourceTerm SourceBoundTerm [SourceBoundTerm] SourceTerm
+  | SParamTerm [Parameter] SourceTerm
   deriving Show
 
--- De Bruijn Terms --
+-- Core Terms --
 
 -- Spine of a meta variable is a telescope of all variables in the
 -- bound context that it can depend on. We carry this along with the

@@ -2,105 +2,145 @@ module Core.Elaboration where
 
 import Core.Term
 import Core.Error
+import Parsing.Parser
 
 import Control.Monad ((<=<))
-import Data.List (sortOn)
+import Data.List (sortOn, elemIndex)
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
--- TODO: Add implicit lambdas inside sub-terms ??
-elaborateSource :: SourceTerm -> SourceTerm -> SourceTerm
-elaborateSource m (SPi (Just x, t, Imp) n)               = SLam (x, Just t, Imp) $ elaborateSource m n
-elaborateSource (SPattern m n) (SPi (_, _, _) n')        = SPattern m $ elaborateSource n n'
-elaborateSource (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = SLam (x, t, Imp) $ elaborateSource m n
-elaborateSource (SLam (x, t, Exp) m) (SPi (_, _, Exp) n) = SLam (x, t, Exp) $ elaborateSource m n
-elaborateSource m _                                      = m
+-- TODO: Check logic of this function
+addImplicitParameters :: SourceTerm -> SourceTerm -> SourceTerm
+addImplicitParameters (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = addImplicitParameter (BinderParam (x, t, Imp)) $ addImplicitParameters m n
+addImplicitParameters m (SPi (Just x, t, Imp) n)               = addImplicitParameter (BinderParam (x, Just t, Imp)) $ addImplicitParameters m n
+addImplicitParameters (SLam (x, t, Exp) m) (SPi (_, _, Exp) n) = addImplicitParameter (BinderParam (x, t, Exp)) $ addImplicitParameters m n
+addImplicitParameters m _                                      = m
 
-isPatternMatched :: SourceTerm -> Bool
-isPatternMatched (SPattern _ _)     = True
-isPatternMatched (SLam (_, _, _) m) = isPatternMatched m
-isPatternMatched m                  = False
+addImplicitParameter :: Parameter -> SourceTerm  -> SourceTerm
+addImplicitParameter p (SParamTerm ps m) = SParamTerm (ps ++ [p]) m
+addImplicitParameter p m                 = SParamTerm [p] m
 
+paramsToBinders :: [Parameter] -> SourceTerm -> SourceTerm
+paramsToBinders [] m                   = m
+paramsToBinders ((BinderParam b):bs) m = paramsToBinders bs $ SLam b m
+paramsToBinders (_:bs) m               = paramsToBinders bs m
+
+pushNonPatternParams :: SourceTerm -> SourceTerm
+pushNonPatternParams (SParamTerm ps m) = let (as, bs) = break isParameterPattern ps in SParamTerm bs $ paramsToBinders as m
+pushNonPatternParams m                 = m
+
+toCoreTerm :: SourceTerm -> Term
+toCoreTerm = go []
+  where
+    go :: Binders -> SourceTerm -> Term
+    go bs (SVar x)              = case elemIndex (Just x) bs of
+      Just i  -> Var (Bound i)
+      Nothing -> Var (Free x)
+    go bs (SLam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go (Just x : bs) m)
+    go bs (SLam (x, Just t, ex) m)  = Lam (x, Just $ go bs t, ex) (go (Just x : bs) m)
+    go bs (SPi (x, t, ex) m)        = Pi (x, go bs t, ex) (go (x : bs) m)
+    go bs (SSigma (x, t) m)         = Sigma (x, go bs t) (go (x : bs) m)
+    go bs (SApp m (n, ex))          = App (go bs m) (go bs n, ex)
+    go bs (SPair m n)               = Pair (go bs m) (go bs n)
+    go bs (SSum m n)                = Sum (go bs m) (go bs n)
+    go bs (SIdFam t)                = IdFam $ go bs t
+    go bs (SId t m n)               = Id (fmap (go bs) t) (go bs m) (go bs n)
+    go bs (SInd t m c a)            = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
+    go bs (SUniv i)                 = Univ i
+    go bs SBot                      = Bot
+    go bs STop                      = Top
+    go bs SNat                      = Nat
+    go bs SZero                     = Zero
+    go bs (SSucc m)                 = Succ $ go bs m
+    go bs (SInl m)                  = Inl $ go bs m
+    go bs (SInr m)                  = Inr $ go bs m
+    go bs (SFunext p)               = Funext $ go bs p
+    go bs (SUnivalence f)           = Univalence $ go bs f
+    go bs (SRefl m)                 = Refl $ fmap (go bs) m
+    go bs SStar                     = Star
+    go bs (SParamTerm ps m)         = go bs $ paramsToBinders ps m
+
+    boundTermToDeBruijn :: Binders -> SourceBoundTerm -> BoundTerm
+    boundTermToDeBruijn bs (SNoBind m) = NoBind $ go bs m
+    boundTermToDeBruijn bs (SBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
+
+-- TODO: Support nested constructor patterns
 data ConstructorPattern
   = CStar
   | CPair ByteString ByteString
   | CInl ByteString
   | CInr ByteString
-  deriving (Eq, Ord)
+  deriving (Show, Eq, Ord)
+
+elaboratePatternMatchedDefs :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
+elaboratePatternMatchedDefs [] _   = Error SyntaxError $ Just "Empty pattern matching cases"
+elaboratePatternMatchedDefs defs t = do
+  let patterns = map pushNonPatternParams defs
+  
+  -- TODO: Split defs on cases with the same parent nodes
+  let leafSubTrees = [patterns]
+
+  leaves <- traverse (`toEliminator` t) leafSubTrees
+
+  case leaves of
+    []  -> Error SyntaxError $ Just "Empty pattern matching cases"
+    [d] -> if isPatternMatched d
+      then do elaboratePatternMatchedDefs [d] t
+      else return d
+    ds  -> if not $ all isPatternMatched ds
+      then Error SyntaxError $ Just "Empty pattern matching cases"
+      else do elaboratePatternMatchedDefs ds t
 
 toEliminator :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
-toEliminator [] _     = Error SyntaxError $ Just "Empty pattern matching cases"
-toEliminator ms t = do
-  let splits            = map peelOffLambdas ms
+toEliminator [] _                               = Error SyntaxError $ Just "Empty pattern matching cases"
+toEliminator cases@((SParamTerm (p:ps) m):ms) t = do
+  -- Get codomain of function to determine the motive
+  codomain <- peelOffNBinders t $ length ps
 
-  firstCaseBinders <- case splits of
-    []     -> Error SyntaxError $ Just "Empty pattern matching cases"
-    (s:ss) -> return $ fst s
+  (indType, motive) <- case codomain of
+    SPi (Just x, t, _) n  -> return (t, SBind x $ SNoBind n)
+    SPi (Nothing, t, _) n -> return (t, SNoBind n)
+    _                     -> Error TypeMismatch $ Just "Pattern matched function is not a Pi Type"
 
-  let firstBinderCount = length firstCaseBinders
+  patterns <- traverse getPattern cases
 
-  -- Check all patterns are at the same parameter number
-  if all (isSplitValid firstBinderCount) splits
-  then do
-    -- Get codomain of function to determine the motive
-    peelT <- peelOffNPis t firstBinderCount
-    
-    (indType, motive) <- case snd peelT of
-      SPi (Just x, t, _) n  -> return (t, SBind x $ SNoBind n)
-      SPi (Nothing, t, _) n -> return (t, SNoBind n)
-      _                     -> Error TypeMismatch $ Just "Pattern matched function is not a Pi Type"
+  -- Match constructor patterns against exhaustive list
+  ind <- case sortOn fst patterns of
+    [(CStar, d)]                -> return $ SInd indType motive [SNoBind d] (SVar $ pack "!p")
+    [(CPair a b, d)]            -> return $ SInd indType motive [SBind a $ SBind b $ SNoBind d] (SVar $ pack "!p")
+    [(CInl a, d), (CInr b, d')] -> return $ SInd indType motive [SBind a $ SNoBind d, SBind b $ SNoBind d'] (SVar $ pack "!p")
+    _                           -> Error SyntaxError $ Just "Invalid pattern matching constructors"
 
-    patterns <- traverse (splitPattern . snd) splits
-
-    -- Match constructor patterns against exhaustive list
-    ind <- case sortOn fst patterns of
-      [(CStar, p)]                -> return $ SInd indType motive [SNoBind p] (SVar $ pack "!p")
-      [(CPair a b, p)]            -> return $ SInd indType motive [SBind a $ SBind b $ SNoBind p] (SVar $ pack "!p")
-      [(CInl a, p), (CInr b, p')] -> return $ SInd indType motive [SBind a $ SNoBind p, SBind b $ SNoBind p'] (SVar $ pack "!p")
-      _                           -> Error SyntaxError $ Just "Invalid pattern matching constructors"
-  
-    -- Put peeled off lambdas back on the term
-    return $ applyBinders firstCaseBinders $ SLam (pack "!p", Nothing, Exp) ind
-  else
-    Error SyntaxError $ Just "Pattern matching parameter mismatch"
-
+  -- Return eliminator term
+  return $ SParamTerm (BinderParam (pack "!p", Just indType, Exp) : ps) ind
   where
-    headIsPattern :: SourceTerm -> Bool
-    headIsPattern (SPattern _ _) = True
-    headIsPattern _              = False
+    getPattern :: SourceTerm -> CanError (ConstructorPattern, SourceTerm)
+    getPattern (SParamTerm (p:_) m) = do
+      consPattern <- getConstructorPattern p
+      return (consPattern, m)
+    getPattern _                     = Error SyntaxError $ Just "Term is not a pattern"
 
-    splitPattern :: SourceTerm -> CanError (ConstructorPattern, SourceTerm)
-    splitPattern (SPattern m n) = do
-      cons <- getConstructorPattern m
-      return (cons, n)
-    splitPattern _              = Error SyntaxError $ Just "Term is not a pattern"
+    getConstructorPattern :: Parameter -> CanError ConstructorPattern
+    getConstructorPattern (Pattern SStar)                     = return CStar
+    getConstructorPattern (Pattern (SPair (SVar a) (SVar b))) = return $ CPair a b
+    getConstructorPattern (Pattern (SInl (SVar a)))           = return $ CInl a
+    getConstructorPattern (Pattern (SInr (SVar a)))           = return $ CInr a
+    getConstructorPattern _                                   = Error SyntaxError $ Just "Invalid pattern matching constructor"
 
-    getConstructorPattern :: SourceTerm -> CanError ConstructorPattern
-    getConstructorPattern SStar                     = return CStar
-    getConstructorPattern (SPair (SVar a) (SVar b)) = return $ CPair a b
-    getConstructorPattern (SInl (SVar a))           = return $ CInl a
-    getConstructorPattern (SInr (SVar a))           = return $ CInr a
-    getConstructorPattern _                         = Error SyntaxError $ Just "Invalid pattern matching constructor"
-
-    peelOffLambdas :: SourceTerm -> ([SourceLambdaBinder], SourceTerm)
-    peelOffLambdas m = go [] m
-      where
-        go :: [SourceLambdaBinder] -> SourceTerm -> ([SourceLambdaBinder], SourceTerm)
-        go bs (SLam (x, t, ex) m) = go ((x, t, ex) : bs) m
-        go bs m                   = (bs, m)
-
-    applyBinders :: [SourceLambdaBinder] -> SourceTerm -> SourceTerm
-    applyBinders [] m     = m
-    applyBinders (b:bs) m = applyBinders bs $ SLam b m
-
-    peelOffNPis :: SourceTerm -> Int -> CanError ([SourcePiBinder], SourceTerm)
-    peelOffNPis m n
-      | n <= 0    = return ([], m)
+    peelOffNBinders :: SourceTerm -> Int -> CanError SourceTerm
+    peelOffNBinders m n
+      | n <= 0    = return m
       | otherwise = go [] m n
       where
-        go :: [SourcePiBinder] -> SourceTerm -> Int -> CanError ([SourcePiBinder], SourceTerm)
-        go bs m 0                   = return (bs, m)
-        go bs (SPi (x, t, ex) m) n  = go ((x, t, ex) : bs) m (n - 1)
+        go :: [SourcePiBinder] -> SourceTerm -> Int -> CanError SourceTerm
+        go bs m 0                   = return m
+        go bs (SPi (x, t, ex) m) n  = go bs m (n - 1)
         go bs m n                   = Error SyntaxError $ Just "Insufficient binders in type"
+toEliminator _ _                                = Error SyntaxError $ Just "Invalid pattern matching cases"
 
-    isSplitValid :: Int -> ([SourceLambdaBinder], SourceTerm) -> Bool
-    isSplitValid n (bs, m) = headIsPattern m && length bs == n
+isParameterPattern :: Parameter -> Bool
+isParameterPattern (Pattern _) = True
+isParameterPattern _           = False
+
+isPatternMatched :: SourceTerm -> Bool
+isPatternMatched (SParamTerm ps _) = any isParameterPattern ps
+isPatternMatched _                 = False

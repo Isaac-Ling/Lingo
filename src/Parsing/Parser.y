@@ -79,7 +79,7 @@ Declarations :: { Program }
 Definition :: { Declaration }
   : var Params ':=' Term
   {
-    Def ($1, elaborateParams $2 $4)
+    Def ($1, SParamTerm (reverse $2) $4)
   }
 
 Param :: { Parameter }
@@ -221,10 +221,6 @@ data Declaration
   | Signature SourceAssumption
   | Pragma Pragma
 
-data Parameter
-  = BinderParam SourceLambdaBinder 
-  | Pattern SourceTerm
-
 type Program = [Declaration]
 
 parseError :: PositionedToken -> Alex a
@@ -250,9 +246,4 @@ parseNum n = SSucc $ parseNum (n - 1)
 parseTuple :: SourceTerm -> SourceTerm -> [SourceTerm] -> SourceTerm
 parseTuple m n []     = SPair m n
 parseTuple m n (t:ts) = SPair m $ parseTuple n t ts
-
-elaborateParams :: [Parameter] -> SourceTerm -> SourceTerm
-elaborateParams [] m     = m
-elaborateParams ((BinderParam b):bs) m = SLam b $ elaborateParams bs m
-elaborateParams ((Pattern p):bs)     m = SPattern p $ elaborateParams bs m
 }
