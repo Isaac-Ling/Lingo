@@ -86,7 +86,7 @@ goInferType (Lam (x, Nothing, ex) m)                  = do
 goInferType (App m (n, ex))                           = do
   ctxs <- ask
 
-  (em, mt) <- case resolve (env ctxs) m of
+  (em, mt) <- case m of
     -- If m is a lambda with an implicit type, then use the type of the applied term
     Lam (x, Nothing, ex) m' -> do
       (en, nt) <- goInferTypeAndElab n

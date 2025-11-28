@@ -1,28 +1,14 @@
 -- Identity
---id : {A : U} -> A -> A
---id a := a
+id : {A : U} -> A -> A
+id a := a
 
---#check id 32
+#check id 32
 
 -- Projections
---dfst : {A : U} -> {B : A -> U} -> (a : A) x B a -> A
---dfst (a, b) := a
+dfst : {A : U} -> {B : A -> U} -> (a : A) x B a -> A
+dfst (a, b) := a
 
-test : {A : U} -> A + A -> A + A -> A
-test inl(a) inl(c) := a
-test inl(a) inr(d) := d
-test inr(b) inl(c) := c
-test inr(b) inr(d) := b
-
-left : Nat + Nat
-left := inl(1)
-
-right : Nat + Nat
-right := inr(9)
-
-#check test right left
-
---#check dfst
+#check dfst
 
 dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst {A} {B} p)
 dsnd (a, b) := b
