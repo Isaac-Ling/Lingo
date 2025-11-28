@@ -85,53 +85,60 @@ goInferType (Lam (x, Nothing, ex) m)                  = do
 
 goInferType (App m (n, ex))                           = do
   ctxs <- ask
-  -- Don't elaborate returned type, as inferAppType deals with implicit/explicit params
-  (em, mt) <- goInferType m
+
+  (em, mt) <- case m of
+    -- If m is a lambda with an implicit type, then use the type of the applied term
+    Lam (x, Nothing, ex) m' -> do
+      (en, nt) <- goInferTypeAndElab n
+      goInferType $ Lam (x, Just nt, ex) m'
+    _                       ->
+      goInferType m
+
   inferAppType em (n, ex) $ eval $ resolve (env ctxs) mt
-    where
-      inferAppType :: Term -> (Term, Explicitness) -> Term -> TypeCheck (Term, Term)
-      inferAppType m (n, ex') mt = do
-        ctxs <- ask
+  where
+    inferAppType :: Term -> (Term, Explicitness) -> Term -> TypeCheck (Term, Term)
+    inferAppType m (n, ex') mt = do
+      ctxs <- ask
 
-        case mt of
-          Pi (x, t, Exp) t' -> do
-            (en, nt) <- goCheckType n t
+      case mt of
+        Pi (x, t, Exp) t' -> do
+          (en, nt) <- goCheckType n t
 
-            unify t nt $ Just (showTermWithContext (bctx ctxs) m ++ " of type " ++ showTermWithContext (bctx ctxs) mt ++ " cannot be applied to " ++ showTermWithContext (bctx ctxs) en ++ " of type " ++ showTermWithContext (bctx ctxs) nt)
-            return (App m (en, ex'), bumpDown $ open (bumpUp en) t')
-          Pi (x, t, Imp) t' -> do
-            if ex == Imp
-            then do
-              -- If user supplies implicit variable explicitely, simply infer type using
-              -- explicit type and term as normal
-              (_, at) <- inferAppType m (n, Exp) $ Pi (x, t, Exp) t'
-              return (App m (n, Imp), at)
-            else do
-              -- Otherwise, create a meta variable and continue with type inference
-              mv <- createMetaVar t $ bctx ctxs
-              let m'  = App m (mv, Imp)
-              let m't = bumpDown $ open (bumpUp mv) t'
+          unify t nt $ Just (showTermWithContext (bctx ctxs) m ++ " of type " ++ showTermWithContext (bctx ctxs) mt ++ " cannot be applied to " ++ showTermWithContext (bctx ctxs) en ++ " of type " ++ showTermWithContext (bctx ctxs) nt)
+          return (App m (en, ex'), bumpDown $ open (bumpUp en) t')
+        Pi (x, t, Imp) t' -> do
+          if ex == Imp
+          then do
+            -- If user supplies implicit variable explicitely, simply infer type using
+            -- explicit type and term as normal
+            (_, at) <- inferAppType m (n, Exp) $ Pi (x, t, Exp) t'
+            return (App m (n, Imp), at)
+          else do
+            -- Otherwise, create a meta variable and continue with type inference
+            mv <- createMetaVar t $ bctx ctxs
+            let m'  = App m (mv, Imp)
+            let m't = bumpDown $ open (bumpUp mv) t'
 
-              inferAppType m' (n, ex) m't
-          Var (Meta i sp)   -> do
-            (_, nt) <- goInferTypeAndElab n
-            (_, mit) <- goInferType $ Var $ Meta i sp
-            (_, ntt) <- goInferType nt
+            inferAppType m' (n, ex) m't
+        Var (Meta i sp)   -> do
+          (_, nt) <- goInferTypeAndElab n
+          (_, mit) <- goInferType $ Var $ Meta i sp
+          (_, ntt) <- goInferType nt
 
-            -- TODO: Implement Universe Polymorphism to avoid this erroring,
-            -- allow user to abstract over universes, and allow metas in case
-            -- statements matching universes
-            mtype <- case (mit, ntt) of
-              (Univ i, Univ j)    -> return $ Univ $ max i j
-              (_, _)              -> typeError TypeMismatch $ Just ("Unable to resolve type of meta " ++ show (Var $ Meta i sp))
-            mv <- createMetaVar mtype $ bctx ctxs
+          -- TODO: Implement Universe Polymorphism to avoid this erroring,
+          -- allow user to abstract over universes, and allow metas in case
+          -- statements matching universes
+          mtype <- case (mit, ntt) of
+            (Univ i, Univ j)    -> return $ Univ $ max i j
+            (_, _)              -> typeError TypeMismatch $ Just ("Unable to resolve type of meta " ++ show (Var $ Meta i sp))
+          mv <- createMetaVar mtype $ bctx ctxs
 
-            -- Refine the meta to be a pi type
-            let mmt = Pi (Nothing, nt, Exp) mv
-            unify (Var $ Meta i sp) mmt Nothing
+          -- Refine the meta to be a pi type
+          let mmt = Pi (Nothing, nt, Exp) mv
+          unify (Var $ Meta i sp) mmt Nothing
 
-            inferAppType m (n, ex') mmt
-          _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
+          inferAppType m (n, ex') mmt
+        _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
 
 goInferType (Pair m n)                                = do
   (em, mt) <- goInferTypeAndElab m
