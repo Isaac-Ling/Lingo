@@ -71,16 +71,24 @@ data ConstructorPattern
   | CInr ByteString
   deriving (Show, Eq, Ord)
 
+getConstructorPattern :: Parameter -> CanError ConstructorPattern
+getConstructorPattern (Pattern SStar)                     = return CStar
+getConstructorPattern (Pattern (SPair (SVar a) (SVar b))) = return $ CPair a b
+getConstructorPattern (Pattern (SInl (SVar a)))           = return $ CInl a
+getConstructorPattern (Pattern (SInr (SVar a)))           = return $ CInr a
+getConstructorPattern _                                   = Error SyntaxError $ Just "Invalid pattern matching constructor"
+
 elaboratePatternMatchedDefs :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
 elaboratePatternMatchedDefs [] _   = Error SyntaxError $ Just "Empty pattern matching cases"
 elaboratePatternMatchedDefs defs t = do
-  let patterns = map pushNonPatternParams defs
-  
-  -- TODO: Split defs on cases with the same parent nodes
-  let leafSubTrees = [patterns]
+  let cases = map pushNonPatternParams defs
+
+  -- Partition cases into patterns with the same parent parameters
+  let leafSubTrees = partitionBy hasSameParentParameters cases
 
   leaves <- traverse (`toEliminator` t) leafSubTrees
 
+  -- Recursively elaborate leaves until singular, non-pattern matched root remains
   case leaves of
     []  -> Error SyntaxError $ Just "Empty pattern matching cases"
     [d] -> if isPatternMatched d
@@ -89,6 +97,30 @@ elaboratePatternMatchedDefs defs t = do
     ds  -> if not $ all isPatternMatched ds
       then Error SyntaxError $ Just "Empty pattern matching cases"
       else do elaboratePatternMatchedDefs ds t
+  where
+    partitionBy :: (a -> a -> Bool) -> [a] -> [[a]]
+    partitionBy eq = go []
+      where
+        go bs []     = bs
+        go bs (x:xs) = go (insert x bs) xs
+
+        insert x [] = [[x]]
+        insert x (b:bs)
+          | all (eq x) b = (x:b) : bs
+          | otherwise    = b : insert x bs
+
+    hasSameParentParameters :: SourceTerm -> SourceTerm -> Bool
+    hasSameParentParameters (SParamTerm ps _) (SParamTerm ps' _) = (length ps == length ps') && and (zipWith hasSameParameterStructure ps ps')
+    hasSameParentParameters _ _                                  = False
+
+    hasSameParameterStructure :: Parameter -> Parameter -> Bool
+    hasSameParameterStructure (BinderParam _) (BinderParam _) = True
+    hasSameParameterStructure p p'                            = case (getConstructorPattern p, getConstructorPattern p') of
+      (Result CStar, Result CStar)             -> True
+      (Result (CPair _ _), Result (CPair _ _)) -> True
+      (Result (CInl _), Result (CInl _))       -> True
+      (Result (CInr _), Result (CInr _))       -> True
+      (_, _)                                   -> False
 
 toEliminator :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
 toEliminator [] _                               = Error SyntaxError $ Just "Empty pattern matching cases"
@@ -103,6 +135,7 @@ toEliminator cases@((SParamTerm (p:ps) m):ms) t = do
 
   patterns <- traverse getPattern cases
 
+  -- TODO: Lambda abstract over all parameters to ensure different parameter names don't become free
   -- Match constructor patterns against exhaustive list
   ind <- case sortOn fst patterns of
     [(CStar, d)]                -> return $ SInd indType motive [SNoBind d] (SVar $ pack "!p")
@@ -110,6 +143,7 @@ toEliminator cases@((SParamTerm (p:ps) m):ms) t = do
     [(CInl a, d), (CInr b, d')] -> return $ SInd indType motive [SBind a $ SNoBind d, SBind b $ SNoBind d'] (SVar $ pack "!p")
     _                           -> Error SyntaxError $ Just "Invalid pattern matching constructors"
 
+  -- TODO: Generate unique name for !p
   -- Return eliminator term
   return $ SParamTerm (BinderParam (pack "!p", Just indType, Exp) : ps) ind
   where
@@ -118,13 +152,6 @@ toEliminator cases@((SParamTerm (p:ps) m):ms) t = do
       consPattern <- getConstructorPattern p
       return (consPattern, m)
     getPattern _                     = Error SyntaxError $ Just "Term is not a pattern"
-
-    getConstructorPattern :: Parameter -> CanError ConstructorPattern
-    getConstructorPattern (Pattern SStar)                     = return CStar
-    getConstructorPattern (Pattern (SPair (SVar a) (SVar b))) = return $ CPair a b
-    getConstructorPattern (Pattern (SInl (SVar a)))           = return $ CInl a
-    getConstructorPattern (Pattern (SInr (SVar a)))           = return $ CInr a
-    getConstructorPattern _                                   = Error SyntaxError $ Just "Invalid pattern matching constructor"
 
     peelOffNBinders :: SourceTerm -> Int -> CanError SourceTerm
     peelOffNBinders m n
