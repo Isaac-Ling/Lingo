@@ -14,7 +14,15 @@ test inl(a) inr(d) := d
 test inr(b) inl(c) := c
 test inr(b) inr(d) := b
 
-#check dfst
+left : Nat + Nat
+left := inl(1)
+
+right : Nat + Nat
+right := inr(9)
+
+#check test right left
+
+--#check dfst
 
 dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst {A} {B} p)
 dsnd (a, b) := b

@@ -84,9 +84,9 @@ elaboratePatternMatchedDefs defs t = do
   let cases = map pushNonPatternParams defs
 
   -- Partition cases into patterns with the same parent parameters
-  let leafSubTrees = partitionBy hasSameParentParameters cases
+  let patterns = partitionBy hasSameParentParameters cases
 
-  leaves <- traverse (`toEliminator` t) leafSubTrees
+  leaves <- traverse (`toEliminator` t) patterns
 
   -- Recursively elaborate leaves until singular, non-pattern matched root remains
   case leaves of
@@ -110,8 +110,10 @@ elaboratePatternMatchedDefs defs t = do
           | otherwise    = b : insert x bs
 
     hasSameParentParameters :: SourceTerm -> SourceTerm -> Bool
-    hasSameParentParameters (SParamTerm ps _) (SParamTerm ps' _) = (length ps == length ps') && and (zipWith hasSameParameterStructure ps ps')
-    hasSameParentParameters _ _                                  = False
+    hasSameParentParameters (SParamTerm [] _) (SParamTerm _ _)           = False
+    hasSameParentParameters (SParamTerm _ _) (SParamTerm [] _)           = False
+    hasSameParentParameters (SParamTerm (_:ps) _) (SParamTerm (_:ps') _) = (length ps == length ps') && and (zipWith hasSameParameterStructure ps ps')
+    hasSameParentParameters _ _                                          = False
 
     hasSameParameterStructure :: Parameter -> Parameter -> Bool
     hasSameParameterStructure (BinderParam _) (BinderParam _) = True
