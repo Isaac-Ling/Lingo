@@ -36,6 +36,6 @@ productPath a b p := (lift fst p, lift snd p)
 #type productPath
 
 productUniqueness : {A : U} -> {B : U} -> (z : A x B) -> z = (fst z, snd z)
-productUniqueness z := ind[A x B](z. z = (fst z, snd z), a. b. refl, z)
+productUniqueness (a, b) := refl
 
 #type productUniqueness
