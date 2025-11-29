@@ -151,9 +151,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
     [(CInl a, d), (CInr b, d')] -> return $ SInd indType motive [SBind a $ SNoBind d, SBind b $ SNoBind d'] (SVar $ pack "!p")
     [(CZero, d), (CSucc n, d')] -> do
       let recursiveCallVar        = pack "!r"
-
-      -- TODO: Add all other params to this application
-      let recursiveCall           = SApp (SVar id) (SVar n, Exp)
+      let recursiveCall           = SApp (applyParams ps $ SVar id) (SVar n, Exp)
       let abstractedRecursiveCall = substituteVarForApplication recursiveCallVar recursiveCall d'
       
       return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
@@ -167,6 +165,11 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
       consPattern <- getConstructorPattern p
       return (consPattern, m)
     getPattern _                     = Error SyntaxError $ Just "Term is not a pattern"
+
+    applyParams :: [Parameter] -> SourceTerm -> SourceTerm
+    applyParams [] m                            = m
+    applyParams ((BinderParam (x, _, ex)):ps) m = applyParams ps $ SApp m (SVar x, ex)
+    applyParams ((Pattern pat):ps) m            = applyParams ps $ SApp m (pat, Exp)
 
     peelOffNBinders :: SourceTerm -> Int -> CanError SourceTerm
     peelOffNBinders m n

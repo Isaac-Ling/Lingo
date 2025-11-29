@@ -11,7 +11,8 @@ double succ(n) := succ(succ(double n))
 #check double a
 
 add : Nat -> Nat -> Nat
-add n := ind[Nat](Nat -> Nat, \n. n, n. g. \m. succ(g m), n)
+add 0       n := n
+add succ(m) n := succ(add m n)
 
 #check add
 #check add 2 2
@@ -22,7 +23,13 @@ twoPlusTwoIsFour := refl
 #check twoPlusTwoIsFour
 
 multiply : Nat -> Nat -> Nat
-multiply n := ind[Nat](Nat -> Nat, \n. 0, n'. g. \m. add m (g m), n)
+multiply 0       n := 0
+multiply succ(m) n := add m (multiply m n)
+
+-- TODO: Incorrect calculation
+#check multiply
+
+--multiply n := ind[Nat](Nat -> Nat, \n. 0, n'. g. \m. add m (g m), n)
 
 #check multiply 2 4
 
