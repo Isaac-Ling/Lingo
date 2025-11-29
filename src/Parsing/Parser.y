@@ -50,6 +50,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
   'ua'     { PositionedToken TkUnivalence _ }
   'T'      { PositionedToken (TkTop) _ }
   '_|_'    { PositionedToken (TkBot) _ }
+  '0'      { PositionedToken (TkInt 0) _ }
   univ     { PositionedToken (TkUniv $$) _ }
   var      { PositionedToken (TkVar $$) _ }
   int      { PositionedToken (TkInt $$) _ }
@@ -61,7 +62,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ int '(' '{' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua'
+%nonassoc var univ int '0' '(' '{' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua'
 %nonassoc APP
 
 %%
@@ -90,6 +91,8 @@ Param :: { Parameter }
   | '{' var ':' Term '}' { BinderParam ($2, Just $4, Imp) }
 
   -- TODO: Complete possible constructor patterns
+  | '0'                 { Pattern $ SZero }
+  | 'succ' '(' var ')'  { Pattern $ SSucc (SVar $3) }
   | '*'                 { Pattern $ SStar }
   | '(' var ',' var ')' { Pattern $ SPair (SVar $2) (SVar $4) }
   | 'inl' '(' var ')'   { Pattern $ SInl $ SVar $ $3 }
@@ -176,6 +179,7 @@ Tuple :: { SourceTerm }
 NatNums :: { SourceTerm }
   : 'Nat'               { SNat }
   | 'succ' '(' Term ')' { SSucc $3 }
+  | '0'                 { SZero }
   | int                 { parseNum $1 }
 
 Funext :: { SourceTerm }

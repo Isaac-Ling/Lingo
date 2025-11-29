@@ -25,12 +25,12 @@ type SourcePiBinder = (Maybe ByteString, SourceTerm, Explicitness)
 data Parameter
   = BinderParam SourceLambdaBinder 
   | Pattern SourceTerm
-  deriving (Show)
+  deriving (Show, Eq)
 
 data SourceBoundTerm
   = SNoBind SourceTerm
   | SBind ByteString SourceBoundTerm
-  deriving Show
+  deriving (Show, Eq)
 
 data SourceTerm
   = SVar ByteString
@@ -56,7 +56,7 @@ data SourceTerm
   | SSigma SourceSigmaBinder SourceTerm
   | SInd SourceTerm SourceBoundTerm [SourceBoundTerm] SourceTerm
   | SParamTerm [Parameter] SourceTerm
-  deriving Show
+  deriving (Show, Eq)
 
 -- Core Terms --
 

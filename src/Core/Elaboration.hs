@@ -69,6 +69,8 @@ data ConstructorPattern
   | CPair ByteString ByteString
   | CInl ByteString
   | CInr ByteString
+  | CZero
+  | CSucc ByteString
   deriving (Show, Eq, Ord)
 
 getConstructorPattern :: Parameter -> CanError ConstructorPattern
@@ -76,27 +78,29 @@ getConstructorPattern (Pattern SStar)                     = return CStar
 getConstructorPattern (Pattern (SPair (SVar a) (SVar b))) = return $ CPair a b
 getConstructorPattern (Pattern (SInl (SVar a)))           = return $ CInl a
 getConstructorPattern (Pattern (SInr (SVar a)))           = return $ CInr a
+getConstructorPattern (Pattern SZero)                     = return CZero
+getConstructorPattern (Pattern (SSucc (SVar n)))          = return $ CSucc n
 getConstructorPattern _                                   = Error SyntaxError $ Just "Invalid pattern matching constructor"
 
-elaboratePatternMatchedDefs :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
-elaboratePatternMatchedDefs [] _   = Error SyntaxError $ Just "Empty pattern matching cases"
-elaboratePatternMatchedDefs defs t = do
+elaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
+elaboratePatternMatchedDefs id [] _   = Error SyntaxError $ Just "Empty pattern matching cases"
+elaboratePatternMatchedDefs id defs t = do
   let cases = map pushNonPatternParams defs
 
   -- Partition cases into patterns with the same parent parameters
   let patterns = partitionBy hasSameParentParameters cases
 
-  leaves <- traverse (`toEliminator` t) patterns
+  leaves <- traverse (\x -> toEliminator id x t) patterns
 
   -- Recursively elaborate leaves until singular, non-pattern matched root remains
   case leaves of
     []  -> Error SyntaxError $ Just "Empty pattern matching cases"
     [d] -> if isPatternMatched d
-      then do elaboratePatternMatchedDefs [d] t
+      then do elaboratePatternMatchedDefs id [d] t
       else return d
     ds  -> if not $ all isPatternMatched ds
       then Error SyntaxError $ Just "Empty pattern matching cases"
-      else do elaboratePatternMatchedDefs ds t
+      else do elaboratePatternMatchedDefs id ds t
   where
     partitionBy :: (a -> a -> Bool) -> [a] -> [[a]]
     partitionBy eq = go []
@@ -122,11 +126,13 @@ elaboratePatternMatchedDefs defs t = do
       (Result (CPair _ _), Result (CPair _ _)) -> True
       (Result (CInl _), Result (CInl _))       -> True
       (Result (CInr _), Result (CInr _))       -> True
+      (Result CZero, Result CZero)             -> True
+      (Result (CSucc _), Result (CSucc _))     -> True
       (_, _)                                   -> False
 
-toEliminator :: [SourceTerm] -> SourceTerm -> CanError SourceTerm
-toEliminator [] _                               = Error SyntaxError $ Just "Empty pattern matching cases"
-toEliminator cases@((SParamTerm (p:ps) m):ms) t = do
+toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
+toEliminator id [] _                               = Error SyntaxError $ Just "Empty pattern matching cases"
+toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
   -- Get codomain of function to determine the motive
   codomain <- peelOffNBinders t $ length ps
 
@@ -143,9 +149,16 @@ toEliminator cases@((SParamTerm (p:ps) m):ms) t = do
     [(CStar, d)]                -> return $ SInd indType motive [SNoBind d] (SVar $ pack "!p")
     [(CPair a b, d)]            -> return $ SInd indType motive [SBind a $ SBind b $ SNoBind d] (SVar $ pack "!p")
     [(CInl a, d), (CInr b, d')] -> return $ SInd indType motive [SBind a $ SNoBind d, SBind b $ SNoBind d'] (SVar $ pack "!p")
+    [(CZero, d), (CSucc n, d')] -> do
+      let recursiveCallVar        = pack "!r"
+
+      -- TODO: Add all other params to this application
+      let recursiveCall           = SApp (SVar id) (SVar n, Exp)
+      let abstractedRecursiveCall = substituteVarForApplication recursiveCallVar recursiveCall d'
+      
+      return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
     _                           -> Error SyntaxError $ Just "Invalid pattern matching constructors"
 
-  -- TODO: Generate unique name for !p
   -- Return eliminator term
   return $ SParamTerm (BinderParam (pack "!p", Just indType, Exp) : ps) ind
   where
@@ -164,7 +177,32 @@ toEliminator cases@((SParamTerm (p:ps) m):ms) t = do
         go bs m 0                   = return m
         go bs (SPi (x, t, ex) m) n  = go bs m (n - 1)
         go bs m n                   = Error SyntaxError $ Just "Insufficient binders in type"
-toEliminator _ _                                = Error SyntaxError $ Just "Invalid pattern matching cases"
+
+    substituteVarForApplication :: ByteString -> SourceTerm -> SourceTerm -> SourceTerm
+    substituteVarForApplication y m (SApp t (n, ex))          = if SApp t (n, ex) == m
+      then SVar y
+      else SApp (substituteVarForApplication y m t) (substituteVarForApplication y m n, ex)
+    substituteVarForApplication y m (SLam (x, Just t, ex) n)  = SLam (x, Just $ substituteVarForApplication y m t, ex) (substituteVarForApplication y m n)
+    substituteVarForApplication y m (SLam (x, Nothing, ex) n) = SLam (x, Nothing, ex) (substituteVarForApplication y m n)
+    substituteVarForApplication y m (SPi (x, t, ex) n)        = SPi (x, substituteVarForApplication y m t, ex) (substituteVarForApplication y m n)
+    substituteVarForApplication y m (SSigma (x, t) n)         = SSigma (x, substituteVarForApplication y m t) (substituteVarForApplication y m n)
+    substituteVarForApplication y m (SPair t n)               = SPair (substituteVarForApplication y m t) (substituteVarForApplication y m n)
+    substituteVarForApplication y m (SIdFam t)                = SIdFam $ substituteVarForApplication y m t
+    substituteVarForApplication y m (SId mt t n)              = SId (fmap (substituteVarForApplication y m) mt) (substituteVarForApplication y m t) (substituteVarForApplication y m n)
+    substituteVarForApplication y m (SSum t n)                = SSum (substituteVarForApplication y m t) (substituteVarForApplication y m n)
+    substituteVarForApplication y m (SInl n)                  = SInl $ substituteVarForApplication y m n
+    substituteVarForApplication y m (SInr n)                  = SInr $ substituteVarForApplication y m n
+    substituteVarForApplication y m (SRefl n)                 = SRefl $ fmap (substituteVarForApplication y m) n
+    substituteVarForApplication y m (SSucc n)                 = SSucc $ substituteVarForApplication y m n
+    substituteVarForApplication y m (SFunext p)               = SFunext $ substituteVarForApplication y m p
+    substituteVarForApplication y m (SUnivalence a)           = SUnivalence $ substituteVarForApplication y m a
+    substituteVarForApplication y m (SInd t m' c a)           = SInd (substituteVarForApplication y m t) (substituteVarForApplicationInBoundTerm y m m') (map (substituteVarForApplicationInBoundTerm y m) c) (substituteVarForApplication y m a)
+      where
+        substituteVarForApplicationInBoundTerm :: ByteString -> SourceTerm -> SourceBoundTerm -> SourceBoundTerm
+        substituteVarForApplicationInBoundTerm y m (SNoBind n) = SNoBind (substituteVarForApplication y m n)
+        substituteVarForApplicationInBoundTerm y m (SBind x n) = SBind x (substituteVarForApplicationInBoundTerm y m n)
+    substituteVarForApplication y m n                        = n
+toEliminator _ _ _                                = Error SyntaxError $ Just "Invalid pattern matching cases"
 
 isParameterPattern :: Parameter -> Bool
 isParameterPattern (Pattern _) = True
