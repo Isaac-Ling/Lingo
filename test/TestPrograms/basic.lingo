@@ -31,6 +31,9 @@ comp g f a := g (f a)
 
 #check comp
 
+flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
+flip f b a := f a b
+
 -- Propositional Logic
 not : (A : U) -> U
 not A := A -> _|_

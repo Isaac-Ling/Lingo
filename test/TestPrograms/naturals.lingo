@@ -14,7 +14,6 @@ add : Nat -> Nat -> Nat
 add 0       n := n
 add succ(m) n := succ(add m n)
 
-#check add
 #check add 2 2
 
 twoPlusTwoIsFour : add 2 2 = 4
@@ -33,25 +32,26 @@ lMul0 a := refl[0]
 
 #check lMul0
 
-powFlipped : Nat -> Nat -> Nat
-powFlipped n := ind[Nat](Nat -> Nat, \n. 1, n'. g. \m. multiply m (g m), n)
-
-flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
-flip f b a := f a b
-
-pow := flip powFlipped
+pow : Nat -> Nat -> Nat
+pow m 0       := 1
+pow m succ(n) := multiply m (pow m n)
 
 #check pow 2 5
 
 rAddId : (a : Nat) -> add a 0 = a
-rAddId a := ind[Nat](n. add n 0 = n, refl, m. g. lift (\n. succ(n)) g, a)
+rAddId 0       := refl
+rAddId succ(n) := lift (\n. succ(n)) (rAddId n)
 
 #check rAddId
 
-addCommLemma : (a : Nat) -> (b : Nat) -> add a succ(b) = add succ(a) b
-addCommLemma a b := ind[Nat](n. add n succ(b) = add succ(n) b, refl, m. g. lift (\n. succ(n)) g, a)
-
 addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
-addComm a b := ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans (addCommLemma a m) (lift (\n. succ(n)) g), b)
+addComm a       0       := rAddId a
+addComm 0       succ(n) := idSymm (rAddId succ(n))
+addComm succ(m) succ(n) := lift (\n. succ(n)) (addComm succ(m) n)
+
+--addCommLemma : (a : Nat) -> (b : Nat) -> add a succ(b) = add succ(a) b
+--addCommLemma a b := ind[Nat](n. add n succ(b) = add succ(n) b, refl, m. g. lift (\n. succ(n)) g, a)
+
+--addComm a b := ind[Nat](n. add a n = add n a, rAddId a, m. g. idTrans (addCommLemma a m) (lift (\n. succ(n)) g), b)
 
 #type addComm
