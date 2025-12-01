@@ -24,10 +24,6 @@ paramsToBinders [] m                   = m
 paramsToBinders ((BinderParam b):bs) m = paramsToBinders bs $ SLam b m
 paramsToBinders (_:bs) m               = paramsToBinders bs m
 
-pushNonPatternParams :: SourceTerm -> SourceTerm
-pushNonPatternParams (SParamTerm ps m) = let (as, bs) = break isParameterPattern ps in SParamTerm bs $ paramsToBinders as m
-pushNonPatternParams m                 = m
-
 toCoreTerm :: SourceTerm -> Term
 toCoreTerm = go []
   where
@@ -85,7 +81,10 @@ getConstructorPattern _                                   = Error SyntaxError $ 
 elaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
 elaboratePatternMatchedDefs id [] _   = Error SyntaxError $ Just "Empty pattern matching cases"
 elaboratePatternMatchedDefs id defs t = do
-  let cases = map pushNonPatternParams defs
+  cases <- pushBinderParams defs
+
+  -- Decompose default parameters into cases (exponential complexity)
+  
 
   -- Partition cases into patterns with the same parent parameters
   let patterns = partitionBy hasSameParentParameters cases
@@ -129,6 +128,26 @@ elaboratePatternMatchedDefs id defs t = do
       (Result CZero, Result CZero)             -> True
       (Result (CSucc _), Result (CSucc _))     -> True
       (_, _)                                   -> False
+    
+    pushBinderParams :: [SourceTerm] -> CanError [SourceTerm]
+    pushBinderParams ps = do
+      onlyBinders <- isColumnOnlyBinders ps
+
+      if onlyBinders
+      then do
+        pushedBinders <- traverse pushParam ps
+        pushBinderParams pushedBinders
+      else return ps
+      where
+        pushParam :: SourceTerm -> CanError SourceTerm
+        pushParam (SParamTerm (p:ps) m) = return $ SParamTerm ps $ paramsToBinders [p] m
+        pushParam _                     = Error SyntaxError $ Just "Invalid parameter"
+
+    isColumnOnlyBinders :: [SourceTerm] -> CanError Bool
+    isColumnOnlyBinders (SParamTerm ((BinderParam _):_) _:ms) = isColumnOnlyBinders ms
+    isColumnOnlyBinders (SParamTerm ((Pattern _):_) _:ms)     = return False
+    isColumnOnlyBinders []                                    = return True
+    isColumnOnlyBinders _                                     = Error SyntaxError $ Just "Misaligned patterns"
 
 toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
 toEliminator id [] _                               = Error SyntaxError $ Just "Empty pattern matching cases"
