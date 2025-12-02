@@ -5,7 +5,7 @@ import Core.Error
 import Parsing.Parser
 
 import Control.Monad ((<=<))
-import Data.List (sortOn, elemIndex)
+import Data.List (sortOn, elemIndex, (!?))
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 -- TODO: Check logic of this function
@@ -88,7 +88,15 @@ elaboratePatternMatchedDefs id defs t = do
   elaborateColumns id cases t
   where
     expandDefaultParams :: [SourceTerm] -> CanError [SourceTerm]
-    expandDefaultParams defs = return defs
+    expandDefaultParams defs = do
+      
+      return defs
+    expandDefaultParams 
+
+    expandDefaultParamsInColumn :: [SourceTerm] -> Int -> CanError [SourceTerm]
+    expandDefaultParams defs i = do
+      if isColumnPatternMatched defs i
+      then 
 
     elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
     elaborateColumns id defs t = do
@@ -139,9 +147,9 @@ elaboratePatternMatchedDefs id defs t = do
     
     pushBinderParams :: [SourceTerm] -> CanError [SourceTerm]
     pushBinderParams ps = do
-      onlyBinders <- isColumnOnlyBinders ps
+      patternMatched <- isColumnPatternMatched ps 0
 
-      if onlyBinders
+      if not patternMatched
       then do
         pushedBinders <- traverse pushParam ps
         pushBinderParams pushedBinders
@@ -151,11 +159,14 @@ elaboratePatternMatchedDefs id defs t = do
         pushParam (SParamTerm (p:ps) m) = return $ SParamTerm ps $ paramsToBinders [p] m
         pushParam _                     = Error SyntaxError $ Just "Invalid parameter"
 
-    isColumnOnlyBinders :: [SourceTerm] -> CanError Bool
-    isColumnOnlyBinders (SParamTerm ((BinderParam _):_) _:ms) = isColumnOnlyBinders ms
-    isColumnOnlyBinders (SParamTerm ((Pattern _):_) _:ms)     = return False
-    isColumnOnlyBinders []                                    = return True
-    isColumnOnlyBinders _                                     = Error SyntaxError $ Just "Misaligned patterns"
+    isColumnPatternMatched :: [SourceTerm] -> Int -> CanError Bool
+    isColumnPatternMatched (SParamTerm ps _:ms) i = case ps !? i of
+      Just p  -> do
+        c <- isColumnPatternMatched ms i
+        return $ isParameterPattern p && c
+      Nothing -> return False
+    isColumnPatternMatched [] _                   = return True
+    isColumnPatternMatched _ _                    = Error SyntaxError $ Just "Misaligned patterns"
 
 toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
 toEliminator id [] _                               = Error SyntaxError $ Just "Empty pattern matching cases"
