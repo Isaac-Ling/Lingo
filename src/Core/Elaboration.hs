@@ -81,26 +81,34 @@ getConstructorPattern _                                   = Error SyntaxError $ 
 elaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
 elaboratePatternMatchedDefs id [] _   = Error SyntaxError $ Just "Empty pattern matching cases"
 elaboratePatternMatchedDefs id defs t = do
-  cases <- pushBinderParams defs
+  -- Expand default paramaters into cases to get full pattern tree
+  cases <- expandDefaultParams defs
 
-  -- Decompose default parameters into cases (exponential complexity)
-  
-
-  -- Partition cases into patterns with the same parent parameters
-  let patterns = partitionBy hasSameParentParameters cases
-
-  leaves <- traverse (\x -> toEliminator id x t) patterns
-
-  -- Recursively elaborate leaves until singular, non-pattern matched root remains
-  case leaves of
-    []  -> Error SyntaxError $ Just "Empty pattern matching cases"
-    [d] -> if isPatternMatched d
-      then do elaboratePatternMatchedDefs id [d] t
-      else return d
-    ds  -> if not $ all isPatternMatched ds
-      then Error SyntaxError $ Just "Empty pattern matching cases"
-      else do elaboratePatternMatchedDefs id ds t
+  -- Elaborate each column starting from the leaves
+  elaborateColumns id cases t
   where
+    expandDefaultParams :: [SourceTerm] -> CanError [SourceTerm]
+    expandDefaultParams defs = return defs
+
+    elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
+    elaborateColumns id defs t = do
+      cases <- pushBinderParams defs
+
+      -- Partition cases into patterns with the same parent parameters
+      let patterns = partitionBy hasSameParentParameters cases
+
+      leaves <- traverse (\x -> toEliminator id x t) patterns
+
+      -- Recursively elaborate leaves until singular, non-pattern matched root remains
+      case leaves of
+        []  -> Error SyntaxError $ Just "Empty pattern matching cases"
+        [d] -> if isPatternMatched d
+          then do elaborateColumns id [d] t
+          else return d
+        ds  -> if not $ all isPatternMatched ds
+          then Error SyntaxError $ Just "Empty pattern matching cases"
+          else do elaborateColumns id ds t
+
     partitionBy :: (a -> a -> Bool) -> [a] -> [[a]]
     partitionBy eq = go []
       where
