@@ -40,7 +40,7 @@ toCoreTerm = go []
     go bs (SSum m n)                = Sum (go bs m) (go bs n)
     go bs (SIdFam t)                = IdFam $ go bs t
     go bs (SId t m n)               = Id (fmap (go bs) t) (go bs m) (go bs n)
-    go bs (SInd t m c a)            = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
+    go bs (SInd t m c a)            = Ind (go bs t) (boundTermToCoreTerm bs m) (map (boundTermToCoreTerm bs) c) (go bs a)
     go bs (SUniv i)                 = Univ i
     go bs SBot                      = Bot
     go bs STop                      = Top
@@ -55,9 +55,9 @@ toCoreTerm = go []
     go bs SStar                     = Star
     go bs (SParamTerm ps m)         = go bs $ paramsToBinders ps m
 
-    boundTermToDeBruijn :: Binders -> SourceBoundTerm -> BoundTerm
-    boundTermToDeBruijn bs (SNoBind m) = NoBind $ go bs m
-    boundTermToDeBruijn bs (SBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
+    boundTermToCoreTerm :: Binders -> SourceBoundTerm -> BoundTerm
+    boundTermToCoreTerm bs (SNoBind m) = NoBind $ go bs m
+    boundTermToCoreTerm bs (SBind x m) = Bind (Just x) $ boundTermToCoreTerm (Just x : bs) m
 
 -- TODO: Support nested constructor patterns
 data ConstructorPattern
@@ -89,14 +89,41 @@ elaboratePatternMatchedDefs id defs t = do
   where
     expandDefaultParams :: [SourceTerm] -> CanError [SourceTerm]
     expandDefaultParams defs = do
-      
-      return defs
-    expandDefaultParams 
+      n <- maxColumns defs 0
 
-    expandDefaultParamsInColumn :: [SourceTerm] -> Int -> CanError [SourceTerm]
-    expandDefaultParams defs i = do
-      if isColumnPatternMatched defs i
-      then 
+      expandDefaultParamsInColumns defs n
+
+    expandDefaultParamsInColumns :: [SourceTerm] -> Int -> CanError [SourceTerm]
+    expandDefaultParamsInColumns defs 0 = return defs
+    expandDefaultParamsInColumns defs i = do
+      patternMatched <- isColumnPatternMatched defs i
+      let nextCol = i - 1
+
+      if patternMatched
+      then do
+        expandedColumn <- traverse (`expandDefaultParamsInRow` i) defs
+        expandDefaultParamsInColumns (concat expandedColumn) nextCol
+      else expandDefaultParamsInColumns defs nextCol
+
+    expandDefaultParamsInRow :: SourceTerm -> Int -> CanError [SourceTerm]
+    expandDefaultParamsInRow p@(SParamTerm ps m) i = case ps !? i of
+        Just (BinderParam (x, _, _)) -> do
+          return p
+        Just (Pattern _)             -> return [p]
+        Nothing                      -> Error SyntaxError $ Just "Insufficient parameters"
+    expandDefaultParamsInRow _ _                 = Error SyntaxError $ Just "Invalid pattern matching case"
+
+    getPatternsFromType :: SourceTerm -> CanError [ConstructorPattern]
+    getPatternsFromType STop         = return [CStar]
+    getPatternsFromType SNat         = return [CZero, CSucc $ pack "!n"]
+    getPatternsFromType (SSigma _ _) = return [CPair (pack "!a") (pack "!b")]
+    getPatternsFromType (SSum _ _)   = return [CInl $ pack "!l", CInr $ pack "!r"]
+    getPatternsFromType _                                   = Error SyntaxError $ Just "Not a pattern matched type"
+
+    maxColumns :: [SourceTerm] -> Int -> CanError Int
+    maxColumns [] i                   = return i
+    maxColumns (SParamTerm ps _:ms) i = maxColumns ms $ max i $ length ps
+    maxColumns _ _                    = Error SyntaxError $ Just "Invalid pattern matching case"
 
     elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
     elaborateColumns id defs t = do
@@ -144,7 +171,7 @@ elaboratePatternMatchedDefs id defs t = do
       (Result CZero, Result CZero)             -> True
       (Result (CSucc _), Result (CSucc _))     -> True
       (_, _)                                   -> False
-    
+
     pushBinderParams :: [SourceTerm] -> CanError [SourceTerm]
     pushBinderParams ps = do
       patternMatched <- isColumnPatternMatched ps 0
@@ -157,7 +184,7 @@ elaboratePatternMatchedDefs id defs t = do
       where
         pushParam :: SourceTerm -> CanError SourceTerm
         pushParam (SParamTerm (p:ps) m) = return $ SParamTerm ps $ paramsToBinders [p] m
-        pushParam _                     = Error SyntaxError $ Just "Invalid parameter"
+        pushParam _                     = Error SyntaxError $ Just "Invalid pattern matching case"
 
     isColumnPatternMatched :: [SourceTerm] -> Int -> CanError Bool
     isColumnPatternMatched (SParamTerm ps _:ms) i = case ps !? i of
@@ -191,7 +218,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
       let recursiveCallVar        = pack "!r"
       let recursiveCall           = SApp (applyParams ps $ SVar id) (SVar n, Exp)
       let abstractedRecursiveCall = substituteVarForApplication recursiveCallVar recursiveCall d'
-      
+
       return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
     _                           -> Error SyntaxError $ Just "Invalid pattern matching constructors"
 
