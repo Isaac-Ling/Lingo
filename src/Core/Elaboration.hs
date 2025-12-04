@@ -107,29 +107,33 @@ elaboratePatternMatchedDefs id defs t = do
         expandDefaultParamsInColumns (concat expandedColumn) nextCol
       else expandDefaultParamsInColumns defs nextCol
 
-    expandDefaultParamsInRow :: SourceTerm -> Int -> [ConstructorPattern] -> CanError [SourceTerm]
+    expandDefaultParamsInRow :: SourceTerm -> Int -> [SourceTerm] -> CanError [SourceTerm]
     expandDefaultParamsInRow p@(SParamTerm ps m) i cs = case ps !? i of
-        Just (BinderParam (x, _, _)) -> do
-          -- TODO: Replace this parameter with each constructor in cs and abstract over m with this constructor
-          return [p]
+        Just (BinderParam (x, _, _)) -> return $ map (constructorToAbstractedSourceTerm ps i m x) cs
         Just (Pattern _)             -> return [p]
         Nothing                      -> Error SyntaxError $ Just "Insufficient parameters"
     expandDefaultParamsInRow _ _ _                    = Error SyntaxError $ Just "Invalid pattern matching case"
 
-    getPatternsFromColumn :: [SourceTerm] -> Int -> CanError [ConstructorPattern]
+    constructorToAbstractedSourceTerm :: [Parameter] -> Int -> SourceTerm -> ByteString -> SourceTerm -> SourceTerm
+    constructorToAbstractedSourceTerm ps i m x c = SParamTerm (replaceAt ps i (Pattern c)) $ SApp (SLam (x, Nothing, Exp) m) (c, Exp)
+
+    replaceAt :: [a] -> Int -> a -> [a]    
+    replaceAt xs i x = take i xs ++ [x] ++ drop (i + 1) xs
+
+    getPatternsFromColumn :: [SourceTerm] -> Int -> CanError [SourceTerm]
     getPatternsFromColumn [] _        = Error SyntaxError $ Just "No patterns in column"
     getPatternsFromColumn ((SParamTerm ps m):defs) i = case ps !? i of
       Just (BinderParam _) -> getPatternsFromColumn defs i
-      Just p@(Pattern _)   -> getPatternsFromPattern <$> getConstructorPattern p
+      Just p@(Pattern _)   -> getPatternsFromConstructor <$> getConstructorPattern p
       Nothing              -> Error SyntaxError $ Just "Insufficient parameters"
 
-    getPatternsFromPattern :: ConstructorPattern -> [ConstructorPattern]
-    getPatternsFromPattern CStar       = [CStar]
-    getPatternsFromPattern CZero       = [CZero, CSucc $ pack "!n"]
-    getPatternsFromPattern (CSucc _)   = [CZero, CSucc $ pack "!n"]
-    getPatternsFromPattern (CPair _ _) = [CPair (pack "!a") (pack "!b")]
-    getPatternsFromPattern (CInl _)    = [CInl $ pack "!l", CInr $ pack "!r"]
-    getPatternsFromPattern (CInr _)    = [CInl $ pack "!l", CInr $ pack "!r"]
+    getPatternsFromConstructor :: ConstructorPattern -> [SourceTerm]
+    getPatternsFromConstructor CStar       = [SStar]
+    getPatternsFromConstructor CZero       = [SZero, SSucc $ SVar $ pack "!n"]
+    getPatternsFromConstructor (CSucc _)   = [SZero, SSucc $ SVar $ pack "!n"]
+    getPatternsFromConstructor (CPair _ _) = [SPair (SVar $ pack "!a") (SVar $ pack "!b")]
+    getPatternsFromConstructor (CInl _)    = [SInl $ SVar $ pack "!l", SInr $ SVar $ pack "!r"]
+    getPatternsFromConstructor (CInr _)    = [SInl $ SVar $ pack "!l", SInr $ SVar $ pack "!r"]
 
     maxColumns :: [SourceTerm] -> Int -> CanError Int
     maxColumns [] i                   = return i
