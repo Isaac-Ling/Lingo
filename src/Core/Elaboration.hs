@@ -101,24 +101,35 @@ elaboratePatternMatchedDefs id defs t = do
 
       if patternMatched
       then do
-        expandedColumn <- traverse (`expandDefaultParamsInRow` i) defs
+        patterns       <- getPatternsFromColumn defs i
+        expandedColumn <- traverse (\x -> expandDefaultParamsInRow x i patterns) defs
+
         expandDefaultParamsInColumns (concat expandedColumn) nextCol
       else expandDefaultParamsInColumns defs nextCol
 
-    expandDefaultParamsInRow :: SourceTerm -> Int -> CanError [SourceTerm]
-    expandDefaultParamsInRow p@(SParamTerm ps m) i = case ps !? i of
+    expandDefaultParamsInRow :: SourceTerm -> Int -> [ConstructorPattern] -> CanError [SourceTerm]
+    expandDefaultParamsInRow p@(SParamTerm ps m) i cs = case ps !? i of
         Just (BinderParam (x, _, _)) -> do
-          return p
+          -- TODO: Replace this parameter with each constructor in cs and abstract over m with this constructor
+          return [p]
         Just (Pattern _)             -> return [p]
         Nothing                      -> Error SyntaxError $ Just "Insufficient parameters"
-    expandDefaultParamsInRow _ _                 = Error SyntaxError $ Just "Invalid pattern matching case"
+    expandDefaultParamsInRow _ _ _                    = Error SyntaxError $ Just "Invalid pattern matching case"
 
-    getPatternsFromType :: SourceTerm -> CanError [ConstructorPattern]
-    getPatternsFromType STop         = return [CStar]
-    getPatternsFromType SNat         = return [CZero, CSucc $ pack "!n"]
-    getPatternsFromType (SSigma _ _) = return [CPair (pack "!a") (pack "!b")]
-    getPatternsFromType (SSum _ _)   = return [CInl $ pack "!l", CInr $ pack "!r"]
-    getPatternsFromType _                                   = Error SyntaxError $ Just "Not a pattern matched type"
+    getPatternsFromColumn :: [SourceTerm] -> Int -> CanError [ConstructorPattern]
+    getPatternsFromColumn [] _        = Error SyntaxError $ Just "No patterns in column"
+    getPatternsFromColumn ((SParamTerm ps m):defs) i = case ps !? i of
+      Just (BinderParam _) -> getPatternsFromColumn defs i
+      Just p@(Pattern _)   -> getPatternsFromPattern <$> getConstructorPattern p
+      Nothing              -> Error SyntaxError $ Just "Insufficient parameters"
+
+    getPatternsFromPattern :: ConstructorPattern -> [ConstructorPattern]
+    getPatternsFromPattern CStar       = [CStar]
+    getPatternsFromPattern CZero       = [CZero, CSucc $ pack "!n"]
+    getPatternsFromPattern (CSucc _)   = [CZero, CSucc $ pack "!n"]
+    getPatternsFromPattern (CPair _ _) = [CPair (pack "!a") (pack "!b")]
+    getPatternsFromPattern (CInl _)    = [CInl $ pack "!l", CInr $ pack "!r"]
+    getPatternsFromPattern (CInr _)    = [CInl $ pack "!l", CInr $ pack "!r"]
 
     maxColumns :: [SourceTerm] -> Int -> CanError Int
     maxColumns [] i                   = return i
