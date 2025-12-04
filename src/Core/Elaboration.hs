@@ -89,13 +89,13 @@ elaboratePatternMatchedDefs id defs t = do
   where
     expandDefaultParams :: [SourceTerm] -> CanError [SourceTerm]
     expandDefaultParams defs = do
-      n <- maxColumns defs 0
+      n <- maxColumnIndex defs 0
 
       expandDefaultParamsInColumns defs n
 
     expandDefaultParamsInColumns :: [SourceTerm] -> Int -> CanError [SourceTerm]
-    expandDefaultParamsInColumns defs 0 = return defs
-    expandDefaultParamsInColumns defs i = do
+    expandDefaultParamsInColumns defs (-1) = return defs
+    expandDefaultParamsInColumns defs i    = do
       patternMatched <- isColumnPatternMatched defs i
       let nextCol = i - 1
 
@@ -109,9 +109,9 @@ elaboratePatternMatchedDefs id defs t = do
 
     expandDefaultParamsInRow :: SourceTerm -> Int -> [SourceTerm] -> CanError [SourceTerm]
     expandDefaultParamsInRow p@(SParamTerm ps m) i cs = case ps !? i of
-        Just (BinderParam (x, _, _)) -> return $ map (constructorToAbstractedSourceTerm ps i m x) cs
-        Just (Pattern _)             -> return [p]
-        Nothing                      -> Error SyntaxError $ Just "Insufficient parameters"
+      Just (BinderParam (x, _, _)) -> return $ map (constructorToAbstractedSourceTerm ps i m x) cs
+      Just (Pattern _)             -> return [p]
+      Nothing                      -> Error SyntaxError $ Just "Insufficient parameters"
     expandDefaultParamsInRow _ _ _                    = Error SyntaxError $ Just "Invalid pattern matching case"
 
     constructorToAbstractedSourceTerm :: [Parameter] -> Int -> SourceTerm -> ByteString -> SourceTerm -> SourceTerm
@@ -135,10 +135,10 @@ elaboratePatternMatchedDefs id defs t = do
     getPatternsFromConstructor (CInl _)    = [SInl $ SVar $ pack "!l", SInr $ SVar $ pack "!r"]
     getPatternsFromConstructor (CInr _)    = [SInl $ SVar $ pack "!l", SInr $ SVar $ pack "!r"]
 
-    maxColumns :: [SourceTerm] -> Int -> CanError Int
-    maxColumns [] i                   = return i
-    maxColumns (SParamTerm ps _:ms) i = maxColumns ms $ max i $ length ps
-    maxColumns _ _                    = Error SyntaxError $ Just "Invalid pattern matching case"
+    maxColumnIndex :: [SourceTerm] -> Int -> CanError Int
+    maxColumnIndex [] i                   = return i
+    maxColumnIndex (SParamTerm ps _:ms) i = maxColumnIndex ms $ max i $ length ps - 1
+    maxColumnIndex _ _                    = Error SyntaxError $ Just "Invalid pattern matching case"
 
     elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
     elaborateColumns id defs t = do
@@ -205,9 +205,9 @@ elaboratePatternMatchedDefs id defs t = do
     isColumnPatternMatched (SParamTerm ps _:ms) i = case ps !? i of
       Just p  -> do
         c <- isColumnPatternMatched ms i
-        return $ isParameterPattern p && c
+        return $ isParameterPattern p || c
       Nothing -> return False
-    isColumnPatternMatched [] _                   = return True
+    isColumnPatternMatched [] _                   = return False
     isColumnPatternMatched _ _                    = Error SyntaxError $ Just "Misaligned patterns"
 
 toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm

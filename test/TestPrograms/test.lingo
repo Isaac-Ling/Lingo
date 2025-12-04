@@ -1,16 +1,3 @@
-sumPattern : {A : U} -> A + A -> A + A -> A
-sumPattern inl(a) t      := a
-sumPattern inr(b) inl(c) := c
-sumPattern inr(b) inr(d) := b
-
-left : Nat + Nat
-left := inl(1)
-
-right : Nat + Nat
-right := inr(9)
-
-#check sumPattern right left
-
 #include "test/TestPrograms/basic"
 #include "test/TestPrograms/bool"
 #include "test/TestPrograms/terminal"
