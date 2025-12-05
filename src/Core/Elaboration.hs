@@ -156,7 +156,7 @@ elaboratePatternMatchedDefs id defs t = do
           then do elaborateColumns id [d] t
           else return d
         ds  -> if not $ all isPatternMatched ds
-          then Error SyntaxError $ Just "Empty pattern matching cases"
+          then Error SyntaxError $ Just "Failed to collapse pattern tree into single eliminator"
           else do elaborateColumns id ds t
 
     partitionBy :: (a -> a -> Bool) -> [a] -> [[a]]
@@ -216,6 +216,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
   -- Get codomain of function to determine the motive
   codomain <- peelOffNBinders t $ length ps
 
+  -- TODO: apply all prior pi binders in motive against their actual parameter values
   (indType, motive) <- case codomain of
     SPi (Just x, t, _) n  -> return (t, SBind x $ SNoBind n)
     SPi (Nothing, t, _) n -> return (t, SNoBind n)

@@ -28,7 +28,7 @@ multiply succ(m) n := add n (multiply m n)
 #check multiply 2 4
 
 lMul0 : (a : Nat) -> multiply 0 a = 0
-lMul0 a := refl[0]
+lMul0 a := refl
 
 #check lMul0
 
@@ -38,15 +38,19 @@ pow m succ(n) := multiply m (pow m n)
 
 #check pow 2 5
 
+lAddId : (a : Nat) -> add 0 a = a
+lAddId a := refl
+
 rAddId : (a : Nat) -> add a 0 = a
 rAddId 0       := refl
 rAddId succ(n) := lift (\n. succ(n)) (rAddId n)
 
 #check rAddId
 
-addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
-addComm a       0       := rAddId a
-addComm 0       succ(n) := idSymm (rAddId succ(n))
+addComm : (k : Nat) -> (b : Nat) -> add k b = add b k
+addComm 0       0       := refl
+addComm 0       succ(n) := idSymm (rAddId n)
+addComm succ(n) 0       := rAddId n
 addComm succ(m) succ(n) := lift (\n. succ(n)) (addComm succ(m) n)
 
 --addCommLemma : (a : Nat) -> (b : Nat) -> add a succ(b) = add succ(a) b
