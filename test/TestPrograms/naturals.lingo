@@ -1,57 +1,24 @@
 -- Natural Numbers
-a : Nat
-a := 5
-
-#check a
-
-double : Nat -> Nat
-double 0       := 0
-double succ(n) := succ(succ(double n))
-
-#check double a
-
 add : Nat -> Nat -> Nat
 add 0       n := n
 add succ(m) n := succ(add m n)
 
-#check add 2 2
-
-twoPlusTwoIsFour : add 2 2 = 4
-twoPlusTwoIsFour := refl
-
-#check twoPlusTwoIsFour
-
-multiply : Nat -> Nat -> Nat
-multiply 0       n := 0
-multiply succ(m) n := add n (multiply m n)
-
-#check multiply 2 4
-
-lMul0 : (a : Nat) -> multiply 0 a = 0
-lMul0 a := refl
-
-#check lMul0
-
-pow : Nat -> Nat -> Nat
-pow m 0       := 1
-pow m succ(n) := multiply m (pow m n)
-
-#check pow 2 5
-
-lAddId : (a : Nat) -> add 0 a = a
-lAddId a := refl
+congSucc : {a : Nat} -> {b : Nat} -> a = b -> succ(a) = succ(b)
+congSucc := lift (\n. succ(n))
 
 rAddId : (a : Nat) -> add a 0 = a
 rAddId 0       := refl
-rAddId succ(n) := lift (\n. succ(n)) (rAddId n)
+rAddId succ(n) := congSucc (rAddId n)
 
 #check rAddId
 
-addComm : (k : Nat) -> (b : Nat) -> add k b = add b k
+addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
 addComm 0       0       := refl
 addComm 0       succ(n) := idSymm (rAddId n)
-addComm succ(n) 0       := rAddId n
-addComm succ(m) succ(n) := lift (\n. succ(n)) (addComm succ(m) n)
+addComm succ(m) 0       := rAddId succ(m)
+-- TODO: Using a different var name to other case should still work:
+--addComm succ(n) 0       := rAddId n
+addComm succ(m) succ(n) := congSucc (addComm succ(m) n)
 
 --addCommLemma : (a : Nat) -> (b : Nat) -> add a succ(b) = add succ(a) b
 --addCommLemma a b := ind[Nat](n. add n succ(b) = add succ(n) b, refl, m. g. lift (\n. succ(n)) g, a)

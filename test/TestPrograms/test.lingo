@@ -1,6 +1,14 @@
-#include "test/TestPrograms/basic"
-#include "test/TestPrograms/terminal"
-#include "test/TestPrograms/identity"
+lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
+lift f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
+
+idSymm : {A : U} -> {a : A} -> {b : A} -> a = b -> b = a
+idSymm p := ind[=[A]](a. b. p. b = a, z. refl, a, b, p) 
+
 #include "test/TestPrograms/naturals"
+
+
+#include "test/TestPrograms/basic"
+#include "test/TestPrograms/identity"
+#include "test/TestPrograms/terminal"
 #include "test/TestPrograms/bool"
 #include "test/TestPrograms/hott"

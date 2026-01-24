@@ -8,7 +8,6 @@ import Control.Monad ((<=<))
 import Data.List (sortOn, elemIndex, (!?))
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
--- TODO: Check logic of this function
 addImplicitParameters :: SourceTerm -> SourceTerm -> SourceTerm
 addImplicitParameters (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = addImplicitParameter (BinderParam (x, t, Imp)) $ addImplicitParameters m n
 addImplicitParameters m (SPi (Just x, t, Imp) n)               = addImplicitParameter (BinderParam (x, Just t, Imp)) $ addImplicitParameters m n
@@ -156,7 +155,7 @@ elaboratePatternMatchedDefs id defs t = do
           then do elaborateColumns id [d] t
           else return d
         ds  -> if not $ all isPatternMatched ds
-          then Error SyntaxError $ Just "Failed to collapse pattern tree into single eliminator"
+          then Error SyntaxError $ Just "Failed to collapse case tree into single eliminator"
           else do elaborateColumns id ds t
 
     partitionBy :: (a -> a -> Bool) -> [a] -> [[a]]
@@ -214,9 +213,8 @@ toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
 toEliminator id [] _                               = Error SyntaxError $ Just "Empty pattern matching cases"
 toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
   -- Get codomain of function to determine the motive
-  codomain <- peelOffNBinders t $ length ps
+  codomain <- subParamsInType t $ reverse ps
 
-  -- TODO: apply all prior pi binders in motive against their actual parameter values
   (indType, motive) <- case codomain of
     SPi (Just x, t, _) n  -> return (t, SBind x $ SNoBind n)
     SPi (Nothing, t, _) n -> return (t, SNoBind n)
@@ -252,15 +250,44 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
     applyParams ((BinderParam (x, _, ex)):ps) m = applyParams ps $ SApp m (SVar x, ex)
     applyParams ((Pattern pat):ps) m            = applyParams ps $ SApp m (pat, Exp)
 
-    peelOffNBinders :: SourceTerm -> Int -> CanError SourceTerm
-    peelOffNBinders m n
-      | n <= 0    = return m
-      | otherwise = go [] m n
+    subParamsInType :: SourceTerm -> [Parameter] -> CanError SourceTerm
+    subParamsInType m []                           = return m
+    subParamsInType (SPi (Nothing, _, _) m) (_:ps) = subParamsInType m ps
+    subParamsInType (SPi (Just x, _, _) m) (p:ps)  = do
+      t <- parameterToTerm p
+      subParamsInType (subParamInType t x m) ps
       where
-        go :: [SourcePiBinder] -> SourceTerm -> Int -> CanError SourceTerm
-        go bs m 0                   = return m
-        go bs (SPi (x, t, ex) m) n  = go bs m (n - 1)
-        go bs m n                   = Error SyntaxError $ Just "Insufficient binders in type"
+        parameterToTerm :: Parameter -> CanError SourceTerm
+        parameterToTerm (Pattern m)             = return m
+        parameterToTerm (BinderParam (x, _, _)) = return $ SVar x
+
+        -- TODO: Avoid variable capture, e.g. subbing succ(n) in could capture n
+        subParamInType :: SourceTerm -> ByteString -> SourceTerm -> SourceTerm
+        subParamInType m x (SVar y)
+          | x == y    = m
+          | otherwise = SVar y
+        subParamInType m x (SLam (y, Just t, ex) n)  = SLam (y, Just $ subParamInType m x t, ex) (subParamInType m x n)
+        subParamInType m x (SLam (y, Nothing, ex) n) = SLam (y, Nothing, ex) (subParamInType m x n)
+        subParamInType m x (SPi (y, t, ex) n)        = SPi (y, subParamInType m x t, ex) (subParamInType m x n)
+        subParamInType m x (SSigma (y, t) n)         = SSigma (y, subParamInType m x t) (subParamInType m x n)
+        subParamInType m x (SPair t n)               = SPair (subParamInType m x t) (subParamInType m x n)
+        subParamInType m x (SIdFam t)                = SIdFam $ subParamInType m x t
+        subParamInType m x (SId mt t n)              = SId (fmap (subParamInType m x) mt) (subParamInType m x t) (subParamInType m x n)
+        subParamInType m x (SSum t n)                = SSum (subParamInType m x t) (subParamInType m x n)
+        subParamInType m x (SApp t (n, ex))          = SApp (subParamInType m x t) (subParamInType m x n, ex)
+        subParamInType m x (SInl n)                  = SInl $ subParamInType m x n
+        subParamInType m x (SInr n)                  = SInr $ subParamInType m x n
+        subParamInType m x (SRefl n)                 = SRefl $ fmap (subParamInType m x) n
+        subParamInType m x (SSucc n)                 = SSucc $ subParamInType m x n
+        subParamInType m x (SFunext p)               = SFunext $ subParamInType m x p
+        subParamInType m x (SUnivalence a)           = SUnivalence $ subParamInType m x a
+        subParamInType m x (SInd t m' c a)           = SInd (subParamInType m x t) (subParamInBoundType m x m') (map (subParamInBoundType m x) c) (subParamInType m x a)
+          where
+            subParamInBoundType :: SourceTerm -> ByteString -> SourceBoundTerm -> SourceBoundTerm
+            subParamInBoundType m x (SNoBind n) = SNoBind (subParamInType m x n)
+            subParamInBoundType m x (SBind y n) = SBind y (subParamInBoundType m x n)
+        subParamInType m x n                         = n
+    subParamsInType _ _                            = Error SyntaxError $ Just "Insufficient binders in type"
 
     substituteVarForApplication :: ByteString -> SourceTerm -> SourceTerm -> SourceTerm
     substituteVarForApplication y m (SApp t (n, ex))          = if SApp t (n, ex) == m
