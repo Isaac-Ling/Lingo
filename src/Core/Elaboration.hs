@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 module Core.Elaboration where
 
 import Core.Term
@@ -7,6 +9,7 @@ import Parsing.Parser
 import Control.Monad ((<=<))
 import Data.List (sortOn, elemIndex, (!?))
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
+import Control.Monad.State.Lazy
 
 addImplicitParameters :: SourceTerm -> SourceTerm -> SourceTerm
 addImplicitParameters (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = addImplicitParameter (BinderParam (x, t, Imp)) $ addImplicitParameters m n
@@ -77,22 +80,43 @@ getConstructorPattern (Pattern SZero)                     = return CZero
 getConstructorPattern (Pattern (SSucc (SVar n)))          = return $ CSucc n
 getConstructorPattern _                                   = Error SyntaxError $ Just "Invalid pattern matching constructor"
 
+data PatternMatchState = PatternMatchState
+  { freshVarID :: Int
+  }
+
+type PatternMatch a = StateT PatternMatchState CanError a
+
+getFreshVar :: String -> PatternMatch ByteString
+getFreshVar x = do
+  st <- get
+  let i = freshVarID st
+  put $ st { freshVarID = i + 1 }
+  return $ pack ("!" ++ x ++ show i)
+
+patternSyntaxError :: Maybe String -> PatternMatch a
+patternSyntaxError ms = lift $ Error SyntaxError ms
+
 elaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
-elaboratePatternMatchedDefs id [] _   = Error SyntaxError $ Just "Empty pattern matching cases"
-elaboratePatternMatchedDefs id defs t = do
-  -- Expand default paramaters into cases to get full pattern tree
+elaboratePatternMatchedDefs id defs t = evalStateT (goElaboratePatternMatchedDefs id defs t) st
+  where
+    st = PatternMatchState { freshVarID=0 }
+
+goElaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> PatternMatch SourceTerm
+goElaboratePatternMatchedDefs _ [] _    = patternSyntaxError $ Just "Empty pattern matching cases"
+goElaboratePatternMatchedDefs id defs t = do
+  -- Expand default paramaters into cases to get full case tree
   cases <- expandDefaultParams defs
 
   -- Elaborate each column starting from the leaves
   elaborateColumns id cases t
   where
-    expandDefaultParams :: [SourceTerm] -> CanError [SourceTerm]
+    expandDefaultParams :: [SourceTerm] -> PatternMatch [SourceTerm]
     expandDefaultParams defs = do
       n <- maxColumnIndex defs 0
 
       expandDefaultParamsInColumns defs n
 
-    expandDefaultParamsInColumns :: [SourceTerm] -> Int -> CanError [SourceTerm]
+    expandDefaultParamsInColumns :: [SourceTerm] -> Int -> PatternMatch [SourceTerm]
     expandDefaultParamsInColumns defs (-1) = return defs
     expandDefaultParamsInColumns defs i    = do
       patternMatched <- isColumnPatternMatched defs i
@@ -106,12 +130,13 @@ elaboratePatternMatchedDefs id defs t = do
         expandDefaultParamsInColumns (concat expandedColumn) nextCol
       else expandDefaultParamsInColumns defs nextCol
 
-    expandDefaultParamsInRow :: SourceTerm -> Int -> [SourceTerm] -> CanError [SourceTerm]
+    expandDefaultParamsInRow :: SourceTerm -> Int -> [SourceTerm] -> PatternMatch [SourceTerm]
     expandDefaultParamsInRow p@(SParamTerm ps m) i cs = case ps !? i of
+      -- Abstract over the default parameter with the expanded patterns
       Just (BinderParam (x, _, _)) -> return $ map (constructorToAbstractedSourceTerm ps i m x) cs
       Just (Pattern _)             -> return [p]
-      Nothing                      -> Error SyntaxError $ Just "Insufficient parameters"
-    expandDefaultParamsInRow _ _ _                    = Error SyntaxError $ Just "Invalid pattern matching case"
+      Nothing                      -> patternSyntaxError $ Just "Insufficient parameters"
+    expandDefaultParamsInRow _ _ _                    = patternSyntaxError $ Just "Invalid pattern matching case"
 
     constructorToAbstractedSourceTerm :: [Parameter] -> Int -> SourceTerm -> ByteString -> SourceTerm -> SourceTerm
     constructorToAbstractedSourceTerm ps i m x c = SParamTerm (replaceAt ps i (Pattern c)) $ SApp (SLam (x, Nothing, Exp) m) (c, Exp)
@@ -119,27 +144,42 @@ elaboratePatternMatchedDefs id defs t = do
     replaceAt :: [a] -> Int -> a -> [a]    
     replaceAt xs i x = take i xs ++ [x] ++ drop (i + 1) xs
 
-    getPatternsFromColumn :: [SourceTerm] -> Int -> CanError [SourceTerm]
-    getPatternsFromColumn [] _        = Error SyntaxError $ Just "No patterns in column"
+    getPatternsFromColumn :: [SourceTerm] -> Int -> PatternMatch [SourceTerm]
+    getPatternsFromColumn [] _        = patternSyntaxError $ Just "No patterns in column"
     getPatternsFromColumn ((SParamTerm ps m):defs) i = case ps !? i of
       Just (BinderParam _) -> getPatternsFromColumn defs i
-      Just p@(Pattern _)   -> getPatternsFromConstructor <$> getConstructorPattern p
-      Nothing              -> Error SyntaxError $ Just "Insufficient parameters"
+      Just p@(Pattern _)   -> do
+        p <- lift $ getConstructorPattern p
+        getPatternsFromConstructor p
+      Nothing              -> patternSyntaxError $ Just "Insufficient parameters"
 
-    getPatternsFromConstructor :: ConstructorPattern -> [SourceTerm]
-    getPatternsFromConstructor CStar       = [SStar]
-    getPatternsFromConstructor CZero       = [SZero, SSucc $ SVar $ pack "!n"]
-    getPatternsFromConstructor (CSucc _)   = [SZero, SSucc $ SVar $ pack "!n"]
-    getPatternsFromConstructor (CPair _ _) = [SPair (SVar $ pack "!a") (SVar $ pack "!b")]
-    getPatternsFromConstructor (CInl _)    = [SInl $ SVar $ pack "!l", SInr $ SVar $ pack "!r"]
-    getPatternsFromConstructor (CInr _)    = [SInl $ SVar $ pack "!l", SInr $ SVar $ pack "!r"]
+    getPatternsFromConstructor :: ConstructorPattern -> PatternMatch [SourceTerm]
+    getPatternsFromConstructor CStar       = return [SStar]
+    getPatternsFromConstructor CZero       = do
+      id <- getFreshVar "n"
+      return [SZero, SSucc $ SVar id]
+    getPatternsFromConstructor (CSucc _)   = do
+      id <- getFreshVar "n"
+      return [SZero, SSucc $ SVar id]
+    getPatternsFromConstructor (CPair _ _) = do
+      id1 <- getFreshVar "a"
+      id2 <- getFreshVar "b"
+      return [SPair (SVar id1) (SVar id2)]
+    getPatternsFromConstructor (CInl _)    = do
+      id1 <- getFreshVar "a"
+      id2 <- getFreshVar "b"
+      return [SInl $ SVar id1, SInr $ SVar id2]
+    getPatternsFromConstructor (CInr _)    = do
+      id1 <- getFreshVar "l"
+      id2 <- getFreshVar "r"
+      return[SInl $ SVar id1, SInr $ SVar id2]
 
-    maxColumnIndex :: [SourceTerm] -> Int -> CanError Int
+    maxColumnIndex :: [SourceTerm] -> Int -> PatternMatch Int
     maxColumnIndex [] i                   = return i
     maxColumnIndex (SParamTerm ps _:ms) i = maxColumnIndex ms $ max i $ length ps - 1
-    maxColumnIndex _ _                    = Error SyntaxError $ Just "Invalid pattern matching case"
+    maxColumnIndex _ _                    = patternSyntaxError $ Just "Invalid pattern matching case"
 
-    elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
+    elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> PatternMatch SourceTerm
     elaborateColumns id defs t = do
       cases <- pushBinderParams defs
 
@@ -150,12 +190,12 @@ elaboratePatternMatchedDefs id defs t = do
 
       -- Recursively elaborate leaves until singular, non-pattern matched root remains
       case leaves of
-        []  -> Error SyntaxError $ Just "Empty pattern matching cases"
+        []  -> patternSyntaxError $ Just "Empty pattern matching cases"
         [d] -> if isPatternMatched d
           then do elaborateColumns id [d] t
           else return d
         ds  -> if not $ all isPatternMatched ds
-          then Error SyntaxError $ Just "Failed to collapse case tree into single eliminator"
+          then patternSyntaxError $ Just "Failed to collapse case tree into single eliminator"
           else do elaborateColumns id ds t
 
     partitionBy :: (a -> a -> Bool) -> [a] -> [[a]]
@@ -186,7 +226,7 @@ elaboratePatternMatchedDefs id defs t = do
       (Result (CSucc _), Result (CSucc _))     -> True
       (_, _)                                   -> False
 
-    pushBinderParams :: [SourceTerm] -> CanError [SourceTerm]
+    pushBinderParams :: [SourceTerm] -> PatternMatch [SourceTerm]
     pushBinderParams ps = do
       patternMatched <- isColumnPatternMatched ps 0
 
@@ -196,21 +236,21 @@ elaboratePatternMatchedDefs id defs t = do
         pushBinderParams pushedBinders
       else return ps
       where
-        pushParam :: SourceTerm -> CanError SourceTerm
+        pushParam :: SourceTerm -> PatternMatch SourceTerm
         pushParam (SParamTerm (p:ps) m) = return $ SParamTerm ps $ paramsToBinders [p] m
-        pushParam _                     = Error SyntaxError $ Just "Invalid pattern matching case"
+        pushParam _                     = patternSyntaxError $ Just "Invalid pattern matching case"
 
-    isColumnPatternMatched :: [SourceTerm] -> Int -> CanError Bool
+    isColumnPatternMatched :: [SourceTerm] -> Int -> PatternMatch Bool
     isColumnPatternMatched (SParamTerm ps _:ms) i = case ps !? i of
       Just p  -> do
         c <- isColumnPatternMatched ms i
         return $ isParameterPattern p || c
       Nothing -> return False
     isColumnPatternMatched [] _                   = return False
-    isColumnPatternMatched _ _                    = Error SyntaxError $ Just "Misaligned patterns"
+    isColumnPatternMatched _ _                    = patternSyntaxError $ Just "Misaligned patterns"
 
-toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
-toEliminator id [] _                               = Error SyntaxError $ Just "Empty pattern matching cases"
+toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> PatternMatch SourceTerm
+toEliminator id [] _                               = patternSyntaxError $ Just "Empty pattern matching cases"
 toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
   -- Get codomain of function to determine the motive
   codomain <- subParamsInType t $ reverse ps
@@ -218,46 +258,45 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
   (indType, motive) <- case codomain of
     SPi (Just x, t, _) n  -> return (t, SBind x $ SNoBind n)
     SPi (Nothing, t, _) n -> return (t, SNoBind n)
-    _                     -> Error TypeMismatch $ Just "Pattern matched function is not a Pi Type"
+    _                     -> patternSyntaxError $ Just "Pattern matched function is not a Pi Type"
 
   patterns <- traverse getPattern cases
 
-  -- TODO: Lambda abstract over all parameters to ensure different parameter names don't become free
   -- Match constructor patterns against exhaustive list
   ind <- case sortOn fst patterns of
     [(CStar, d)]                -> return $ SInd indType motive [SNoBind d] (SVar $ pack "!p")
     [(CPair a b, d)]            -> return $ SInd indType motive [SBind a $ SBind b $ SNoBind d] (SVar $ pack "!p")
     [(CInl a, d), (CInr b, d')] -> return $ SInd indType motive [SBind a $ SNoBind d, SBind b $ SNoBind d'] (SVar $ pack "!p")
     [(CZero, d), (CSucc n, d')] -> do
-      let recursiveCallVar        = pack "!r"
+      recursiveCallVar <- getFreshVar "r"
       let recursiveCall           = SApp (applyParams ps $ SVar id) (SVar n, Exp)
       let abstractedRecursiveCall = substituteVarForApplication recursiveCallVar recursiveCall d'
 
       return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
-    _                           -> Error SyntaxError $ Just "Invalid pattern matching constructors"
+    _                           -> patternSyntaxError $ Just "Invalid pattern matching constructors"
 
   -- Return eliminator term
   return $ SParamTerm (BinderParam (pack "!p", Just indType, Exp) : ps) ind
   where
-    getPattern :: SourceTerm -> CanError (ConstructorPattern, SourceTerm)
+    getPattern :: SourceTerm -> PatternMatch (ConstructorPattern, SourceTerm)
     getPattern (SParamTerm (p:_) m) = do
-      consPattern <- getConstructorPattern p
+      consPattern <- lift $ getConstructorPattern p
       return (consPattern, m)
-    getPattern _                     = Error SyntaxError $ Just "Term is not a pattern"
+    getPattern _                     = patternSyntaxError $ Just "Term is not a pattern"
 
     applyParams :: [Parameter] -> SourceTerm -> SourceTerm
     applyParams [] m                            = m
     applyParams ((BinderParam (x, _, ex)):ps) m = applyParams ps $ SApp m (SVar x, ex)
     applyParams ((Pattern pat):ps) m            = applyParams ps $ SApp m (pat, Exp)
 
-    subParamsInType :: SourceTerm -> [Parameter] -> CanError SourceTerm
+    subParamsInType :: SourceTerm -> [Parameter] -> PatternMatch SourceTerm
     subParamsInType m []                           = return m
     subParamsInType (SPi (Nothing, _, _) m) (_:ps) = subParamsInType m ps
     subParamsInType (SPi (Just x, _, _) m) (p:ps)  = do
       t <- parameterToTerm p
       subParamsInType (subParamInType t x m) ps
       where
-        parameterToTerm :: Parameter -> CanError SourceTerm
+        parameterToTerm :: Parameter -> PatternMatch SourceTerm
         parameterToTerm (Pattern m)             = return m
         parameterToTerm (BinderParam (x, _, _)) = return $ SVar x
 
@@ -287,7 +326,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
             subParamInBoundType m x (SNoBind n) = SNoBind (subParamInType m x n)
             subParamInBoundType m x (SBind y n) = SBind y (subParamInBoundType m x n)
         subParamInType m x n                         = n
-    subParamsInType _ _                            = Error SyntaxError $ Just "Insufficient binders in type"
+    subParamsInType _ _                            = patternSyntaxError $ Just "Insufficient binders in type"
 
     substituteVarForApplication :: ByteString -> SourceTerm -> SourceTerm -> SourceTerm
     substituteVarForApplication y m (SApp t (n, ex))          = if SApp t (n, ex) == m
@@ -313,7 +352,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
         substituteVarForApplicationInBoundTerm y m (SNoBind n) = SNoBind (substituteVarForApplication y m n)
         substituteVarForApplicationInBoundTerm y m (SBind x n) = SBind x (substituteVarForApplicationInBoundTerm y m n)
     substituteVarForApplication y m n                        = n
-toEliminator _ _ _                                = Error SyntaxError $ Just "Invalid pattern matching cases"
+toEliminator _ _ _                                = patternSyntaxError $ Just "Invalid pattern matching cases"
 
 isParameterPattern :: Parameter -> Bool
 isParameterPattern (Pattern _) = True
