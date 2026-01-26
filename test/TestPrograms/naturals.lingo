@@ -60,7 +60,7 @@ moveSucc succ(m) n := congSucc (moveSucc m n)
 addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
 addComm 0       0       := refl
 addComm 0       succ(n) := idSymm (rAddId succ(n))
-addComm succ(m) 0       := rAddId succ(m)
+addComm succ(n) 0       := rAddId succ(n)
 addComm succ(m) succ(n) := idSymm (congSucc (idTrans (idSymm (addComm succ(m) n)) (moveSucc m n)))
 
 #type addComm

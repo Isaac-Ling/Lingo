@@ -7,6 +7,9 @@ import Core.Program
 import Parsing.Parser (parse)
 import System.Directory (makeAbsolute)
 
+import System.Clock
+import Control.Monad (when)
+import Control.Exception (evaluate)
 import System.Environment (getArgs)
 
 main :: IO ()
@@ -33,6 +36,7 @@ executeArgs args = go args [] Nothing
         Just _ -> exitWith $ Error InvalidCommandLineArgsProvided $ Just "Multiple source files provided"
         _      -> go as opts $ Just f
       (ArgHideImplicits:as) -> go as (HideImplicits : opts) mf
+      (ArgShowRunTime:as)   -> go as (ShowRunTime : opts) mf
 
 runFile :: FilePath -> Options -> IO ()
 runFile s opts = do
@@ -48,15 +52,26 @@ runFile s opts = do
     err      -> exitWith err
 
   -- Run
-  file <- makeAbsolute s
-  result <- run program file opts
+  file      <- makeAbsolute s
+  startTime <- getTime Monotonic
+  result    <- run program file opts
+  _         <- evaluate result
+  endTime   <- getTime Monotonic
 
   -- Output result
-  exitWith result
+  if ShowRunTime `elem` opts
+  then do
+    let runTime = toNanoSecs $ endTime - startTime
+    exitWithTime runTime result
+  else
+    exitWith result
 
 showHelp :: IO ()
 showHelp = do
   putStrLn "Run Lingo with the following arguments:\n\
-  \  <filename>.lingo - Executes the given Lingo program\n\
-  \  -h               - Displays help information"
-  exitWith (Result ())
+  \  <filename>.lingo <opts> - Executes the given Lingo program\n\
+  \  -h                      - Displays help information\n\
+  \Execution Options:\n\
+  \ --hideImplicits          - Hides elaborated implicit arguments from outputs\n\
+  \ --showRunTime            - Displays the execution time of the program"
+  exitWith $ Result ()

@@ -18,6 +18,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 data Option
   = None
   | HideImplicits
+  | ShowRunTime
   deriving Eq
 
 type Options = [Option]

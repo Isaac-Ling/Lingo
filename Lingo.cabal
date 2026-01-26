@@ -40,6 +40,7 @@ executable lingo
                      , bytestring >= 0.12.1.0
                      , containers >= 0.6.8
                      , mtl >= 2.3.1
+                     , clock >= 0.8 && < 0.9
   build-tool-depends:  alex:alex   >= 3.2.4 && < 4.0
                      , happy:happy >= 1.19.2 && < 2.2.0
   ghc-options:         -main-is Lingo
