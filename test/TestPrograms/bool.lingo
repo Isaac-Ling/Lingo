@@ -26,6 +26,7 @@ boolNot b := ifThenElse b false true
 
 -- Pattern matching
 -- TODO: This fails because injection doesn't specify type??
+-- Use known type from type declaration
 sumPattern : {A : U} -> A + A -> A + A -> A
 sumPattern inl(a) t      := a
 sumPattern inr(b) inl(c) := c

@@ -56,7 +56,6 @@ moveSucc succ(m) n := congSucc (moveSucc m n)
 
 #type moveSucc
 
--- TODO: Using a different var name to other case should still work, but doesn't:
 addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
 addComm 0       0       := refl
 addComm 0       succ(n) := idSymm (rAddId succ(n))

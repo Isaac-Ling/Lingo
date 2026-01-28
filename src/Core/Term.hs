@@ -56,6 +56,10 @@ data SourceTerm
   | SSigma SourceSigmaBinder SourceTerm
   | SInd SourceTerm SourceBoundTerm [SourceBoundTerm] SourceTerm
   | SParamTerm [Parameter] SourceTerm
+  -- Substitution terms are emitted by the elaborator: for each
+  -- pair in the list, the first var will be substituted for the
+  -- second var when converted to a core term
+  | SubstitutionTerm [(ByteString, ByteString)] SourceTerm
   deriving (Show, Eq)
 
 -- Core Terms --

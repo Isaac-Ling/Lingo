@@ -70,7 +70,7 @@ showHelp :: IO ()
 showHelp = do
   putStrLn "Run Lingo with the following arguments:\n\
   \  <filename>.lingo <opts> - Executes the given Lingo program\n\
-  \  -h                      - Displays help information\n\
+  \  --help or -h            - Displays help information\n\
   \Execution Options:\n\
   \ --hideImplicits          - Hides elaborated implicit arguments from outputs\n\
   \ --showRunTime            - Displays the execution time of the program"
