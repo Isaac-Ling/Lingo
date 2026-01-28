@@ -348,7 +348,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
     [(CZero, d), (CSucc n, d')] -> do
       recursiveCallVar <- getFreshVar "r"
       let recursiveCall           = SApp (applyParams ps $ SVar id) (SVar n, Exp)
-      let abstractedRecursiveCall = substituteVarForApplication [] recursiveCallVar recursiveCall d'
+      let abstractedRecursiveCall = substituteVarForRecursiveCall [] [] recursiveCallVar recursiveCall d'
 
       return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
     _                           -> patternSyntaxError $ Just "Invalid pattern matching constructors"
@@ -406,45 +406,43 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
         subParamInType m x n                         = n
     subParamsInType _ _                            = patternSyntaxError $ Just "Insufficient binders in type"
 
-    -- TODO: No substitution should happen for \m. addComm succ(m) n , since the m is bound to the lambda
-    -- and not the parameter
-    substituteVarForApplication :: [(ByteString, ByteString)] -> ByteString -> SourceTerm -> SourceTerm -> SourceTerm
-    substituteVarForApplication subs y m a@(SApp t (n, ex))        = if areApplicationsEqual subs a m
+    substituteVarForRecursiveCall :: [(ByteString, ByteString)] -> [ByteString] -> ByteString -> SourceTerm -> SourceTerm -> SourceTerm
+    substituteVarForRecursiveCall subs bs y m a@(SApp t (n, ex))        = if isApplicationRecursiveCall subs bs a m
       then SVar y
-      else SApp (substituteVarForApplication subs y m t) (substituteVarForApplication subs y m n, ex)
+      else SApp (substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCall subs bs y m n, ex)
       where
-        -- Checks if an application is the same as a recursive call application, taking possible parameter substitutions into account
-        areApplicationsEqual :: [(ByteString, ByteString)] -> SourceTerm -> SourceTerm -> Bool
-        areApplicationsEqual subs (SApp a (b, ex)) (SApp c (d, ex')) = ex == ex' && areApplicationsEqual subs a c && areApplicationsEqual subs b d
-        areApplicationsEqual subs (SVar x) (SVar y)                  = x == y || (x, y) `elem` subs || (y, x) `elem` subs
-        areApplicationsEqual subs STop STop                          = True
-        areApplicationsEqual subs SZero SZero                        = True
-        areApplicationsEqual subs (SSucc a) (SSucc b)                = areApplicationsEqual subs a b
-        areApplicationsEqual subs (SInl a) (SInl b)                  = areApplicationsEqual subs a b
-        areApplicationsEqual subs (SInr a) (SInr b)                  = areApplicationsEqual subs a b
-        areApplicationsEqual subs (SPair a b) (SPair a' b')          = areApplicationsEqual subs a a' && areApplicationsEqual subs b  b'
-        areApplicationsEqual subs _ _                                = False
-    substituteVarForApplication subs y m (SLam (x, Just t, ex) n)  = SLam (x, Just $ substituteVarForApplication subs y m t, ex) (substituteVarForApplication subs y m n)
-    substituteVarForApplication subs y m (SLam (x, Nothing, ex) n) = SLam (x, Nothing, ex) (substituteVarForApplication subs y m n)
-    substituteVarForApplication subs y m (SPi (x, t, ex) n)        = SPi (x, substituteVarForApplication subs y m t, ex) (substituteVarForApplication subs y m n)
-    substituteVarForApplication subs y m (SSigma (x, t) n)         = SSigma (x, substituteVarForApplication subs y m t) (substituteVarForApplication subs y m n)
-    substituteVarForApplication subs y m (SPair t n)               = SPair (substituteVarForApplication subs y m t) (substituteVarForApplication subs y m n)
-    substituteVarForApplication subs y m (SIdFam t)                = SIdFam $ substituteVarForApplication subs y m t
-    substituteVarForApplication subs y m (SId mt t n)              = SId (fmap (substituteVarForApplication subs y m) mt) (substituteVarForApplication subs y m t) (substituteVarForApplication subs y m n)
-    substituteVarForApplication subs y m (SSum t n)                = SSum (substituteVarForApplication subs y m t) (substituteVarForApplication subs y m n)
-    substituteVarForApplication subs y m (SInl n)                  = SInl $ substituteVarForApplication subs y m n
-    substituteVarForApplication subs y m (SInr n)                  = SInr $ substituteVarForApplication subs y m n
-    substituteVarForApplication subs y m (SRefl n)                 = SRefl $ fmap (substituteVarForApplication subs y m) n
-    substituteVarForApplication subs y m (SSucc n)                 = SSucc $ substituteVarForApplication subs y m n
-    substituteVarForApplication subs y m (SFunext p)               = SFunext $ substituteVarForApplication subs y m p
-    substituteVarForApplication subs y m (SUnivalence a)           = SUnivalence $ substituteVarForApplication subs y m a
-    substituteVarForApplication subs y m (SubstitutionTerm ss n)   = SubstitutionTerm ss $ substituteVarForApplication (ss ++ subs) y m n
-    substituteVarForApplication subs y m (SInd t m' c a)           = SInd (substituteVarForApplication subs y m t) (substituteVarForApplicationInBoundTerm subs y m m') (map (substituteVarForApplicationInBoundTerm subs y m) c) (substituteVarForApplication subs y m a)
+        -- Checks if an application is the same as a recursive call application, taking possible parameter substitutions and binders into account
+        isApplicationRecursiveCall :: [(ByteString, ByteString)] -> [ByteString] -> SourceTerm -> SourceTerm -> Bool
+        isApplicationRecursiveCall subs bs (SApp a (b, ex)) (SApp c (d, ex')) = ex == ex' && isApplicationRecursiveCall subs bs a c && isApplicationRecursiveCall subs bs b d
+        isApplicationRecursiveCall subs bs (SVar x) (SVar y)                  = (x == y || (x, y) `elem` subs || (y, x) `elem` subs) && x `notElem` bs
+        isApplicationRecursiveCall subs bs STop STop                          = True
+        isApplicationRecursiveCall subs bs SZero SZero                        = True
+        isApplicationRecursiveCall subs bs (SSucc a) (SSucc b)                = isApplicationRecursiveCall subs bs a b
+        isApplicationRecursiveCall subs bs (SInl a) (SInl b)                  = isApplicationRecursiveCall subs bs a b
+        isApplicationRecursiveCall subs bs (SInr a) (SInr b)                  = isApplicationRecursiveCall subs bs a b
+        isApplicationRecursiveCall subs bs (SPair a b) (SPair a' b')          = isApplicationRecursiveCall subs bs a a' && isApplicationRecursiveCall subs bs b  b'
+        isApplicationRecursiveCall subs bs _ _                                = False
+    substituteVarForRecursiveCall subs bs y m (SLam (x, Just t, ex) n)  = SLam (x, Just $ substituteVarForRecursiveCall subs bs y m t, ex) (substituteVarForRecursiveCall subs (x : bs) y m n)
+    substituteVarForRecursiveCall subs bs y m (SLam (x, Nothing, ex) n) = SLam (x, Nothing, ex) (substituteVarForRecursiveCall subs (x : bs) y m n)
+    substituteVarForRecursiveCall subs bs y m (SPi (x, t, ex) n)        = SPi (x, substituteVarForRecursiveCall subs bs y m t, ex) (substituteVarForRecursiveCall subs (maybe bs (:bs) x) y m n)
+    substituteVarForRecursiveCall subs bs y m (SSigma (x, t) n)         = SSigma (x, substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCall subs (maybe bs (:bs) x) y m n)
+    substituteVarForRecursiveCall subs bs y m (SPair t n)               = SPair (substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCall subs bs y m n)
+    substituteVarForRecursiveCall subs bs y m (SIdFam t)                = SIdFam $ substituteVarForRecursiveCall subs bs y m t
+    substituteVarForRecursiveCall subs bs y m (SId mt t n)              = SId (fmap (substituteVarForRecursiveCall subs bs y m) mt) (substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCall subs bs y m n)
+    substituteVarForRecursiveCall subs bs y m (SSum t n)                = SSum (substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCall subs bs y m n)
+    substituteVarForRecursiveCall subs bs y m (SInl n)                  = SInl $ substituteVarForRecursiveCall subs bs y m n
+    substituteVarForRecursiveCall subs bs y m (SInr n)                  = SInr $ substituteVarForRecursiveCall subs bs y m n
+    substituteVarForRecursiveCall subs bs y m (SRefl n)                 = SRefl $ fmap (substituteVarForRecursiveCall subs bs y m) n
+    substituteVarForRecursiveCall subs bs y m (SSucc n)                 = SSucc $ substituteVarForRecursiveCall subs bs y m n
+    substituteVarForRecursiveCall subs bs y m (SFunext p)               = SFunext $ substituteVarForRecursiveCall subs bs y m p
+    substituteVarForRecursiveCall subs bs y m (SUnivalence a)           = SUnivalence $ substituteVarForRecursiveCall subs bs y m a
+    substituteVarForRecursiveCall subs bs y m (SubstitutionTerm ss n)   = SubstitutionTerm ss $ substituteVarForRecursiveCall (ss ++ subs) bs y m n
+    substituteVarForRecursiveCall subs bs y m (SInd t m' c a)           = SInd (substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCallInBoundTerm subs bs y m m') (map (substituteVarForRecursiveCallInBoundTerm subs bs y m) c) (substituteVarForRecursiveCall subs bs y m a)
       where
-        substituteVarForApplicationInBoundTerm :: [(ByteString, ByteString)] -> ByteString -> SourceTerm -> SourceBoundTerm -> SourceBoundTerm
-        substituteVarForApplicationInBoundTerm subs y m (SNoBind n) = SNoBind (substituteVarForApplication subs y m n)
-        substituteVarForApplicationInBoundTerm subs y m (SBind x n) = SBind x (substituteVarForApplicationInBoundTerm subs y m n)
-    substituteVarForApplication subs y m n                        = n
+        substituteVarForRecursiveCallInBoundTerm :: [(ByteString, ByteString)] -> [ByteString] -> ByteString -> SourceTerm -> SourceBoundTerm -> SourceBoundTerm
+        substituteVarForRecursiveCallInBoundTerm subs bs y m (SNoBind n) = SNoBind (substituteVarForRecursiveCall subs bs y m n)
+        substituteVarForRecursiveCallInBoundTerm subs bs y m (SBind x n) = SBind x (substituteVarForRecursiveCallInBoundTerm subs (x : bs) y m n)
+    substituteVarForRecursiveCall subs bs y m n                        = n
 toEliminator _ _ _                                = patternSyntaxError $ Just "Invalid pattern matching cases"
 
 isParameterPattern :: Parameter -> Bool
