@@ -142,7 +142,6 @@ goElaboratePatternMatchedDefs id defs t = do
     expandDefaultParamsInRow _ _ _                    = patternSyntaxError $ Just "Invalid pattern matching case"
 
     constructorToAbstractedSourceTerm :: [Parameter] -> Int -> SourceTerm -> ByteString -> SourceTerm -> SourceTerm
-    --constructorToAbstractedSourceTerm ps i m x c = SParamTerm (replaceAt ps i (Pattern c)) $ SApp (SLam (x, Nothing, Exp) m) (c, Exp)
     constructorToAbstractedSourceTerm ps i m x c = SParamTerm (replaceAt ps i (Pattern c)) $ SubstitutionTerm [(c, x)] m
 
     replaceAt :: [a] -> Int -> a -> [a]    
