@@ -62,4 +62,4 @@ addComm 0       succ(n) := idSymm (rAddId succ(n))
 addComm succ(n) 0       := rAddId succ(n)
 addComm succ(m) succ(n) := idSymm (congSucc (idTrans (idSymm (addComm succ(m) n)) (moveSucc m n)))
 
-#type addComm
+#check addComm

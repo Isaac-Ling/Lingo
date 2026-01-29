@@ -86,7 +86,7 @@ getConstructorPattern _                                   = Error SyntaxError $ 
 data ElaborateState = ElaborateState
   { freshVarID :: Int
   }
-
+ 
 type Elaborate a = StateT ElaborateState CanError a
 
 getFreshVar :: String -> Elaborate ByteString
@@ -414,7 +414,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
         -- Checks if an application is the same as a recursive call application, taking possible parameter substitutions and binders into account
         isApplicationRecursiveCall :: [(SourceTerm, ByteString)] -> [ByteString] -> SourceTerm -> SourceTerm -> Bool
         isApplicationRecursiveCall subs bs (SApp a (b, ex)) (SApp c (d, ex')) = ex == ex' && isApplicationRecursiveCall subs bs a c && isApplicationRecursiveCall subs bs b d
-        isApplicationRecursiveCall subs bs (SVar x) (SVar y)                  = (x == y || (SVar x, y) `elem` subs || (SVar y, x) `elem` subs) && x `notElem` bs
+        isApplicationRecursiveCall subs bs (SVar x) (SVar y)                  = (x == y || (SVar y, x) `elem` subs) && x `notElem` bs
         isApplicationRecursiveCall subs bs STop STop                          = True
         isApplicationRecursiveCall subs bs SZero SZero                        = True
         isApplicationRecursiveCall subs bs (SSucc a) (SSucc b)                = isApplicationRecursiveCall subs bs a b
@@ -439,7 +439,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
     substituteVarForRecursiveCall subs bs y m (SubstitutionTerm ss n)   = SubstitutionTerm ss $ substituteVarForRecursiveCall (ss ++ subs) bs y m n
     substituteVarForRecursiveCall subs bs y m (SInd t m' c a)           = SInd (substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCallInBoundTerm subs bs y m m') (map (substituteVarForRecursiveCallInBoundTerm subs bs y m) c) (substituteVarForRecursiveCall subs bs y m a)
       where
-        substituteVarForRecursiveCallInBoundTerm :: [(ByteString, ByteString)] -> [ByteString] -> ByteString -> SourceTerm -> SourceBoundTerm -> SourceBoundTerm
+        substituteVarForRecursiveCallInBoundTerm :: [(SourceTerm, ByteString)] -> [ByteString] -> ByteString -> SourceTerm -> SourceBoundTerm -> SourceBoundTerm
         substituteVarForRecursiveCallInBoundTerm subs bs y m (SNoBind n) = SNoBind (substituteVarForRecursiveCall subs bs y m n)
         substituteVarForRecursiveCallInBoundTerm subs bs y m (SBind x n) = SBind x (substituteVarForRecursiveCallInBoundTerm subs (x : bs) y m n)
     substituteVarForRecursiveCall subs bs y m n                        = n
