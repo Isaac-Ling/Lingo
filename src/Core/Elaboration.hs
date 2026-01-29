@@ -58,7 +58,7 @@ toCoreTerm = go []
     go bs SStar                            = Star
     go bs (SParamTerm ps m)                = go bs $ paramsToBinders ps m
     go bs (SubstitutionTerm [] m)          = go bs m
-    go bs (SubstitutionTerm ((x, y):ss) m) = beta $ go bs $ SubstitutionTerm ss $ SApp (SLam (y, Nothing, Exp) m) (SVar x, Exp)
+    go bs (SubstitutionTerm ((x, y):ss) m) = beta $ go bs $ SubstitutionTerm ss $ SApp (SLam (y, Nothing, Exp) m) (x, Exp)
 
     boundTermToCoreTerm :: Binders -> SourceBoundTerm -> BoundTerm
     boundTermToCoreTerm bs (SNoBind m) = NoBind $ go bs m
@@ -142,7 +142,8 @@ goElaboratePatternMatchedDefs id defs t = do
     expandDefaultParamsInRow _ _ _                    = patternSyntaxError $ Just "Invalid pattern matching case"
 
     constructorToAbstractedSourceTerm :: [Parameter] -> Int -> SourceTerm -> ByteString -> SourceTerm -> SourceTerm
-    constructorToAbstractedSourceTerm ps i m x c = SParamTerm (replaceAt ps i (Pattern c)) $ SApp (SLam (x, Nothing, Exp) m) (c, Exp)
+    --constructorToAbstractedSourceTerm ps i m x c = SParamTerm (replaceAt ps i (Pattern c)) $ SApp (SLam (x, Nothing, Exp) m) (c, Exp)
+    constructorToAbstractedSourceTerm ps i m x c = SParamTerm (replaceAt ps i (Pattern c)) $ SubstitutionTerm [(c, x)] m
 
     replaceAt :: [a] -> Int -> a -> [a]    
     replaceAt xs i x = take i xs ++ [x] ++ drop (i + 1) xs
@@ -239,7 +240,6 @@ goElaboratePatternMatchedDefs id defs t = do
                   normalisedBinders <- replicateM (length x) (getFreshVar "a")
                   traverse (\m -> useFreshBinders m i normalisedBinders) ms 
                 _             -> patternSyntaxError $ Just "Mismatched constructors"
-              
             else do
               return ms
 
@@ -267,7 +267,7 @@ goElaboratePatternMatchedDefs id defs t = do
 
           let ps' = replaceAt ps i (Pattern c)
 
-          return $ SParamTerm ps' $ SubstitutionTerm (zip xs ys) m
+          return $ SParamTerm ps' $ SubstitutionTerm (zip (map SVar xs) ys) m
         useFreshBinders _ _ _                  = patternSyntaxError $ Just "Term is not a parameterised term"
 
         getBindersInColumn :: [SourceTerm] -> Int -> [[ByteString]] -> Elaborate [[ByteString]]
@@ -406,15 +406,15 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
         subParamInType m x n                         = n
     subParamsInType _ _                            = patternSyntaxError $ Just "Insufficient binders in type"
 
-    substituteVarForRecursiveCall :: [(ByteString, ByteString)] -> [ByteString] -> ByteString -> SourceTerm -> SourceTerm -> SourceTerm
+    substituteVarForRecursiveCall :: [(SourceTerm, ByteString)] -> [ByteString] -> ByteString -> SourceTerm -> SourceTerm -> SourceTerm
     substituteVarForRecursiveCall subs bs y m a@(SApp t (n, ex))        = if isApplicationRecursiveCall subs bs a m
       then SVar y
       else SApp (substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCall subs bs y m n, ex)
       where
         -- Checks if an application is the same as a recursive call application, taking possible parameter substitutions and binders into account
-        isApplicationRecursiveCall :: [(ByteString, ByteString)] -> [ByteString] -> SourceTerm -> SourceTerm -> Bool
+        isApplicationRecursiveCall :: [(SourceTerm, ByteString)] -> [ByteString] -> SourceTerm -> SourceTerm -> Bool
         isApplicationRecursiveCall subs bs (SApp a (b, ex)) (SApp c (d, ex')) = ex == ex' && isApplicationRecursiveCall subs bs a c && isApplicationRecursiveCall subs bs b d
-        isApplicationRecursiveCall subs bs (SVar x) (SVar y)                  = (x == y || (x, y) `elem` subs || (y, x) `elem` subs) && x `notElem` bs
+        isApplicationRecursiveCall subs bs (SVar x) (SVar y)                  = (x == y || (SVar x, y) `elem` subs || (SVar y, x) `elem` subs) && x `notElem` bs
         isApplicationRecursiveCall subs bs STop STop                          = True
         isApplicationRecursiveCall subs bs SZero SZero                        = True
         isApplicationRecursiveCall subs bs (SSucc a) (SSucc b)                = isApplicationRecursiveCall subs bs a b
