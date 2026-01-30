@@ -88,7 +88,7 @@ beta (App (Lam _ m) (n, _)) = bumpDown $ open (bumpUp n) m
 beta m                      = m
 
 equal :: Environment -> Term -> Term -> Bool
-equal env m n = resolve env m == resolve env n
+equal env m n = unfold env m == unfold env n
 
 -- Equality of terms is modulo alpha-beta-eta equivalence
 instance Eq Term where

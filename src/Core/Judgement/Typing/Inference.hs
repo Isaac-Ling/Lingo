@@ -94,7 +94,7 @@ goInferType (App m (n, ex))                           = do
     _                       ->
       goInferType m
 
-  inferAppType em (n, ex) $ eval $ resolve (env ctxs) mt
+  inferAppType em (n, ex) $ eval $ unfold (env ctxs) mt
   where
     inferAppType :: Term -> (Term, Explicitness) -> Term -> TypeCheck (Term, Term)
     inferAppType m (n, ex') mt = do
@@ -130,7 +130,7 @@ goInferType (App m (n, ex))                           = do
           -- statements matching universes
           mtype <- case (mit, ntt) of
             (Univ i, Univ j)    -> return $ Univ $ max i j
-            (_, _)              -> typeError TypeMismatch $ Just ("Unable to resolve type of meta " ++ show (Var $ Meta i sp))
+            (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show (Var $ Meta i sp))
           mv <- createMetaVar mtype $ bctx ctxs
 
           -- Refine the meta to be a pi type
@@ -182,7 +182,7 @@ goInferType (Funext p)                                = do
 
   (ep, pt) <- goInferTypeAndElab p
 
-  case eval $ resolve (env ctxs) pt of
+  case eval $ unfold (env ctxs) pt of
     Pi _ (Id _ (App f (Var (Bound 0), Exp)) (App g (Var (Bound 0), Exp))) -> do
       goInferType pt
       return (Funext ep, Id Nothing (bumpDown f) (bumpDown g))
@@ -203,7 +203,7 @@ goInferType (IdFam t)                                 = do
 
   (et, tt) <- goInferTypeAndElab t
 
-  case eval $ resolve (env ctxs) tt of
+  case eval $ unfold (env ctxs) tt of
     Univ i -> return (IdFam et, Pi (Nothing, et, Exp) $ Pi (Nothing, et, Exp) tt)
     _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
@@ -484,13 +484,13 @@ goInferEvaluatedType m = do
   ctxs <- ask
 
   (em, mt) <- goInferTypeAndElab m
-  return (em, eval $ resolve (env ctxs) mt)
+  return (em, eval $ unfold (env ctxs) mt)
 
 goCheckEvaluatedType :: Term -> Term -> TypeCheck (Term, Term)
 goCheckEvaluatedType m t = do
   ctxs <- ask
 
-  goCheckType m (eval $ resolve (env ctxs) t)
+  goCheckType m (eval $ unfold (env ctxs) t)
 
 instantiateImplicits :: Term -> Term -> TypeCheck (Term, Term)
 instantiateImplicits m@(Lam (_, _, Imp) _) mt@(Pi (_, _, Imp) _) = return (m, mt)

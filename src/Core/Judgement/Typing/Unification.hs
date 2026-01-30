@@ -264,9 +264,9 @@ solveConstraints env ctx mctx cs = do
       ctxs <- ask
 
       -- Try resolving terms to see if that changes them, if so try to decompose the
-      -- resolved terms
-      let em  = eval $ resolve (uenv ctxs) m
-      let em' = eval $ resolve (uenv ctxs) m'
+      -- unfoldd terms
+      let em  = eval $ unfold (uenv ctxs) m
+      let em' = eval $ unfold (uenv ctxs) m'
 
       if em /= m || em' /= m'
       then decompose bc em em'

@@ -94,7 +94,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       let m = toCoreTerm m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
 
-      let erf = eval $ resolve (rtenv ctxs) f
+      let erf = eval $ unfold (rtenv ctxs) f
       let et = eval t
 
       liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf ++ " : " ++ showTerm et)
@@ -116,7 +116,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
       let m = toCoreTerm m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-      let erf = eval $ resolve (rtenv ctxs) f
+      let erf = eval $ unfold (rtenv ctxs) f
       liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf)
 
       go ds

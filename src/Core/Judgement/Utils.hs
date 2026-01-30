@@ -10,33 +10,33 @@ import Data.Maybe (fromMaybe)
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 import qualified Data.Set as Set
 
-resolve :: Environment -> Term -> Term
-resolve env (Var (Free x))           = case lookup x env of
-  Just m  -> resolve env m
+unfold :: Environment -> Term -> Term
+unfold env (Var (Free x))           = case lookup x env of
+  Just m  -> unfold env m
   Nothing -> Var $ Free x
-resolve env (Var (Meta i sp))        = Var $ Meta i sp
-resolve env (Var (Bound i))          = Var $ Bound i
-resolve env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (resolve env m)
-resolve env (Lam (x, Just t, ex) m)  = Lam (x, Just $ resolve env t, ex) (resolve env m)
-resolve env (Pi (x, t, ex) m)        = Pi (x, resolve env t, ex) (resolve env m)
-resolve env (Sigma (x, t) m)         = Sigma (x, resolve env t) (resolve env m)
-resolve env (App m (n, ex))          = App (resolve env m) (resolve env n, ex)
-resolve env (Pair m n)               = Pair (resolve env m) (resolve env n)
-resolve env (Sum m n)                = Sum (resolve env m) (resolve env n)
-resolve env (Inl m)                  = Inl $ resolve env m
-resolve env (Inr m)                  = Inr $ resolve env m
-resolve env (Refl m)                 = Refl $ fmap (resolve env) m
-resolve env (Succ m)                 = Succ $ resolve env m
-resolve env (IdFam t)                = IdFam $ resolve env t
-resolve env (Funext p)               = Funext $ resolve env p
-resolve env (Univalence a)           = Univalence $ resolve env a
-resolve env (Id mt m n)              = Id (fmap (resolve env) mt) (resolve env m) (resolve env n)
-resolve env (Ind t m c a)            = Ind (resolve env t) (resolveBoundTerm env m) (map (resolveBoundTerm env) c) (resolve env a)
+unfold env (Var (Meta i sp))        = Var $ Meta i sp
+unfold env (Var (Bound i))          = Var $ Bound i
+unfold env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (unfold env m)
+unfold env (Lam (x, Just t, ex) m)  = Lam (x, Just $ unfold env t, ex) (unfold env m)
+unfold env (Pi (x, t, ex) m)        = Pi (x, unfold env t, ex) (unfold env m)
+unfold env (Sigma (x, t) m)         = Sigma (x, unfold env t) (unfold env m)
+unfold env (App m (n, ex))          = App (unfold env m) (unfold env n, ex)
+unfold env (Pair m n)               = Pair (unfold env m) (unfold env n)
+unfold env (Sum m n)                = Sum (unfold env m) (unfold env n)
+unfold env (Inl m)                  = Inl $ unfold env m
+unfold env (Inr m)                  = Inr $ unfold env m
+unfold env (Refl m)                 = Refl $ fmap (unfold env) m
+unfold env (Succ m)                 = Succ $ unfold env m
+unfold env (IdFam t)                = IdFam $ unfold env t
+unfold env (Funext p)               = Funext $ unfold env p
+unfold env (Univalence a)           = Univalence $ unfold env a
+unfold env (Id mt m n)              = Id (fmap (unfold env) mt) (unfold env m) (unfold env n)
+unfold env (Ind t m c a)            = Ind (unfold env t) (unfoldBoundTerm env m) (map (unfoldBoundTerm env) c) (unfold env a)
   where
-    resolveBoundTerm :: Environment -> BoundTerm -> BoundTerm
-    resolveBoundTerm env (NoBind m) = NoBind $ resolve env m
-    resolveBoundTerm env (Bind x m) = Bind x $ resolveBoundTerm env m
-resolve env m                        = m
+    unfoldBoundTerm :: Environment -> BoundTerm -> BoundTerm
+    unfoldBoundTerm env (NoBind m) = NoBind $ unfold env m
+    unfoldBoundTerm env (Bind x m) = Bind x $ unfoldBoundTerm env m
+unfold env m                        = m
 
 shift :: Int -> Term -> Term
 shift k = go k 0
