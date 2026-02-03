@@ -1,3 +1,4 @@
+#include "test/TestPrograms/groups"
 #include "test/TestPrograms/basic"
 #include "test/TestPrograms/terminal"
 #include "test/TestPrograms/identity"

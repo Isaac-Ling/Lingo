@@ -418,7 +418,7 @@ goCheckType (Lam (x, Nothing, ex) m) (Pi (x', t, ex') n) = do
 
   case tt of
     Univ _ -> if ex == ex'
-      then return (Lam (x, Nothing, ex) em, Pi (x', et, Exp) mt)
+      then return (Lam (x, Just et, ex) em, Pi (x', et, Exp) mt)
       else typeError TypeMismatch $ Just ("Mismatching explicitness between " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) em) ++ " and " ++ showTermWithContext (tbctx ctxs) (Pi (x', et, ex') n))
     _      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et ++ " is not a term of a universe")
 

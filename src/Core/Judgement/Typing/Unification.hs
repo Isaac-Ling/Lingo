@@ -62,7 +62,7 @@ solveConstraints env ctx mctx cs = do
           -- Check if there are any blocked constraints
           if null $ bcsts st
           then return ()
-          else unificationError $ Just "Unsolved constraints"
+          else unificationError $ Just ("Unsolved constraints" ++ (show $ bcsts st))
         ((bc, t, t'):_) -> do
           let et  = eval $ expandMetas (sols st) t
           let et' = eval $ expandMetas (sols st) t'
@@ -263,8 +263,7 @@ solveConstraints env ctx mctx cs = do
     decompose bc m m'                                            = do
       ctxs <- ask
 
-      -- Try resolving terms to see if that changes them, if so try to decompose the
-      -- unfoldd terms
+      -- Try fully unfolding terms
       let em  = eval $ unfold (uenv ctxs) m
       let em' = eval $ unfold (uenv ctxs) m'
 

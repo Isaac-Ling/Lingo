@@ -10,6 +10,12 @@ import Data.Maybe (fromMaybe)
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 import qualified Data.Set as Set
 
+delta  :: Environment -> Term -> Term
+delta env (Var (Free x)) = case lookup x env of
+  Just m  -> m
+  Nothing -> Var $ Free x
+delta _ m                = m
+
 unfold :: Environment -> Term -> Term
 unfold env (Var (Free x))           = case lookup x env of
   Just m  -> unfold env m

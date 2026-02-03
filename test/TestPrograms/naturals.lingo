@@ -41,8 +41,12 @@ pow m succ(n) := multiply m (pow m n)
 lAddId : (a : Nat) -> add 0 a = a
 lAddId a := refl
 
+#check lAddId
+
 congSucc : {a : Nat} -> {b : Nat} -> a = b -> succ(a) = succ(b)
 congSucc := lift (\n. succ(n))
+
+#check congSucc
 
 rAddId : (a : Nat) -> add a 0 = a
 rAddId 0       := refl
@@ -62,4 +66,20 @@ addComm 0       succ(n) := idSymm (rAddId succ(n))
 addComm succ(n) 0       := rAddId succ(n)
 addComm succ(m) succ(n) := idSymm (congSucc (idTrans (idSymm (addComm succ(m) n)) (moveSucc m n)))
 
-#check addComm
+#type addComm
+
+addAssoc : (a : Nat) -> (b : Nat) -> (c : Nat) -> add (add a b) c = add a (add b c)
+addAssoc 0       b c := refl
+addAssoc succ(a) b c := congSucc (addAssoc a b c)
+
+#type addAssoc
+
+natMagma : Magma
+natMagma := (Nat, add)
+
+#check natMagma
+
+natSemiGroup : SemiGroup
+natSemiGroup := (natMagma, addAssoc)
+
+#type natSemiGroup

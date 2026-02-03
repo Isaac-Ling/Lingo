@@ -1,0 +1,22 @@
+binaryOp : U -> U
+binaryOp s := s -> s -> s
+
+Magma : U1
+Magma := (M : U) x (binaryOp M)
+
+#eval Magma
+
+assoc : (M : U) -> (binaryOp M) -> U
+assoc M op := (a : M) -> (b : M) -> (c : M) -> op (op a b) c = op a (op b c)
+
+-- NEED REDEFINITION OF PROJECTIONS, use this to justify universe polymorphism
+dfst1 : {A : U1} -> {B : A -> U} -> (a : A) x B a -> A
+dfst1 (a, b) := a
+dsnd1 : {A : U1} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst1 {A} {B} p)
+dsnd1 (a, b) := b
+
+SemiGroup : U1
+SemiGroup := (G : Magma) x (assoc (dfst1 {U} {binaryOp} G) (dsnd1 {U} {binaryOp} G))
+
+identity : (G : U) -> (binaryOp G) -> U
+identity G op := (e : G) x ((g : G) -> op e g = g) x ((g : G) -> op g e = g)

@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use newtype instead of data" #-}
 module Core.Elaboration where
 
 import Core.Term
@@ -81,7 +79,7 @@ getConstructorPattern (Pattern (SInl (SVar a)))           = return $ CInl a
 getConstructorPattern (Pattern (SInr (SVar a)))           = return $ CInr a
 getConstructorPattern (Pattern SZero)                     = return CZero
 getConstructorPattern (Pattern (SSucc (SVar n)))          = return $ CSucc n
-getConstructorPattern _                                   = Error SyntaxError $ Just "Invalid pattern matching constructor"
+getConstructorPattern p                                   = Error SyntaxError $ Just ("Invalid pattern matching constructor " ++ show p)
 
 data ElaborateState = ElaborateState
   { freshVarID :: Int
@@ -189,7 +187,7 @@ goElaboratePatternMatchedDefs id defs t = do
       -- Partition cases into patterns with the same parent parameters
       let rawPatterns = partitionBy hasSameParentParameters cases
 
-      -- Normalise parent identifiers
+      -- Normalise parent identifiers to use a single fresh binder
       patterns <- traverse normaliseParentBinders rawPatterns
 
       -- Collapse patterns into eliminators
@@ -229,9 +227,10 @@ goElaboratePatternMatchedDefs id defs t = do
         goNormaliseParentBinders ms i = do
           xs <- getBindersInColumn ms i []
 
-          -- Abstract RHSs over a single fresh binder if they are not the same across cases
-          ms' <- if not $ allSame xs
-            then do
+          -- Abstract RHSs over a single fresh binder
+          ms' <- case concat xs of
+            [] -> return ms
+            _  -> do
               let allSameLengths = allSame $ map length xs
 
               case (xs, allSameLengths) of
@@ -239,8 +238,6 @@ goElaboratePatternMatchedDefs id defs t = do
                   normalisedBinders <- replicateM (length x) (getFreshVar "a")
                   traverse (\m -> useFreshBinders m i normalisedBinders) ms 
                 _             -> patternSyntaxError $ Just "Mismatched constructors"
-            else do
-              return ms
 
           goNormaliseParentBinders ms' (i - 1)
 
@@ -251,20 +248,20 @@ goElaboratePatternMatchedDefs id defs t = do
         useFreshBinders :: SourceTerm -> Int -> [ByteString] -> Elaborate SourceTerm
         useFreshBinders (SParamTerm ps m) i xs = do
           (ys, c) <- case ps !? i of
-            Just (BinderParam (y, _, _)) -> case xs of
-              [x] -> return ([y], SVar x)
+            Just (BinderParam (y, t, ex)) -> case xs of
+              [x] -> return ([y], BinderParam (x, t, ex))
               _   -> patternSyntaxError $ Just "Unable to remap to fresh binders"
             Just p@(Pattern _)           -> do
               c <- lift $ getConstructorPattern p
               case (c, xs) of
-                (CPair a b, [x1, x2]) -> return ([a, b], SPair (SVar x1) (SVar x2))
-                (CInl l, [x])         -> return ([l], SInl $ SVar x)
-                (CInr r, [x])         -> return ([r], SInr $ SVar x)
-                (CSucc n, [x])        -> return ([n], SSucc $ SVar x)
-                _           -> patternSyntaxError $ Just "Unable to remap to fresh binders"
+                (CPair a b, [x1, x2]) -> return ([a, b], Pattern $ SPair (SVar x1) (SVar x2))
+                (CInl l, [x])         -> return ([l], Pattern $ SInl $ SVar x)
+                (CInr r, [x])         -> return ([r], Pattern $ SInr $ SVar x)
+                (CSucc n, [x])        -> return ([n], Pattern $ SSucc $ SVar x)
+                _           -> patternSyntaxError $ Just ("Unable to remap to fresh binders " ++ show c)
             Nothing                      -> patternSyntaxError $ Just "Insufficient parameters"
 
-          let ps' = replaceAt ps i (Pattern c)
+          let ps' = replaceAt ps i c
 
           return $ SParamTerm ps' $ SubstitutionTerm (zip (map SVar xs) ys) m
         useFreshBinders _ _ _                  = patternSyntaxError $ Just "Term is not a parameterised term"
@@ -377,33 +374,44 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
         parameterToTerm (Pattern m)             = return m
         parameterToTerm (BinderParam (x, _, _)) = return $ SVar x
 
-        -- TODO: Avoid variable capture, e.g. subbing succ(n) in could capture n
+        -- Note that this function does not guard against variable capture within the parameter,
+        -- but since fresh, normalised binders are used in this context it is safe
         subParamInType :: SourceTerm -> ByteString -> SourceTerm -> SourceTerm
         subParamInType m x (SVar y)
           | x == y    = m
           | otherwise = SVar y
-        subParamInType m x (SLam (y, Just t, ex) n)  = SLam (y, Just $ subParamInType m x t, ex) (subParamInType m x n)
-        subParamInType m x (SLam (y, Nothing, ex) n) = SLam (y, Nothing, ex) (subParamInType m x n)
-        subParamInType m x (SPi (y, t, ex) n)        = SPi (y, subParamInType m x t, ex) (subParamInType m x n)
-        subParamInType m x (SSigma (y, t) n)         = SSigma (y, subParamInType m x t) (subParamInType m x n)
-        subParamInType m x (SPair t n)               = SPair (subParamInType m x t) (subParamInType m x n)
-        subParamInType m x (SIdFam t)                = SIdFam $ subParamInType m x t
-        subParamInType m x (SId mt t n)              = SId (fmap (subParamInType m x) mt) (subParamInType m x t) (subParamInType m x n)
-        subParamInType m x (SSum t n)                = SSum (subParamInType m x t) (subParamInType m x n)
-        subParamInType m x (SApp t (n, ex))          = SApp (subParamInType m x t) (subParamInType m x n, ex)
-        subParamInType m x (SInl n)                  = SInl $ subParamInType m x n
-        subParamInType m x (SInr n)                  = SInr $ subParamInType m x n
-        subParamInType m x (SRefl n)                 = SRefl $ fmap (subParamInType m x) n
-        subParamInType m x (SSucc n)                 = SSucc $ subParamInType m x n
-        subParamInType m x (SFunext p)               = SFunext $ subParamInType m x p
-        subParamInType m x (SUnivalence a)           = SUnivalence $ subParamInType m x a
-        subParamInType m x (SInd t m' c a)           = SInd (subParamInType m x t) (subParamInBoundType m x m') (map (subParamInBoundType m x) c) (subParamInType m x a)
+        subParamInType m x (SLam (y, Just t, ex) n)
+          | x == y    = SLam (y, Just $ subParamInType m x t, ex) n
+          | otherwise = SLam (y, Just $ subParamInType m x t, ex) (subParamInType m x n)
+        subParamInType m x (SLam (y, Nothing, ex) n)
+          | x == y    = SLam (y, Nothing, ex) n
+          | otherwise = SLam (y, Nothing, ex) (subParamInType m x n)
+        subParamInType m x (SPi (y, t, ex) n)
+          | Just x == y = SPi (y, subParamInType m x t, ex) n
+          | otherwise   = SPi (y, subParamInType m x t, ex) (subParamInType m x n)
+        subParamInType m x (SSigma (y, t) n)
+          | Just x == y = SSigma (y, subParamInType m x t) n
+          | otherwise   = SSigma (y, subParamInType m x t) (subParamInType m x n)
+        subParamInType m x (SPair t n)      = SPair (subParamInType m x t) (subParamInType m x n)
+        subParamInType m x (SIdFam t)       = SIdFam $ subParamInType m x t
+        subParamInType m x (SId mt t n)     = SId (fmap (subParamInType m x) mt) (subParamInType m x t) (subParamInType m x n)
+        subParamInType m x (SSum t n)       = SSum (subParamInType m x t) (subParamInType m x n)
+        subParamInType m x (SApp t (n, ex)) = SApp (subParamInType m x t) (subParamInType m x n, ex)
+        subParamInType m x (SInl n)         = SInl $ subParamInType m x n
+        subParamInType m x (SInr n)         = SInr $ subParamInType m x n
+        subParamInType m x (SRefl n)        = SRefl $ fmap (subParamInType m x) n
+        subParamInType m x (SSucc n)        = SSucc $ subParamInType m x n
+        subParamInType m x (SFunext p)      = SFunext $ subParamInType m x p
+        subParamInType m x (SUnivalence a)  = SUnivalence $ subParamInType m x a
+        subParamInType m x (SInd t m' c a)  = SInd (subParamInType m x t) (subParamInBoundType m x m') (map (subParamInBoundType m x) c) (subParamInType m x a)
           where
             subParamInBoundType :: SourceTerm -> ByteString -> SourceBoundTerm -> SourceBoundTerm
-            subParamInBoundType m x (SNoBind n) = SNoBind (subParamInType m x n)
-            subParamInBoundType m x (SBind y n) = SBind y (subParamInBoundType m x n)
+            subParamInBoundType m x (SNoBind n) = SNoBind $ subParamInType m x n
+            subParamInBoundType m x (SBind y n)
+              | x == y    = SBind y n
+              | otherwise = SBind y $ subParamInBoundType m x n
         subParamInType m x n                         = n
-    subParamsInType _ _                            = patternSyntaxError $ Just "Insufficient binders in type"
+    subParamsInType _ _                     = patternSyntaxError $ Just "Insufficient binders in type"
 
     substituteVarForRecursiveCall :: [(SourceTerm, ByteString)] -> [ByteString] -> ByteString -> SourceTerm -> SourceTerm -> SourceTerm
     substituteVarForRecursiveCall subs bs y m a@(SApp t (n, ex))        = if isApplicationRecursiveCall subs bs a m
