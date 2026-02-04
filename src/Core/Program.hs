@@ -3,6 +3,7 @@ module Core.Program (run, Option(..), Options) where
 import Core.Term
 import Core.Error
 import Parsing.Parser
+import Core.Elaboration
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Type
@@ -17,6 +18,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, unpack)
 data Option
   = None
   | HideImplicits
+  | ShowRunTime
   deriving Eq
 
 type Options = [Option]
@@ -44,25 +46,39 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       case lookup x $ rtenv ctxs of
-        Just _ -> abort DuplicateDefinitions (Just ("Duplicate definintions of " ++ unpack x ++ " found"))
+        Just _ -> abort DuplicateDefinitions $ Just ("Duplicate definintions of " ++ unpack x ++ " found")
         _      -> success
 
-      let m = case lookup x $ stctx ctxs of
-                Just t' -> toDeBruijn $ elaborateSource m' t'
-                _       -> toDeBruijn m'
+      -- If this definition uses pattern matching, read all definitions and elaborate into an eliminator
+      (m, ds') <- if isPatternMatched m'
+        then do
+          t' <- case lookup x $ stctx ctxs of
+            Just t -> return t
+            _      -> abort FailedToInferType $ Just "Missing type signature for pattern matched definition"
+
+          let (cases, ds') = span (isSameDefinition x) ds
+          let patterns = addImplicitParameters m' t' : map ((`addImplicitParameters` t') . unsafeGetDefinitionFromDeclaration) cases
+
+          case elaboratePatternMatchedDefs x patterns t' of
+            Result m     -> return (toCoreTerm m, ds')
+            Error errc s -> abort errc s
+        else do
+          case lookup x $ stctx ctxs of
+            Just t' -> return (toCoreTerm $ addImplicitParameters m' t', ds)
+            _       -> return (toCoreTerm m', ds)
 
       case lookup x $ rtctx ctxs of
         Just t -> do
           em <- tryRun $ elaborateWithType (rtenv ctxs) (rtctx ctxs) m t
-          continue (addToRTEnv (x, em)) (go ds)
+          continue (addToRTEnv (x, em)) (go ds')
         _      -> do
           (em, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, em) . addToRTCtx (x, t)) (go ds)
+          continue (addToRTEnv (x, em) . addToRTCtx (x, t)) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
 
-      let t = toDeBruijn t'
+      let t = toCoreTerm t'
       et <- tryRun $ elaborate (rtenv ctxs) (rtctx ctxs) t
       let p = continue (addToRTCtx (x, et) . addToSourceTypeCtx (x, t')) (go ds)
 
@@ -75,10 +91,10 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     go (Pragma (Check m'):ds)  = do
       ctxs <- askRTCtx
 
-      let m = toDeBruijn m'
+      let m = toCoreTerm m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
 
-      let erf = eval $ resolve (rtenv ctxs) f
+      let erf = eval $ unfold (rtenv ctxs) f
       let et = eval t
 
       liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf ++ " : " ++ showTerm et)
@@ -88,7 +104,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     go (Pragma (Type m'):ds)   = do
       ctxs <- askRTCtx
 
-      let m = toDeBruijn m'
+      let m = toCoreTerm m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
       let et = eval t
       liftIO $ putStrLn (showTerm f ++ " : " ++ showTerm et)
@@ -98,9 +114,9 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     go (Pragma (Eval m'):ds)   = do
       ctxs <- askRTCtx
 
-      let m = toDeBruijn m'
+      let m = toCoreTerm m'
       (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-      let erf = eval $ resolve (rtenv ctxs) f
+      let erf = eval $ unfold (rtenv ctxs) f
       liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf)
 
       go ds
@@ -139,7 +155,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     continue :: (RuntimeContext -> RuntimeContext) -> Runtime () -> Runtime ()
     continue f m = CanErrorT $ local f $ runCanErrorT m
 
-    abort :: ErrorCode -> Maybe String -> Runtime ()
+    abort :: ErrorCode -> Maybe String -> Runtime a
     abort errc ms = CanErrorT $ return $ Error errc ms
 
     addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
@@ -154,14 +170,21 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     addToIncludes :: FilePath -> (RuntimeContext -> RuntimeContext)
     addToIncludes f ctxs = ctxs { incs=f : incs ctxs }
 
-    showTerm :: Term -> String 
+    showTerm :: Term -> String
     showTerm = if HideImplicits `elem` opts then showTermWithoutImplicits else show
 
+    isSameDefinition :: ByteString -> Declaration -> Bool
+    isSameDefinition b (Def (x, _)) = b == x
+    isSameDefinition _ _             = False
+
+    unsafeGetDefinitionFromDeclaration :: Declaration -> SourceTerm
+    unsafeGetDefinitionFromDeclaration (Def (_, m')) = m'
+
 instance Show Declaration where
-  show (Signature (x, t')) = unpack x ++ " : " ++ show (toDeBruijn t')
-  show (Def (x, m'))       = unpack x ++ " := " ++ show (toDeBruijn m')
+  show (Signature (x, t')) = unpack x ++ " : " ++ show (toCoreTerm t')
+  show (Def (x, m'))       = unpack x ++ " := " ++ show (toCoreTerm m')
   show (Pragma p)          = show p
 
 instance Show Pragma where
-  show (Check m')  = "#check " ++ show (toDeBruijn m')
+  show (Check m')  = "#check " ++ show (toCoreTerm m')
   show (Include f) = "#include " ++ f

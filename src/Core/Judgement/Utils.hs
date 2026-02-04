@@ -5,83 +5,44 @@ import Core.Error
 
 import Data.Set (Set)
 import Control.Monad (join)
-import Data.List (elemIndex, (!?))
+import Data.List ((!?))
 import Data.Maybe (fromMaybe)
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 import qualified Data.Set as Set
 
--- A list of binders, where the ith element is the ith binder away from the
--- current term. Nothing is used if we should never match against that binder
-type Binders = [Maybe ByteString]
-
--- TODO: Add implicit lambdas inside sub-terms ??
-elaborateSource :: SourceTerm -> SourceTerm -> SourceTerm
-elaborateSource (SLam (x, t, Imp) m) (SPi (_, _, Imp) n) = SLam (x, t, Imp) $ elaborateSource m n
-elaborateSource m (SPi (Just x, t, Imp) n)               = SLam (x, Just t, Imp) $ elaborateSource m n
-elaborateSource (SLam (x, t, Exp) m) (SPi (_, _, Exp) n) = SLam (x, t, Exp) $ elaborateSource m n
-elaborateSource m _                                      = m
-
-toDeBruijn :: SourceTerm -> Term
-toDeBruijn = go []
-  where
-    go :: Binders -> SourceTerm -> Term
-    go bs (SVar x)              = case elemIndex (Just x) bs of
-      Just i  -> Var (Bound i)
-      Nothing -> Var (Free x)
-    go bs (SLam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go (Just x : bs) m)
-    go bs (SLam (x, Just t, ex) m)  = Lam (x, Just $ go bs t, ex) (go (Just x : bs) m)
-    go bs (SPi (x, t, ex) m)        = Pi (x, go bs t, ex) (go (x : bs) m)
-    go bs (SSigma (x, t) m)         = Sigma (x, go bs t) (go (x : bs) m)
-    go bs (SApp m (n, ex))          = App (go bs m) (go bs n, ex)
-    go bs (SPair m n)               = Pair (go bs m) (go bs n)
-    go bs (SSum m n)                = Sum (go bs m) (go bs n)
-    go bs (SIdFam t)                = IdFam $ go bs t
-    go bs (SId t m n)               = Id (fmap (go bs) t) (go bs m) (go bs n)
-    go bs (SInd t m c a)            = Ind (go bs t) (boundTermToDeBruijn bs m) (map (boundTermToDeBruijn bs) c) (go bs a)
-    go bs (SUniv i)                 = Univ i
-    go bs SBot                      = Bot
-    go bs STop                      = Top
-    go bs SNat                      = Nat
-    go bs SZero                     = Zero
-    go bs (SSucc m)                 = Succ $ go bs m
-    go bs (SInl m)                  = Inl $ go bs m
-    go bs (SInr m)                  = Inr $ go bs m
-    go bs (SFunext p)               = Funext $ go bs p
-    go bs (SUnivalence f)           = Univalence $ go bs f
-    go bs (SRefl m)                 = Refl $ go bs m
-    go bs SStar                     = Star
-
-    boundTermToDeBruijn :: Binders -> SourceBoundTerm -> BoundTerm
-    boundTermToDeBruijn bs (SNoBind m) = NoBind $ go bs m
-    boundTermToDeBruijn bs (SBind x m) = Bind (Just x) $ boundTermToDeBruijn (Just x : bs) m
-
-resolve :: Environment -> Term -> Term
-resolve env (Var (Free x))           = case lookup x env of
-  Just m  -> resolve env m
+delta  :: Environment -> Term -> Term
+delta env (Var (Free x)) = case lookup x env of
+  Just m  -> m
   Nothing -> Var $ Free x
-resolve env (Var (Meta i sp))        = Var $ Meta i sp
-resolve env (Var (Bound i))          = Var $ Bound i
-resolve env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (resolve env m)
-resolve env (Lam (x, Just t, ex) m)  = Lam (x, Just $ resolve env t, ex) (resolve env m)
-resolve env (Pi (x, t, ex) m)        = Pi (x, resolve env t, ex) (resolve env m)
-resolve env (Sigma (x, t) m)         = Sigma (x, resolve env t) (resolve env m)
-resolve env (App m (n, ex))          = App (resolve env m) (resolve env n, ex)
-resolve env (Pair m n)               = Pair (resolve env m) (resolve env n)
-resolve env (Sum m n)                = Sum (resolve env m) (resolve env n)
-resolve env (Inl m)                  = Inl $ resolve env m
-resolve env (Inr m)                  = Inr $ resolve env m
-resolve env (Refl m)                 = Refl $ resolve env m
-resolve env (Succ m)                 = Succ $ resolve env m
-resolve env (IdFam t)                = IdFam $ resolve env t
-resolve env (Funext p)               = Funext $ resolve env p
-resolve env (Univalence a)           = Univalence $ resolve env a
-resolve env (Id mt m n)              = Id (fmap (resolve env) mt) (resolve env m) (resolve env n)
-resolve env (Ind t m c a)            = Ind (resolve env t) (resolveBoundTerm env m) (map (resolveBoundTerm env) c) (resolve env a)
+delta _ m                = m
+
+unfold :: Environment -> Term -> Term
+unfold env (Var (Free x))           = case lookup x env of
+  Just m  -> unfold env m
+  Nothing -> Var $ Free x
+unfold env (Var (Meta i sp))        = Var $ Meta i sp
+unfold env (Var (Bound i))          = Var $ Bound i
+unfold env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (unfold env m)
+unfold env (Lam (x, Just t, ex) m)  = Lam (x, Just $ unfold env t, ex) (unfold env m)
+unfold env (Pi (x, t, ex) m)        = Pi (x, unfold env t, ex) (unfold env m)
+unfold env (Sigma (x, t) m)         = Sigma (x, unfold env t) (unfold env m)
+unfold env (App m (n, ex))          = App (unfold env m) (unfold env n, ex)
+unfold env (Pair m n)               = Pair (unfold env m) (unfold env n)
+unfold env (Sum m n)                = Sum (unfold env m) (unfold env n)
+unfold env (Inl m)                  = Inl $ unfold env m
+unfold env (Inr m)                  = Inr $ unfold env m
+unfold env (Refl m)                 = Refl $ fmap (unfold env) m
+unfold env (Succ m)                 = Succ $ unfold env m
+unfold env (IdFam t)                = IdFam $ unfold env t
+unfold env (Funext p)               = Funext $ unfold env p
+unfold env (Univalence a)           = Univalence $ unfold env a
+unfold env (Id mt m n)              = Id (fmap (unfold env) mt) (unfold env m) (unfold env n)
+unfold env (Ind t m c a)            = Ind (unfold env t) (unfoldBoundTerm env m) (map (unfoldBoundTerm env) c) (unfold env a)
   where
-    resolveBoundTerm :: Environment -> BoundTerm -> BoundTerm
-    resolveBoundTerm env (NoBind m) = NoBind $ resolve env m
-    resolveBoundTerm env (Bind x m) = Bind x $ resolveBoundTerm env m
-resolve env m                        = m
+    unfoldBoundTerm :: Environment -> BoundTerm -> BoundTerm
+    unfoldBoundTerm env (NoBind m) = NoBind $ unfold env m
+    unfoldBoundTerm env (Bind x m) = Bind x $ unfoldBoundTerm env m
+unfold env m                        = m
 
 shift :: Int -> Term -> Term
 shift k = go k 0
@@ -106,7 +67,7 @@ shift k = go k 0
     go k l (Inl m)                  = Inl $ go k l m
     go k l (Inr m)                  = Inr $ go k l m
     go k l (Succ m)                 = Succ $ go k l m
-    go k l (Refl m)                 = Refl $ go k l m
+    go k l (Refl m)                 = Refl $ fmap (go k l) m
     go k l (Funext p)               = Funext $ go k l p
     go k l (Univalence a)           = Funext $ go k l a
     go k l (Ind t m c a)            = Ind (go k l t) (shiftInBoundTerm k l m) (map (shiftInBoundTerm k l) c) (go k l a)
@@ -143,7 +104,7 @@ openFor m k (Sum t n)                = Sum (openFor m k t) (openFor m k n)
 openFor m k (App t (n, ex))          = App (openFor m k t) (openFor m k n, ex)
 openFor m k (Inl n)                  = Inl $ openFor m k n
 openFor m k (Inr n)                  = Inr $ openFor m k n
-openFor m k (Refl n)                 = Refl $ openFor m k n
+openFor m k (Refl n)                 = Refl $ fmap (openFor m k) n
 openFor m k (Succ n)                 = Succ $ openFor m k n
 openFor m k (Funext p)               = Funext $ openFor m k p
 openFor m k (Univalence a)           = Univalence $ openFor m k a
@@ -166,10 +127,11 @@ isBinderUsed = go 0
     go k (Lam (x, Nothing, _) n) = go (k + 1) n
     go k (Pi (x, t, _) n)        = go k t || go (k + 1) n
     go k (Sigma (x, t) n)        = go k t || go (k + 1) n
+    go k (Sum m n)               = go k m || go k n
     go k (Pair t n)              = go k t || go k n
     go k (App t (n, _))          = go k t || go k n
     go k (Id mt m n)             = maybe False (go k) mt || go k m || go k n
-    go k (Refl m)                = go k m
+    go k (Refl m)                = maybe False (go k) m
     go k (Funext m)              = go k m
     go k (Univalence m)          = go k m
     go k (Succ m)                = go k m
@@ -188,11 +150,12 @@ getMetasInTerm (Var (Meta i _))        = Set.singleton i
 getMetasInTerm (Lam (x, Just t, _) n)  = getMetasInTerm t <> getMetasInTerm n
 getMetasInTerm (Lam (x, Nothing, _) n) = getMetasInTerm n
 getMetasInTerm (Pi (x, t, _) n)        = getMetasInTerm t <> getMetasInTerm n
+getMetasInTerm (Sum m n)               = getMetasInTerm m <> getMetasInTerm n
 getMetasInTerm (Sigma (x, t) n)        = getMetasInTerm t <> getMetasInTerm n
 getMetasInTerm (Pair t n)              = getMetasInTerm t <> getMetasInTerm n
 getMetasInTerm (App t (n, _))          = getMetasInTerm t <> getMetasInTerm n
 getMetasInTerm (Id mt m n)             = maybe Set.empty getMetasInTerm mt <> getMetasInTerm m <> getMetasInTerm n
-getMetasInTerm (Refl m)                = getMetasInTerm m
+getMetasInTerm (Refl m)                = maybe Set.empty getMetasInTerm m
 getMetasInTerm (Funext m)              = getMetasInTerm m
 getMetasInTerm (Univalence m)          = getMetasInTerm m
 getMetasInTerm (Succ m)                = getMetasInTerm m
@@ -276,7 +239,8 @@ showTermWithBinders b bs Nat                                    = "Nat"
 showTermWithBinders b bs Zero                                   = "0"
 showTermWithBinders b bs (Inl m)                                = "inl(" ++ showTermWithBinders b bs m ++ ")"
 showTermWithBinders b bs (Inr m)                                = "inr(" ++ showTermWithBinders b bs m ++ ")"
-showTermWithBinders b bs (Refl m)                               = "refl[" ++ showTermWithBinders b bs m ++ "]"
+showTermWithBinders b bs (Refl Nothing)                         = "refl"
+showTermWithBinders b bs (Refl (Just m))                        = "refl[" ++ showTermWithBinders b bs m ++ "]"
 showTermWithBinders b bs (Funext p)                             = "funext(" ++ showTermWithBinders b bs p ++ ")"
 showTermWithBinders b bs (Univalence a)                         = "univalence(" ++ showTermWithBinders b bs a ++ ")"
 showTermWithBinders b bs (Sigma (Just x, t) m)                  = "(" ++ unpack x ++ " : " ++ showTermWithBinders b bs t ++ ") x " ++ showSigmaOperarands b (Just x : bs) m

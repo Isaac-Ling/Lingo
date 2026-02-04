@@ -8,8 +8,7 @@ import Core.Judgement.Typing.Context
 import Core.Judgement.Typing.Inference
 import Core.Judgement.Typing.Unification
 
-import Control.Monad.Reader
-import Control.Monad.State.Lazy
+import Control.Monad (when)
 
 inferTypeAndElaborate :: Environment -> Context -> Term -> CanError (Term, Term)
 inferTypeAndElaborate env ctx m = do
@@ -18,6 +17,10 @@ inferTypeAndElaborate env ctx m = do
   let ts = fst result
   let e  = expandMetas msol $ fst ts
   let t  = expandMetas msol $ snd ts
+
+  when (containsMeta e || containsMeta t) $
+    Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
+
   return (e, t)
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
@@ -37,11 +40,15 @@ elaborate env ctx m = do
 
 checkTypeAndElaborate :: Environment-> Context -> Term -> Term -> CanError (Term, Term)
 checkTypeAndElaborate env ctx m t = do
-  result <- runCheckType initContexts initState m $ eval $ resolve env t
+  result <- runCheckType initContexts initState m $ eval $ unfold env t
   msol   <- solveConstraints env ctx (mctx $ snd result) (mcsts $ snd result)
   let ts = fst result
   let e  = expandMetas msol $ fst ts
   let t  = expandMetas msol $ snd ts
+
+  when (containsMeta e || containsMeta t) $
+    Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
+
   return (e, t)
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }

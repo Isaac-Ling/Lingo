@@ -5,6 +5,7 @@ import Core.Error
 data Argument
   = Source FilePath
   | ArgHideImplicits
+  | ArgShowRunTime
   | Help
 
 type Args = [Argument]
@@ -23,5 +24,6 @@ parseArgs (a:as)          = do
     parseArg ('-':'-':c) = case c of
       "help"          -> return Help
       "hideImplicits" -> return ArgHideImplicits
+      "showRunTime"   -> return ArgShowRunTime
       _      -> Error InvalidCommandLineArgsProvided Nothing
     parseArg s           = return $ Source s
