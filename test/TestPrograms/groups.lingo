@@ -4,19 +4,18 @@ binaryOp s := s -> s -> s
 Magma : U1
 Magma := (M : U) x (binaryOp M)
 
-#eval Magma
-
-assoc : (M : U) -> (binaryOp M) -> U
-assoc M op := (a : M) -> (b : M) -> (c : M) -> op (op a b) c = op a (op b c)
-
--- NEED REDEFINITION OF PROJECTIONS, use this to justify universe polymorphism
-dfst1 : {A : U1} -> {B : A -> U} -> (a : A) x B a -> A
-dfst1 (a, b) := a
-dsnd1 : {A : U1} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst1 {A} {B} p)
-dsnd1 (a, b) := b
+-- Compare with no pattern matching, needing many fst/snds etc
+magmaIsAssoc : Magma -> U
+magmaIsAssoc (M, op) := (a : M) -> (b : M) -> (c : M) -> op (op a b) c = op a (op b c)
 
 SemiGroup : U1
-SemiGroup := (G : Magma) x (assoc (dfst1 {U} {binaryOp} G) (dsnd1 {U} {binaryOp} G))
+SemiGroup := (M : Magma) x (magmaIsAssoc M)
 
-identity : (G : U) -> (binaryOp G) -> U
-identity G op := (e : G) x ((g : G) -> op e g = g) x ((g : G) -> op g e = g)
+magmaHasIdentity : Magma -> U
+magmaHasIdentity (M, op) := (e : M) x ((a : M) -> op e a = a) x ((a : M) -> op a e = a)
+
+semiGroupHasIdentity : SemiGroup -> U
+semiGroupHasIdentity (M, a) := magmaHasIdentity M
+
+Monoid : U1
+Monoid := (G : Magma) x (magmaHasIdentity G)

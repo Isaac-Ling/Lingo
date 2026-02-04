@@ -428,7 +428,7 @@ goCheckType (Pair m n) (Sigma (x, t) t')                 = do
   (et, tt)   <- goInferEvaluatedType t
   (et', t't) <- local (addToBoundCtx (x, et) . useTypeBoundCtx) (goInferEvaluatedType t')
   (em, mt)   <- goCheckType m et
-  (en, nt)   <- goCheckType n (bumpDown $ open (bumpUp em) et')
+  (en, nt)   <- goCheckEvaluatedType n (bumpDown $ open (bumpUp em) et')
 
   case (tt, t't) of
     (Univ _, Univ _) -> return (Pair em en, Sigma (x, et) et')
@@ -476,7 +476,7 @@ unifyInferredType m t = do
   ctxs <- ask
 
   (em, mt) <- goInferTypeAndElab m
-  unify mt t $ Just ("The type of " ++ showTermWithContext (bctx ctxs) em ++ " is " ++ showTermWithContext (bctx ctxs) (eval mt) ++ " but expected " ++ showTermWithContext (tbctx ctxs) t)
+  unify mt t $ Just ("The type of " ++ showTermWithContext (bctx ctxs) em ++ " is " ++ showTermWithContext (bctx ctxs) (eval mt) ++ " but expected " ++ showTermWithContext (tbctx ctxs) (eval t))
   return (em, t)
 
 goInferEvaluatedType :: Term -> TypeCheck (Term, Term)

@@ -68,15 +68,3 @@ unitPathEquiv a b := (\(p : a = b). *, allUnitEq a b, \(a : T). idSymm (uniqT a)
 
 happly : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> f = g -> (a : A) -> f a = g a
 happly f g p a := ind[=[A -> B]](f. g. p'. f a = g a, z. refl, f, g, p)
-
-funextEta : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> ((a : A) -> f a = g a) -> f = g
-funextEta f g p := funext(p)
-
--- TODO: Define these lemmas
-piPathEquivLemma1 : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> (h : (a : A) -> f a = g a) -> happly f g funext(h) = h
-piPathEquivLemma2 : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> (p : f = g) -> funext(happly f g p) = p
-
-piPathEquiv : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> isequiv (f = g) ((a : A) -> f a = g a)
-piPathEquiv f g := (happly f g, funextEta f g, \h. piPathEquivLemma1 f g h, \p. piPathEquivLemma2 f g p)
-
-#type piPathEquiv
