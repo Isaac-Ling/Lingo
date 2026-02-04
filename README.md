@@ -30,7 +30,7 @@ An implementation of Martin-Löf Type Theory, following closely to the Homotopy 
 
 ## Implicits
 
-Leading pi types can be left explicit by writing `{A : U} -> ...`. Semantically this is equivalent to a standard pi type, but it doesn't need a corresponding leading lambda in its definition. It also can be left out when applying another term to a term of this type.
+Leading pi types can be left explicit by writing `{A : U} -> ...`. Semantically this is equivalent to a standard pi type, but it does not need a corresponding leading lambda in its definition. It also can be left out when applying another term to a term of this type.
 
 For example, we can define and use the identity function with implicits like so:
 
@@ -61,9 +61,20 @@ id {B} (a : B) := a
 #check id {Nat} 32
 ```
 
+# Pattern Matching
+
+Pattern matching notation is elaborated into eliminators. Nested constructors
+are not supported. Defining the double function using pattern matching on natural numbers would be:
+
+```
+double : Nat -> Nat
+double 0       := 0
+double succ(n) := succ(succ(double n))
+```
+
 ## Induction
 
-The notation for induction operators follows that of the HoTT book, e.g. defining the double function using natural induction would be:
+The notation for eliminators follows that of the HoTT book, e.g. defining the double function using natural induction would be:
 
 ```
 double : Nat -> Nat

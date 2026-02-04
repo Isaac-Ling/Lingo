@@ -77,7 +77,7 @@ addAssoc succ(a) b c := congSucc (addAssoc a b c)
 natMagma : Magma
 natMagma := (Nat, add)
 
-#check natMagma
+#type natMagma
 
 natSemiGroup : SemiGroup
 natSemiGroup := (natMagma, addAssoc)
