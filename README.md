@@ -61,7 +61,7 @@ id {B} (a : B) := a
 #check id {Nat} 32
 ```
 
-# Pattern Matching
+## Pattern Matching
 
 Pattern matching notation is elaborated into eliminators. Nested constructors
 are not supported. Defining the double function using pattern matching on natural numbers would be:
