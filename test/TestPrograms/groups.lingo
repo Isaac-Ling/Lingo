@@ -5,11 +5,20 @@ Magma : U1
 Magma := (M : U) x (binaryOp M)
 
 -- Compare with no pattern matching, needing many fst/snds etc
+getMagmaUnderlyingType : Magma -> U
+getMagmaUnderlyingType (M, op) := M
+
+getMagmaOperation : (M : Magma) -> binaryOp (getMagmaUnderlyingType M)
+getMagmaOperation (M, op) := op
+
 magmaIsAssoc : Magma -> U
 magmaIsAssoc (M, op) := (a : M) -> (b : M) -> (c : M) -> op (op a b) c = op a (op b c)
 
 SemiGroup : U1
 SemiGroup := (M : Magma) x (magmaIsAssoc M)
+
+getSemiGroupUnderlyingType : SemiGroup -> U
+getSemiGroupUnderlyingType (M, a) := getMagmaUnderlyingType M
 
 magmaHasIdentity : Magma -> U
 magmaHasIdentity (M, op) := (e : M) x ((a : M) -> op e a = a) x ((a : M) -> op a e = a)
@@ -18,4 +27,12 @@ semiGroupHasIdentity : SemiGroup -> U
 semiGroupHasIdentity (M, a) := magmaHasIdentity M
 
 Monoid : U1
-Monoid := (G : Magma) x (magmaHasIdentity G)
+Monoid := (G : SemiGroup) x (semiGroupHasIdentity G)
+
+getMonoidUnderlyingType : Monoid -> U
+getMonoidUnderlyingType (G, e) := getSemiGroupUnderlyingType G
+
+getMonoidIdentity : (G : Monoid) -> getMonoidUnderlyingType G
+
+--MonoidHasInverses : Monoid -> U
+--MonoidHasInverses (G, e) := (a : M) -> (ainv : M) x (op a ainv = e) x ((a : M) -> op a e = a)

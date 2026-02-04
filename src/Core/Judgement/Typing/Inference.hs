@@ -377,7 +377,13 @@ goInferType (Ind
 goInferType (Ind t m c a)                              = do
   ctxs <- ask
 
-  typeError FailedToInferType $ Just ("Invalid induction " ++ showTermWithContext (bctx ctxs) (Ind t m c a))
+  -- Try fully unfolding motive
+  (_, tt) <- goInferType t
+  let et = eval $ unfold (env ctxs) t
+
+  if et /= t
+  then goInferType $ Ind et m c a
+  else typeError FailedToInferType $ Just ("Invalid eliminator " ++ showTermWithContext (bctx ctxs) (Ind t m c a))
 
 runCheckType :: Contexts -> MetaState -> Term -> Term -> CanError ((Term, Term), MetaState)
 runCheckType ctxs st m mt = runStateT (runReaderT (goCheckType m mt) ctxs) st

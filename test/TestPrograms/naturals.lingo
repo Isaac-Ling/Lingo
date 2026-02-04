@@ -85,6 +85,6 @@ natSemiGroup := (natMagma, addAssoc)
 #type natSemiGroup
 
 natMonoid : Monoid
-natMonoid := (natMagma, 0, lAddId, rAddId)
+natMonoid := (natSemiGroup, 0, lAddId, rAddId)
 
 #type natMonoid
