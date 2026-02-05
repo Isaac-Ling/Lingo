@@ -10,4 +10,4 @@ readSource :: FilePath -> IO (CanError ByteString)
 readSource f = catch (Result <$> BS.readFile f) handler
   where
     handler :: IOException -> IO (CanError ByteString)
-    handler _ = return $ Error FailedToReadSourceFile Nothing
+    handler _ = return $ Error FailedToReadSourceFile $ Just f

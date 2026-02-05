@@ -88,3 +88,9 @@ natMonoid : Monoid
 natMonoid := (natSemiGroup, 0, lAddId, rAddId)
 
 #type natMonoid
+#eval getMonoidIdentity natMonoid
+
+natCommMonoid : CommutativeMonoid
+natCommMonoid := (natMonoid, addComm)
+
+#type natCommMonoid
