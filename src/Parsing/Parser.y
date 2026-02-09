@@ -89,8 +89,6 @@ Param :: { Parameter }
   | '{' var '}'          { BinderParam ($2, Nothing, Imp) }
   | '(' var ':' Term ')' { BinderParam ($2, Just $4, Exp) }
   | '{' var ':' Term '}' { BinderParam ($2, Just $4, Imp) }
-
-  -- TODO: Complete possible constructor patterns
   | '0'                 { Pattern $ SZero }
   | 'succ' '(' var ')'  { Pattern $ SSucc (SVar $3) }
   | '*'                 { Pattern $ SStar }

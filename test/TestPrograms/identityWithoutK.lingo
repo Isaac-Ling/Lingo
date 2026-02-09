@@ -7,9 +7,6 @@ idRefl a := refl
 idSymm : {A : U} -> {a : A} -> {b : A} -> a = b -> b = a
 idSymm p := ind[=[A]](a. b. p. b = a, z. refl, a, b, p) 
 
---idSymm : {A : U} -> {a : A} -> {b : A} -> a = b -> b = a
---idSymm refl := refl
-
 #check idSymm
 
 idTransLemma : {A : U} -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c

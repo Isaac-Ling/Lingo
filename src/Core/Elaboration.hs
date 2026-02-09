@@ -351,13 +351,13 @@ toEliminator axk id cases@((SParamTerm (p:ps) m):ms) t = do
       let abstractedRecursiveCall = substituteVarForRecursiveCall [] [] recursiveCallVar recursiveCall d'
 
       return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
-    [(CRefl, d)]                -> do
+    [(CRefl, d)]                -> if not axk
       -- Reject pattern matching on refl if axiom K isn't used
-      if not axk
+      -- This is EXTREMELY conservative, rejecting many valid programs
       then lift $ Error RejectedAxiom $ Just "Cannot pattern match on refl without axiom K"
-      else return STop
-
-      -- TODO: Return identity eliminator
+      else do
+        -- TODO: Return identity eliminator
+        return $ SInd indType motive [SNoBind d] (SVar $ pack "!p")
     _                           -> patternSyntaxError $ Just "Invalid pattern matching constructors"
 
   -- Return eliminator term
