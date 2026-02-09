@@ -19,6 +19,7 @@ data Option
   = None
   | HideImplicits
   | ShowRunTime
+  | WithoutK
   deriving Eq
 
 type Options = [Option]

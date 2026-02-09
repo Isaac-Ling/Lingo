@@ -28,15 +28,16 @@ executeArgs args = go args [] Nothing
   where
     go :: Args -> Options -> Maybe FilePath -> IO ()
     go args opts mf = case args of
-      []                   -> case mf of
+      []                    -> case mf of
         Just f -> runFile f opts
         _      -> exitWith $ Error InvalidCommandLineArgsProvided $ Just "No source file provided"
-      [Help]               -> showHelp
-      (Source f:as)        -> case mf of 
+      [Help]                -> showHelp
+      (Source f:as)         -> case mf of 
         Just _ -> exitWith $ Error InvalidCommandLineArgsProvided $ Just "Multiple source files provided"
         _      -> go as opts $ Just f
       (ArgHideImplicits:as) -> go as (HideImplicits : opts) mf
       (ArgShowRunTime:as)   -> go as (ShowRunTime : opts) mf
+      (ArgWithoutK:as)      -> go as (WithoutK : opts) mf
 
 runFile :: FilePath -> Options -> IO ()
 runFile s opts = do
@@ -73,5 +74,6 @@ showHelp = do
   \  --help or -h            - Displays help information\n\
   \Execution Options:\n\
   \ --hideImplicits          - Hides elaborated implicit arguments from outputs\n\
-  \ --showRunTime            - Displays the execution time of the program"
+  \ --showRunTime            - Displays the execution time of the program\n\
+  \ --without-K              - Displays the execution time of the program"
   exitWith $ Result ()

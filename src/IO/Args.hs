@@ -6,6 +6,7 @@ data Argument
   = Source FilePath
   | ArgHideImplicits
   | ArgShowRunTime
+  | ArgWithoutK
   | Help
 
 type Args = [Argument]
@@ -25,5 +26,6 @@ parseArgs (a:as)          = do
       "help"          -> return Help
       "hideImplicits" -> return ArgHideImplicits
       "showRunTime"   -> return ArgShowRunTime
+      "without-K"   -> return ArgWithoutK
       _      -> Error InvalidCommandLineArgsProvided Nothing
     parseArg s           = return $ Source s
