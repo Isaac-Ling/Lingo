@@ -58,9 +58,10 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
             _      -> abort FailedToInferType $ Just "Missing type signature for pattern matched definition"
 
           let (cases, ds') = span (isSameDefinition x) ds
-          let patterns = addImplicitParameters m' t' : map ((`addImplicitParameters` t') . unsafeGetDefinitionFromDeclaration) cases
+          let patterns     = addImplicitParameters m' t' : map ((`addImplicitParameters` t') . unsafeGetDefinitionFromDeclaration) cases
+          let axiomK       = WithoutK `notElem` opts
 
-          case elaboratePatternMatchedDefs x patterns t' of
+          case elaboratePatternMatchedDefs axiomK x patterns t' of
             Result m     -> return (toCoreTerm m, ds')
             Error errc s -> abort errc s
         else do

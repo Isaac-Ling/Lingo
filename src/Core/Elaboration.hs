@@ -99,19 +99,19 @@ getFreshVar x = do
 patternSyntaxError :: Maybe String -> Elaborate a
 patternSyntaxError ms = lift $ Error SyntaxError ms
 
-elaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
-elaboratePatternMatchedDefs id defs t = evalStateT (goElaboratePatternMatchedDefs id defs t) st
+elaboratePatternMatchedDefs :: Bool -> ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
+elaboratePatternMatchedDefs axk id defs t = evalStateT (goElaboratePatternMatchedDefs axk id defs t) st
   where
     st = ElaborateState { freshVarID=0 }
 
-goElaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
-goElaboratePatternMatchedDefs _ [] _    = patternSyntaxError $ Just "Empty pattern matching cases"
-goElaboratePatternMatchedDefs id defs t = do
+goElaboratePatternMatchedDefs :: Bool -> ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
+goElaboratePatternMatchedDefs _ _ [] _      = patternSyntaxError $ Just "Empty pattern matching cases"
+goElaboratePatternMatchedDefs axk id defs t = do
   -- Expand default paramaters into cases to get full case tree
   cases <- expandDefaultParams defs
 
   -- Elaborate each column starting from the leaves
-  elaborateColumns id cases t
+  elaborateColumns axk id cases t
   where
     expandDefaultParams :: [SourceTerm] -> Elaborate [SourceTerm]
     expandDefaultParams defs = do
@@ -183,8 +183,8 @@ goElaboratePatternMatchedDefs id defs t = do
     maxColumnIndex (SParamTerm ps _:ms) i = maxColumnIndex ms $ max i $ length ps - 1
     maxColumnIndex _ _                    = patternSyntaxError $ Just "Invalid pattern matching case"
 
-    elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
-    elaborateColumns id defs t = do
+    elaborateColumns :: Bool -> ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
+    elaborateColumns axk id defs t = do
       cases <- pushBinderParams defs
 
       -- Partition cases into patterns with the same parent parameters
@@ -194,17 +194,17 @@ goElaboratePatternMatchedDefs id defs t = do
       patterns <- traverse normaliseParentBinders rawPatterns
 
       -- Collapse patterns into eliminators
-      leaves <- traverse (\x -> toEliminator id x t) patterns
+      leaves <- traverse (\x -> toEliminator axk id x t) patterns
 
       -- Recursively elaborate leaves until singular, non-pattern matched root remains
       case leaves of
         []  -> patternSyntaxError $ Just "Empty pattern matching cases"
         [d] -> if isPatternMatched d
-          then do elaborateColumns id [d] t
+          then do elaborateColumns axk id [d] t
           else return d
         ds  -> if not $ all isPatternMatched ds
           then patternSyntaxError $ Just "Failed to collapse case tree into single eliminator"
-          else do elaborateColumns id ds t
+          else do elaborateColumns axk id ds t
 
     partitionBy :: (a -> a -> Bool) -> [a] -> [[a]]
     partitionBy eq = go []
@@ -327,9 +327,9 @@ goElaboratePatternMatchedDefs id defs t = do
     isColumnPatternMatched [] _                   = return False
     isColumnPatternMatched _ _                    = patternSyntaxError $ Just "Misaligned patterns"
 
-toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
-toEliminator id [] _                               = patternSyntaxError $ Just "Empty pattern matching cases"
-toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
+toEliminator :: Bool -> ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
+toEliminator _ id [] _                                 = patternSyntaxError $ Just "Empty pattern matching cases"
+toEliminator axk id cases@((SParamTerm (p:ps) m):ms) t = do
   -- Get codomain of function to determine the motive
   codomain <- subParamsInType t $ reverse ps
 
@@ -351,8 +351,12 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
       let abstractedRecursiveCall = substituteVarForRecursiveCall [] [] recursiveCallVar recursiveCall d'
 
       return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
-    --[(CRefl, d)]                -> do
-      -- TODO: Support --without-K flag and throw error in this case
+    [(CRefl, d)]                -> do
+      -- Reject pattern matching on refl if axiom K isn't used
+      if not axk
+      then lift $ Error RejectedAxiom $ Just "Cannot pattern match on refl without axiom K"
+      else return STop
+
       -- TODO: Return identity eliminator
     _                           -> patternSyntaxError $ Just "Invalid pattern matching constructors"
 
@@ -457,7 +461,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
         substituteVarForRecursiveCallInBoundTerm subs bs y m (SNoBind n) = SNoBind (substituteVarForRecursiveCall subs bs y m n)
         substituteVarForRecursiveCallInBoundTerm subs bs y m (SBind x n) = SBind x (substituteVarForRecursiveCallInBoundTerm subs (x : bs) y m n)
     substituteVarForRecursiveCall subs bs y m n                        = n
-toEliminator _ _ _                                = patternSyntaxError $ Just "Invalid pattern matching cases"
+toEliminator _ _ _ _                                = patternSyntaxError $ Just "Invalid pattern matching cases"
 
 isParameterPattern :: Parameter -> Bool
 isParameterPattern (Pattern _) = True
