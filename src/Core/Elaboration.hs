@@ -352,7 +352,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
 
       return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
     [(CRefl, d)]                -> do
-
+      -- TODO: Support --without-K flag and throw error in this case
       -- TODO: Return identity eliminator
     _                           -> patternSyntaxError $ Just "Invalid pattern matching constructors"
 
