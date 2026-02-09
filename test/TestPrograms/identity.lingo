@@ -4,8 +4,11 @@ idRefl a := refl
 
 #check idRefl
 
+--idSymm : {A : U} -> {a : A} -> {b : A} -> a = b -> b = a
+--idSymm p := ind[=[A]](a. b. p. b = a, z. refl, a, b, p) 
+
 idSymm : {A : U} -> {a : A} -> {b : A} -> a = b -> b = a
-idSymm p := ind[=[A]](a. b. p. b = a, z. refl, a, b, p) 
+idSymm refl := refl
 
 #check idSymm
 

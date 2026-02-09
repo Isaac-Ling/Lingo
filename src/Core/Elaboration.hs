@@ -70,6 +70,7 @@ data ConstructorPattern
   | CInr ByteString
   | CZero
   | CSucc ByteString
+  | CRefl
   deriving (Show, Eq, Ord)
 
 getConstructorPattern :: Parameter -> CanError ConstructorPattern
@@ -78,6 +79,7 @@ getConstructorPattern (Pattern (SPair (SVar a) (SVar b))) = return $ CPair a b
 getConstructorPattern (Pattern (SInl (SVar a)))           = return $ CInl a
 getConstructorPattern (Pattern (SInr (SVar a)))           = return $ CInr a
 getConstructorPattern (Pattern SZero)                     = return CZero
+getConstructorPattern (Pattern (SRefl Nothing))           = return CRefl
 getConstructorPattern (Pattern (SSucc (SVar n)))          = return $ CSucc n
 getConstructorPattern p                                   = Error SyntaxError $ Just ("Invalid pattern matching constructor " ++ show p)
 
@@ -156,6 +158,7 @@ goElaboratePatternMatchedDefs id defs t = do
 
     getPatternsFromConstructor :: ConstructorPattern -> Elaborate [SourceTerm]
     getPatternsFromConstructor CStar       = return [SStar]
+    getPatternsFromConstructor CRefl       = return [SRefl Nothing]
     getPatternsFromConstructor CZero       = do
       id <- getFreshVar "n"
       return [SZero, SSucc $ SVar id]
@@ -293,6 +296,7 @@ goElaboratePatternMatchedDefs id defs t = do
     hasSameParameterStructure (BinderParam _) (BinderParam _) = True
     hasSameParameterStructure p p'                            = case (getConstructorPattern p, getConstructorPattern p') of
       (Result CStar, Result CStar)             -> True
+      (Result CRefl, Result CRefl)             -> True
       (Result (CPair _ _), Result (CPair _ _)) -> True
       (Result (CInl _), Result (CInl _))       -> True
       (Result (CInr _), Result (CInr _))       -> True
@@ -347,6 +351,9 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
       let abstractedRecursiveCall = substituteVarForRecursiveCall [] [] recursiveCallVar recursiveCall d'
 
       return $ SInd indType motive [SNoBind d, SBind n $ SBind recursiveCallVar $ SNoBind abstractedRecursiveCall] (SVar $ pack "!p")
+    [(CRefl, d)]                -> do
+
+      -- TODO: Return identity eliminator
     _                           -> patternSyntaxError $ Just "Invalid pattern matching constructors"
 
   -- Return eliminator term

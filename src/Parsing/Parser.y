@@ -97,6 +97,7 @@ Param :: { Parameter }
   | '(' var ',' var ')' { Pattern $ SPair (SVar $2) (SVar $4) }
   | 'inl' '(' var ')'   { Pattern $ SInl $ SVar $ $3 }
   | 'inr' '(' var ')'   { Pattern $ SInr $ SVar $ $3 }
+  | 'refl'              { Pattern $ SRefl Nothing }
 
 Params :: { [Parameter] }
   :              { [] }
