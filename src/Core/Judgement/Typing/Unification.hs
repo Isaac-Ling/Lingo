@@ -323,12 +323,12 @@ solveConstraints env ctx mctx cs = do
 
 expandMetas :: MetaSolutions -> Term -> Term
 expandMetas sols (Var (Meta i sp))        = case lookup i sols of
-  Just t -> applyTermToSpine t sp
+  Just t -> eval $ applyTermToSpine t sp
   _      -> Var (Meta i sp)
   where
     applyTermToSpine :: Term -> Spine -> Term
     applyTermToSpine m []     = m
-    applyTermToSpine m (n:ns) = eval $ applyTermToSpine (App m (n, Exp)) ns
+    applyTermToSpine m (n:ns) = applyTermToSpine (App m (n, Exp)) ns
 expandMetas sols (Lam (x, Just t, ex) n)  = Lam (x, Just $ expandMetas sols t, ex) (expandMetas sols n)
 expandMetas sols (Lam x n)                = Lam x $ expandMetas sols n
 expandMetas sols (Pi (x, t, ex) n)        = Pi (x, expandMetas sols t, ex) (expandMetas sols n)
