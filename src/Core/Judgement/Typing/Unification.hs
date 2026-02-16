@@ -147,7 +147,8 @@ solveConstraints env ctx mctx cs = do
       st   <- get
 
       let initContexts = Contexts { env=uenv ctxs, ctx=uctx ctxs, bctx=bc, tbctx=[] }
-      -- TODO: metaID 0? No new metas *should* be created but still unsafe
+      -- Meta ID can be set to 0 since no new metas will be created
+      -- All implicit arguments have been instantiated with metas at this point and made explicit
       let initState    = MetaState { mcsts=csts st, mctx=umctx ctxs, metaID=0 }
       let mt = evalInferType initContexts initState m
 
@@ -200,10 +201,7 @@ solveConstraints env ctx mctx cs = do
       appendConstraint ((Just x, t) : bc) m m'
       return True
     decompose bc (Lam (x, Nothing, _) m) (Lam _ m')              = do
-      -- We don't know the type of x here, but need to add something
-      -- to the bound context. Add Top for now (TODO?)
-      appendConstraint ((Nothing, Top) : bc) m m'
-      return True
+      unificationError $ Just "Unable to decompose implicit lambda for unification"
     decompose bc (Pi (x, t, _) m) (Pi (_, t', _) m')             = do
       appendConstraint bc t t'
       appendConstraint ((x, t) : bc) m m'
@@ -316,7 +314,7 @@ solveConstraints env ctx mctx cs = do
     appendBoundTermConstraint bc (NoBind m) (NoBind m') = appendConstraint bc m m'
     -- We don't know the type of x here, but need to add something
     -- to the bound context. Add Top for now (TODO?)
-    appendBoundTermConstraint bc (Bind x m) (Bind _ m') = appendBoundTermConstraint ((x, Top) : bc) m m'
+    appendBoundTermConstraint bc (Bind x m) (Bind _ m') = unificationError $ Just "BAD" --appendBoundTermConstraint ((x, Top) : bc) m m'
 
     unificationError :: Maybe String -> Unification a
     unificationError ms = lift $ lift $ Error UnificationError ms
