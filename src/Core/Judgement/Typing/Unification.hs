@@ -29,25 +29,24 @@ type BlockedConstraints = [BlockedConstraint]
 
 data UniState = UniState
   { sols  :: MetaSolutions
-  , csts  :: Constraints
+  , mst   :: MetaState
   , bcsts :: BlockedConstraints
   }
 
 data UniContexts = UniContexts
   { uenv :: Environment
   , uctx :: Context
-  , umctx :: MetaContext
   }
 
 type Unification a = ReaderT UniContexts (StateT UniState CanError) a
 
-solveConstraints :: Environment -> Context -> MetaContext -> Constraints -> CanError MetaSolutions
-solveConstraints env ctx mctx cs = do
+solveConstraints :: Environment -> Context -> MetaState -> CanError MetaSolutions
+solveConstraints env ctx st = do
   result <- execStateT (runReaderT go initContexts) initState
   return $ sols result
   where
-    initState    = UniState { sols=[], csts=cs, bcsts=[] }
-    initContexts = UniContexts { uenv=env, uctx=ctx, umctx=mctx }
+    initState    = UniState { sols=[], mst=st, bcsts=[] }
+    initContexts = UniContexts { uenv=env, uctx=ctx }
 
     go :: Unification ()
     go = do
@@ -55,14 +54,14 @@ solveConstraints env ctx mctx cs = do
       st  <- get
 
       -- Get constraint from worklist
-      case csts st of
+      case mcsts $ mst st of
         []              -> do
           st <- get
 
           -- Check if there are any blocked constraints
           if null $ bcsts st
           then return ()
-          else unificationError $ Just ("Unsolved constraints" ++ (show $ bcsts st))
+          else unificationError $ Just ("Unsolved constraints" ++ show (bcsts st))
         ((bc, t, t'):_) -> do
           let et  = eval $ expandMetas (sols st) t
           let et' = eval $ expandMetas (sols st) t'
@@ -78,8 +77,7 @@ solveConstraints env ctx mctx cs = do
               flexRigidSolved <- tryFlexRigidSolve et et'
 
               unless flexRigidSolved $ do
-                -- Flex-flex constraints are blocked until one of the metas
-                -- is solved
+                -- Flex-flex constraints are blocked until one of the metas is solved
                 appendBlockedConstraint bc t t'
 
           -- Loop with remaining constraints
@@ -90,23 +88,42 @@ solveConstraints env ctx mctx cs = do
     dropConstraint = do
       st <- get
 
-      case csts st of
+      case mcsts $ mst st of
         []     -> return ()
         (c:cs) -> do
-          put $ st { csts=cs }
+          put $ st { mst=(mst st) { mcsts=cs } }
 
     tryFlexRigidSolve :: Term -> Term -> Unification Bool
-    tryFlexRigidSolve (Var (Meta i sp)) m
-      | isRigid m && not (metaOccursIn i m) = do
-        addSolution i sp m
-        return True
-    tryFlexRigidSolve m (Var (Meta i sp))
-      | isRigid m && not (metaOccursIn i m) = tryFlexRigidSolve (Var $ Meta i sp) m
-    tryFlexRigidSolve _ _                   = return False
+    tryFlexRigidSolve n m
+      -- Swap terms around if in rigid-flex order
+      | isRigid n         = if isRigid m then return False else tryFlexRigidSolve m n
+    tryFlexRigidSolve m n = do
+      case breakUpPattern m of
+        Just (Meta i sp, sp') -> do
+          -- Occurs check
+          if metaOccursIn i n
+          then return False
+          else do
+            -- Extend meta's spine to imitate the rigid term
+            addSolution i (sp ++ sp') n
+            return True
+        _                     -> return False
+
+    breakUpPattern :: Term -> Maybe (Var, Spine)
+    breakUpPattern m = go m [] Set.empty
+      where
+        go :: Term -> Spine -> Set Int -> Maybe (Var, Spine)
+        go (Var mv@(Meta j sp'))          sp _  = return (mv, sp)
+        go (App m (n@(Var (Bound i)), _)) sp bs = do
+          -- Ensure that the flexible term is a metavariable applied to distinct bound variables
+          if i `Set.member` bs
+          then Nothing
+          else go m (sp ++ [n]) (Set.insert i bs)
+        -- Term is not in Miller's pattern fragment
+        go _ _ _                                = Nothing
 
     addSolution :: Int -> Spine -> Term -> Unification ()
     addSolution i sp m = do
-      ctxs <- ask
       st   <- get
 
       let mClosed = abstractOverCtx m sp
@@ -119,7 +136,7 @@ solveConstraints env ctx mctx cs = do
       -- Wake up blocked constraints that are awaiting this metas solution
       wakeUpBlockedConstraints i
 
-      case lookup i $ umctx ctxs of
+      case lookup i $ mctx $ mst st of
         Just md -> do
           -- Create a constraint that the type of the solved meta must match the 
           -- metas expected type in the meta context
@@ -138,8 +155,8 @@ solveConstraints env ctx mctx cs = do
             st <- get
 
             let newBcsts = delete bc $ bcsts st
-            let newCsts = csts st ++ [c]
-            put $ st { csts=newCsts, bcsts=newBcsts }
+            let newCsts = mcsts (mst st) ++ [c]
+            put $ st { mst=(mst st) { mcsts=newCsts }, bcsts=newBcsts }
 
     inferSolutionType :: BoundContext -> Term -> Unification Term
     inferSolutionType bc m = do
@@ -147,10 +164,7 @@ solveConstraints env ctx mctx cs = do
       st   <- get
 
       let initContexts = Contexts { env=uenv ctxs, ctx=uctx ctxs, bctx=bc, tbctx=[] }
-      -- Meta ID can be set to 0 since no new metas will be created
-      -- All implicit arguments have been instantiated with metas at this point and made explicit
-      let initState    = MetaState { mcsts=csts st, mctx=umctx ctxs, metaID=0 }
-      let mt = evalInferType initContexts initState m
+      let mt = evalInferType initContexts (mst st) m
 
       case mt of
         Result t     -> return $ snd t
@@ -161,7 +175,7 @@ solveConstraints env ctx mctx cs = do
       where
         go :: Int -> Term -> Spine -> Term
         go i m []     = m
-        go i m (n:ns) = go (i + 1) (Lam (pack ("!m" ++ show i), Nothing, Exp) m) ns
+        go i m (_:ns) = go (i + 1) (Lam (pack ("!m" ++ show i), Nothing, Exp) m) ns
 
     -- Remaps a term to the context in the provided metas spine
     remapCtxToSpine :: Term -> Spine -> Term
@@ -296,7 +310,7 @@ solveConstraints env ctx mctx cs = do
     appendConstraint :: BoundContext -> Term -> Term -> Unification ()
     appendConstraint bc m m' = do
       st <- get
-      put $ st { csts=csts st ++ [(bc, m, m')] }
+      put $ st { mst=(mst st) { mcsts=mcsts (mst st) ++ [(bc, m, m')] } }
 
     appendBlockedConstraint :: BoundContext -> Term -> Term -> Unification ()
     appendBlockedConstraint bc m m' = do

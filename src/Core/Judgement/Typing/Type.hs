@@ -13,7 +13,7 @@ import Control.Monad (when)
 inferTypeAndElaborate :: Environment -> Context -> Term -> CanError (Term, Term)
 inferTypeAndElaborate env ctx m = do
   result <- runInferType initContexts initState m
-  msol   <- solveConstraints env ctx (mctx $ snd result) (mcsts $ snd result)
+  msol   <- solveConstraints env ctx $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
   let t  = expandMetas msol $ snd ts
@@ -41,7 +41,7 @@ elaborate env ctx m = do
 checkTypeAndElaborate :: Environment-> Context -> Term -> Term -> CanError (Term, Term)
 checkTypeAndElaborate env ctx m t = do
   result <- runCheckType initContexts initState m $ eval $ unfold env t
-  msol   <- solveConstraints env ctx (mctx $ snd result) (mcsts $ snd result)
+  msol   <- solveConstraints env ctx $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
   let t  = expandMetas msol $ snd ts
