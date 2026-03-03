@@ -193,7 +193,7 @@ showTermWithBinders b bs (Var (Meta i sp))
   | otherwise = errorString
   where
     vars :: [String]
-    vars = ["a" ++ show i | i <- [0..]]
+    vars = [show i | i <- [0..]]
     
     errorString :: String
     errorString = "!ERROR"
