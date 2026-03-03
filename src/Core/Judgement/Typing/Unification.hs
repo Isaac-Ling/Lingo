@@ -94,8 +94,6 @@ solveConstraints env ctx st = do
           put $ st { mst=(mst st) { mcsts=cs } }
 
     tryFlexRigidSolve :: Term -> Term -> Unification Bool
-    --tryFlexRigidSolve n m
-    --  | isRigid n         = if isRigid m then return False else tryFlexRigidSolve m n
     tryFlexRigidSolve m n
       | isFlex m && isRigid n = do
       case breakUpPattern m of
