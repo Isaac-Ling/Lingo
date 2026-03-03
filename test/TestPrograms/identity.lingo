@@ -18,6 +18,8 @@ idTrans p := idTransLemma a b p c
 #check idTrans
 
 -- Functoriality of functions
+lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
+lift f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
 
 #check lift
 
@@ -26,6 +28,10 @@ transport : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> a = b -> P a -> P b
 transport P p := ind[=[A]](a. b. p. P a -> P b, z. id, a, b, p)
 
 #check transport
+
+-- Identity on type constructors
+productPath : {A : U} -> {B : U} -> (a : A x B) -> (b : A x B) -> (p : a = b) -> (fst a = fst b) x (snd a = snd b)
+productPath a b p := (lift fst p, lift snd p)
 
 #type productPath
 

@@ -94,10 +94,10 @@ solveConstraints env ctx st = do
           put $ st { mst=(mst st) { mcsts=cs } }
 
     tryFlexRigidSolve :: Term -> Term -> Unification Bool
-    tryFlexRigidSolve n m
-      -- Swap terms around if in rigid-flex order
-      | isRigid n         = if isRigid m then return False else tryFlexRigidSolve m n
-    tryFlexRigidSolve m n = do
+    --tryFlexRigidSolve n m
+    --  | isRigid n         = if isRigid m then return False else tryFlexRigidSolve m n
+    tryFlexRigidSolve m n
+      | isFlex m && isRigid n = do
       case breakUpPattern m of
         Just (Meta i sp, sp') -> do
           -- Occurs check
@@ -108,6 +108,10 @@ solveConstraints env ctx st = do
             addSolution i (sp ++ sp') n
             return True
         _                     -> return False
+    -- Swap terms around if in rigid-flex order
+    tryFlexRigidSolve m n
+      | isRigid m && isFlex n = tryFlexRigidSolve n m
+    tryFlexRigidSolve _ _     = return False
 
     breakUpPattern :: Term -> Maybe (Var, Spine)
     breakUpPattern m = go m [] Set.empty
