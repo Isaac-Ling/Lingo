@@ -19,7 +19,9 @@ lift f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
 productPath : {A : U} -> {B : U} -> (a : A x B) -> (b : A x B) -> (p : a = b) -> (fst a = fst b) x (snd a = snd b)
 
 #check lift
-productPath a b p := (lift fst p, lift snd p)
+
+-- TODO: Problem is with fst and snd in lift not having meta vars instantiated since it is not an application??
+productPath a b p := (lift (fst {A} {B}) p, lift (snd {A} {B}) p)
 
 
 #check snd (*, 32)
