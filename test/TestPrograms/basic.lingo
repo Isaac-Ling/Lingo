@@ -38,6 +38,8 @@ flip f b a := f a b
 not : (A : U) -> U
 not A := A -> _|_
 
+#check not
+
 modusPonens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
 modusPonens p := (snd p) (fst p)
 
