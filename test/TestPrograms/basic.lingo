@@ -10,18 +10,18 @@ dfst (a, b) := a
 
 #check dfst
 
-dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst {A} {B} p)
+dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst p)
 dsnd (a, b) := b
 
 #check dsnd
 
 fst : {A : U} -> {B : U} -> A x B -> A
-fst p := dfst {A} {\a. B} p
+fst p := dfst p
 
 #check fst (*, 32)
 
 snd : {A : U} -> {B : U} -> A x B -> B
-snd p := dsnd {A} {\a. B} p
+snd p := dsnd p
 
 #check snd (*, 32)
 

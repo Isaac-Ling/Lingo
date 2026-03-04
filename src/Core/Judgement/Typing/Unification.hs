@@ -11,7 +11,7 @@ import Data.Set (Set)
 import GHC.Base (when)
 import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
-import Data.List (elemIndex, delete)
+import Data.List (elemIndex, delete, (!?))
 import Data.Bifunctor (second)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
@@ -74,7 +74,7 @@ solveConstraints env ctx st = do
 
             unless decomposed $ do
               -- Try to solve the flex-rigid case
-              flexRigidSolved <- tryFlexRigidSolve et et'
+              flexRigidSolved <- tryFlexRigidSolve bc et et'
 
               unless flexRigidSolved $ do
                 -- Flex-flex constraints are blocked until one of the metas is solved
@@ -93,8 +93,8 @@ solveConstraints env ctx st = do
         (c:cs) -> do
           put $ st { mst=(mst st) { mcsts=cs } }
 
-    tryFlexRigidSolve :: Term -> Term -> Unification Bool
-    tryFlexRigidSolve m n
+    tryFlexRigidSolve :: BoundContext -> Term -> Term -> Unification Bool
+    tryFlexRigidSolve bc m n
       | isFlex m && isRigid n = do
       case breakUpPattern m of
         Just (Meta i sp, sp') -> do
@@ -102,14 +102,24 @@ solveConstraints env ctx st = do
           if metaOccursIn i n
           then return False
           else do
-            -- Extend meta's spine to imitate the rigid term
-            addSolution i (sp ++ sp') n
+            -- Imitate RHS by abstracting over rigid term
+            sol <- imitateRHS 0 bc n sp'
+            addSolution i sp $ shift (length sp') sol
             return True
         _                     -> return False
+      where
+        imitateRHS :: Int -> BoundContext -> Term -> Spine -> Unification Term
+        imitateRHS i bc m []                 = return m
+        imitateRHS i bc m (Var (Bound j):ns) = do
+          case bc !? j of
+            Just (_, t) -> imitateRHS i bc (Lam (pack ("!i" ++ show i), Just t, Exp) m) ns
+            Nothing     -> unificationError $ Just "Failed to determine bound variables type"
+        imitateRHS _ _ _ _                   = unificationError $ Just "Constraint is not in pattern fragment"
+
     -- Swap terms around if in rigid-flex order
-    tryFlexRigidSolve m n
-      | isRigid m && isFlex n = tryFlexRigidSolve n m
-    tryFlexRigidSolve _ _     = return False
+    tryFlexRigidSolve bc m n
+      | isRigid m && isFlex n = tryFlexRigidSolve bc n m
+    tryFlexRigidSolve _ _ _   = return False
 
     breakUpPattern :: Term -> Maybe (Var, Spine)
     breakUpPattern m = go m [] Set.empty
