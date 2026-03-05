@@ -39,12 +39,12 @@ goInferType (Var (Free x))                            = do
     Just t  -> return (Var $ Free x, t)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
-goInferType (Var (Meta i j))                         = do
+goInferType (Var (Meta i))                         = do
   st <- get
 
   case lookup i $ mctx st of
-    Just d  -> return (Var $ Meta i j, mtype d)
-    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i j))
+    Just d  -> return (Var $ Meta i, mtype d)
+    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i))
 
 goInferType (Pi (x, t, ex) m)                         = do
   ctxs <- ask
@@ -115,14 +115,14 @@ goInferType (App m (n, ex))                           = do
             return (App m (n, Imp), at)
           else do
             -- Otherwise, create a meta variable and continue with type inference
-            mv <- createMetaVar t $ bctx ctxs
+            mv <- createMetaVar (bctx ctxs) t
             let m'  = App m (mv, Imp)
             let m't = bumpDown $ open (bumpUp mv) t'
 
             inferAppType m' (n, ex) m't
-        Var (Meta i j)   -> do
+        Var (Meta i)   -> do
           (_, nt) <- goInferTypeAndElab n
-          (_, mit) <- goInferType $ Var $ Meta i j
+          (_, mit) <- goInferType $ Var $ Meta i
           (_, ntt) <- goInferType nt
 
           -- TODO: Implement Universe Polymorphism to avoid this erroring,
@@ -130,12 +130,12 @@ goInferType (App m (n, ex))                           = do
           -- statements matching universes
           mtype <- case (mit, ntt) of
             (Univ i, Univ j)    -> return $ Univ $ max i j
-            (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show (Var $ Meta i j))
-          mv <- createMetaVar mtype $ bctx ctxs
+            (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show (Var $ Meta i))
+          mv <- createMetaVar (bctx ctxs) mtype
 
           -- Refine the meta to be a pi type
           let mmt = Pi (Nothing, nt, Exp) mv
-          unify (Var $ Meta i j) mmt Nothing
+          unify (Var $ Meta i) mmt Nothing
 
           inferAppType m (n, ex') mmt
         _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
@@ -503,7 +503,7 @@ instantiateImplicits m@(Lam (_, _, Imp) _) mt@(Pi (_, _, Imp) _) = return (m, mt
 instantiateImplicits m (Pi (x, t, Imp) t')                       = do
   ctxs <- ask
 
-  mv <- createMetaVar t $ bctx ctxs
+  mv <- createMetaVar (bctx ctxs) t
   let m'  = App m (mv, Imp)
   let m't = bumpDown $ open (bumpUp mv) t'
   instantiateImplicits m' m't

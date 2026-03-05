@@ -7,7 +7,7 @@ import Core.Judgement.Utils
 import Data.Bifunctor (second)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 type Assumption = (ByteString, Term)
 type Context = [Assumption]
@@ -69,12 +69,21 @@ useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 useBoundCtx :: Contexts -> Contexts
 useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 
-createMetaVar :: Term -> BoundContext -> TypeCheck Term
-createMetaVar mt bc = do
+createMetaVar :: BoundContext -> Term -> TypeCheck Term
+createMetaVar bc mt = do
   st <- get
   let mid = metaID st
   put st { metaID=mid + 1, mctx=(mid, MetaData { mtype=mt, mbctx=bc }) : mctx st }
 
   let n = length bc
 
-  return $ Var $ Meta mid 0
+  -- Apply metavariable to the context to avoid scoping issues
+  return $ applyToCtx bc $ Var $ Meta mid
+  where
+    applyToCtx :: BoundContext -> Term -> Term
+    applyToCtx bc m = go 0 (length bc) m
+      where
+        go :: Int -> Int -> Term -> Term
+        go k i m
+          | k >= i    = m
+          | otherwise = go (k + 1) i $ App m (Var $ Bound k, Exp)

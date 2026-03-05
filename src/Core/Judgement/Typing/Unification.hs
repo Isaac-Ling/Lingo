@@ -99,21 +99,21 @@ solveConstraints env ctx st = do
     tryFlexRigidSolve bc m n
       | isFlex m && isRigid n = do
       case breakUpPattern m of
-        Just (Meta i j, sp) -> do
+        Just (Meta i, sp) -> do
           -- Occurs check
           if metaOccursIn i n
           then return False
           else do
             -- Imitate RHS by abstracting over rigid term
             sol <- imitateRHS 0 bc n sp
-            addSolution bc i j $ shift (length sp) sol
+            addSolution bc i sol
             return True
         _                     -> return False
       where
         imitateRHS :: Int -> BoundContext -> Term -> Spine -> Unification Term
         imitateRHS i bc m []                 = return m
         imitateRHS i bc m (Var (Bound j):ns) = case bc !? j of
-          Just (x, t) -> imitateRHS (i + 1) bc (Lam (pack ("!i" ++ show i), Just t, Exp) m) ns
+          Just (x, t) -> imitateRHS (i + 1) bc (Lam (pack ("!i" ++ show i), Just t, Exp) $ bumpUp m) ns
           Nothing     -> unificationError $ Just "Failed to determine bound variable's type"
         imitateRHS _ _ _ _                   = unificationError $ Just "Constraint is not in pattern fragment"
 
@@ -126,7 +126,7 @@ solveConstraints env ctx st = do
     breakUpPattern m = go m [] Set.empty
       where
         go :: Term -> Spine -> Set Int -> Maybe (Var, Spine)
-        go (Var mv@(Meta i j))            sp _  = return (mv, sp)
+        go (Var mv@(Meta i))              sp _  = return (mv, sp)
         go (App m (n@(Var (Bound i)), _)) sp bs = do
           -- Ensure that the flexible term is a metavariable applied to distinct bound variables
           if i `Set.member` bs
@@ -135,11 +135,10 @@ solveConstraints env ctx st = do
         -- Term is not in Miller's pattern fragment
         go _ _ _                                = Nothing
 
-    addSolution :: BoundContext -> Int -> Int -> Term -> Unification ()
-    addSolution bc i j m = do
+    addSolution :: BoundContext -> Int -> Term -> Unification ()
+    addSolution bc i m = do
       st   <- get
 
-      --let mShifted = shift j m
       let allSols = (i, m) : sols st
 
       -- Expand metas in existing solutions
@@ -155,7 +154,7 @@ solveConstraints env ctx st = do
           -- its expected type
           mt <- inferSolutionType bc m
           appendConstraint bc (mtype md) mt
-        Nothing -> unificationError $ Just ("No expected type of " ++ show (Var $ Meta i j) ++ " found in meta context")
+        Nothing -> unificationError $ Just ("No expected type of " ++ show (Var $ Meta i) ++ " found in meta context")
 
     wakeUpBlockedConstraints :: Int -> Unification ()
     wakeUpBlockedConstraints i = do
@@ -263,7 +262,7 @@ solveConstraints env ctx st = do
       else unificationError $ Just ("Failed to unify " ++ showTermWithContext bc m ++ " and " ++ showTermWithContext bc m')
 
     metaOccursIn :: Int -> Term -> Bool
-    metaOccursIn k (Var (Meta i _))
+    metaOccursIn k (Var (Meta i))
       | i == k    = True
       | otherwise = False
     metaOccursIn k (Lam (x, Just t, _) n)  = metaOccursIn k t || metaOccursIn k n
@@ -313,9 +312,9 @@ solveConstraints env ctx st = do
     unificationError ms = lift $ lift $ Error UnificationError ms
 
 expandMetas :: MetaSolutions -> Term -> Term
-expandMetas sols (Var (Meta i j))         = case lookup i sols of
+expandMetas sols (Var (Meta i))           = case lookup i sols of
   Just t -> t
-  _      -> Var (Meta i j)
+  _      -> Var (Meta i)
 expandMetas sols (Lam (x, Just t, ex) n)  = Lam (x, Just $ expandMetas sols t, ex) (expandMetas sols n)
 expandMetas sols (Lam x n)                = Lam x $ expandMetas sols n
 expandMetas sols (Pi (x, t, ex) n)        = Pi (x, expandMetas sols t, ex) (expandMetas sols n)

@@ -20,7 +20,7 @@ unfold :: Environment -> Term -> Term
 unfold env (Var (Free x))           = case lookup x env of
   Just m  -> unfold env m
   Nothing -> Var $ Free x
-unfold env (Var (Meta i j))        = Var $ Meta i j
+unfold env (Var (Meta i))           = Var $ Meta i
 unfold env (Var (Bound i))          = Var $ Bound i
 unfold env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (unfold env m)
 unfold env (Lam (x, Just t, ex) m)  = Lam (x, Just $ unfold env t, ex) (unfold env m)
@@ -55,7 +55,6 @@ shift k = go k 0
     go k l (Var (Bound i))
       | i >= l    = Var $ Bound (i + k)
       | otherwise = Var $ Bound i
-    go k l (Var (Meta i j))         = Var $ Meta i (j + k)
     go k l (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go k (l + 1) m)
     go k l (Lam (x, Just t, ex) m)  = Lam (x, Just $ go k l t, ex) (go k (l + 1) m)
     go k l (Pi (x, t, ex) m)        = Pi (x, go k l t, ex) (go k (l + 1) m)
@@ -146,7 +145,7 @@ isBinderUsed = go 0
     isBinderUsedInBoundTerm k (Bind x n) = isBinderUsedInBoundTerm (k + 1) n
 
 getMetasInTerm :: Term -> Set Int
-getMetasInTerm (Var (Meta i _))        = Set.singleton i
+getMetasInTerm (Var (Meta i))          = Set.singleton i
 getMetasInTerm (Lam (x, Just t, _) n)  = getMetasInTerm t <> getMetasInTerm n
 getMetasInTerm (Lam (x, Nothing, _) n) = getMetasInTerm n
 getMetasInTerm (Pi (x, t, _) n)        = getMetasInTerm t <> getMetasInTerm n
@@ -173,9 +172,9 @@ containsMeta :: Term -> Bool
 containsMeta = not . Set.null . getMetasInTerm
 
 isRigid :: Term -> Bool
-isRigid (Var (Meta _ _)) = False
-isRigid (App m _)        = isRigid m
-isRigid _                = True
+isRigid (Var (Meta _)) = False
+isRigid (App m _)      = isRigid m
+isRigid _              = True
 
 isFlex :: Term -> Bool
 isFlex = not . isRigid
@@ -188,7 +187,7 @@ showTermWithBindersWithoutImplicits = showTermWithBinders False
 
 showTermWithBinders :: Bool -> Binders -> Term -> String
 showTermWithBinders b bs (Var (Free x))                = unpack x
-showTermWithBinders b bs (Var (Meta i _))
+showTermWithBinders b bs (Var (Meta i))
   | i >= 0    = "?" ++ vars !! i
   | otherwise = errorString
   where

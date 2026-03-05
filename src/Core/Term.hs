@@ -67,13 +67,13 @@ data SourceTerm
 data Var
   = Free ByteString
   | Bound Int
-  | Meta Int Int
+  | Meta Int
 
 instance Eq Var where
-  Free x == Free y     = x == y
-  Bound i == Bound j   = i == j
-  Meta i _ == Meta j _ = i == j
-  _ == _               = False
+  Free x == Free y   = x == y
+  Bound i == Bound j = i == j
+  Meta i == Meta j   = i == j
+  _ == _             = False
 
 type Alias = (ByteString, Term)
 type Environment = [Alias]
