@@ -39,12 +39,12 @@ goInferType (Var (Free x))                            = do
     Just t  -> return (Var $ Free x, t)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
-goInferType (Var (Meta i sp))                         = do
+goInferType (Var (Meta i j))                         = do
   st <- get
 
   case lookup i $ mctx st of
-    Just d  -> return (Var $ Meta i sp, mtype d)
-    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i sp))
+    Just d  -> return (Var $ Meta i j, mtype d)
+    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i j))
 
 goInferType (Pi (x, t, ex) m)                         = do
   ctxs <- ask
@@ -120,9 +120,9 @@ goInferType (App m (n, ex))                           = do
             let m't = bumpDown $ open (bumpUp mv) t'
 
             inferAppType m' (n, ex) m't
-        Var (Meta i sp)   -> do
+        Var (Meta i j)   -> do
           (_, nt) <- goInferTypeAndElab n
-          (_, mit) <- goInferType $ Var $ Meta i sp
+          (_, mit) <- goInferType $ Var $ Meta i j
           (_, ntt) <- goInferType nt
 
           -- TODO: Implement Universe Polymorphism to avoid this erroring,
@@ -130,12 +130,12 @@ goInferType (App m (n, ex))                           = do
           -- statements matching universes
           mtype <- case (mit, ntt) of
             (Univ i, Univ j)    -> return $ Univ $ max i j
-            (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show (Var $ Meta i sp))
+            (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show (Var $ Meta i j))
           mv <- createMetaVar mtype $ bctx ctxs
 
           -- Refine the meta to be a pi type
           let mmt = Pi (Nothing, nt, Exp) mv
-          unify (Var $ Meta i sp) mmt Nothing
+          unify (Var $ Meta i j) mmt Nothing
 
           inferAppType m (n, ex') mmt
         _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")

@@ -20,7 +20,7 @@ unfold :: Environment -> Term -> Term
 unfold env (Var (Free x))           = case lookup x env of
   Just m  -> unfold env m
   Nothing -> Var $ Free x
-unfold env (Var (Meta i sp))        = Var $ Meta i sp
+unfold env (Var (Meta i j))        = Var $ Meta i j
 unfold env (Var (Bound i))          = Var $ Bound i
 unfold env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (unfold env m)
 unfold env (Lam (x, Just t, ex) m)  = Lam (x, Just $ unfold env t, ex) (unfold env m)
@@ -45,6 +45,7 @@ unfold env (Ind t m c a)            = Ind (unfold env t) (unfoldBoundTerm env m)
 unfold env m                        = m
 
 shift :: Int -> Term -> Term
+shift 0 = id
 shift k = go k 0
   where
     -- Second Int is the minimum index that should be shifted
@@ -54,7 +55,7 @@ shift k = go k 0
     go k l (Var (Bound i))
       | i >= l    = Var $ Bound (i + k)
       | otherwise = Var $ Bound i
-    go k l (Var (Meta i sp))        = Var $ Meta i $ map (go k l) sp
+    go k l (Var (Meta i j))         = Var $ Meta i (j + k)
     go k l (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go k (l + 1) m)
     go k l (Lam (x, Just t, ex) m)  = Lam (x, Just $ go k l t, ex) (go k (l + 1) m)
     go k l (Pi (x, t, ex) m)        = Pi (x, go k l t, ex) (go k (l + 1) m)
@@ -92,7 +93,6 @@ openFor :: Term -> Int -> Term -> Term
 openFor m k (Var (Bound i))
   | i == k    = m
   | otherwise = Var $ Bound i
-openFor m k (Var (Meta i sp))        = Var $ Meta i $ map (openFor m k) sp
 openFor m k (Lam (x, Just t, ex) n)  = Lam (x, Just $ openFor m k t, ex) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Lam (x, Nothing, ex) n) = Lam (x, Nothing, ex) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Pi (x, t, ex) n)        = Pi (x, openFor m k t, ex) (openFor (bumpUp m) (k + 1) n)
@@ -188,7 +188,7 @@ showTermWithBindersWithoutImplicits = showTermWithBinders False
 
 showTermWithBinders :: Bool -> Binders -> Term -> String
 showTermWithBinders b bs (Var (Free x))                = unpack x
-showTermWithBinders b bs (Var (Meta i sp))
+showTermWithBinders b bs (Var (Meta i _))
   | i >= 0    = "?" ++ vars !! i
   | otherwise = errorString
   where
@@ -198,7 +198,8 @@ showTermWithBinders b bs (Var (Meta i sp))
     errorString :: String
     errorString = "!ERROR"
 showTermWithBinders b bs (Var (Bound i))
-  | i >= 0    = unpack $ fromMaybe (pack errorString) a
+--  | i >= 0    = unpack $ fromMaybe (pack errorString) a
+  | i >= 0    = show i
   | otherwise = errorString
   where
     a :: Maybe ByteString

@@ -77,5 +77,4 @@ createMetaVar mt bc = do
 
   let n = length bc
 
-  -- Create a spine of bound variables that the meta is 'applied' to
-  return $ Var $ Meta mid [Var $ Bound i | i <- reverse [0..(n - 1)]]
+  return $ Var $ Meta mid 0

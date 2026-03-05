@@ -27,6 +27,8 @@ type MetaSolutions = [MetaSolution]
 type BlockedConstraint  = (Constraint, Set Int)
 type BlockedConstraints = [BlockedConstraint]
 
+type Spine = [Term]
+
 data UniState = UniState
   { sols  :: MetaSolutions
   , mst   :: MetaState
@@ -97,23 +99,22 @@ solveConstraints env ctx st = do
     tryFlexRigidSolve bc m n
       | isFlex m && isRigid n = do
       case breakUpPattern m of
-        Just (Meta i sp, sp') -> do
+        Just (Meta i j, sp) -> do
           -- Occurs check
           if metaOccursIn i n
           then return False
           else do
             -- Imitate RHS by abstracting over rigid term
-            sol <- imitateRHS 0 bc n sp'
-            addSolution i sp $ shift (length sp') sol
+            sol <- imitateRHS 0 bc n sp
+            addSolution bc i j $ shift (length sp) sol
             return True
         _                     -> return False
       where
         imitateRHS :: Int -> BoundContext -> Term -> Spine -> Unification Term
         imitateRHS i bc m []                 = return m
-        imitateRHS i bc m (Var (Bound j):ns) = do
-          case bc !? j of
-            Just (_, t) -> imitateRHS i bc (Lam (pack ("!i" ++ show i), Just t, Exp) m) ns
-            Nothing     -> unificationError $ Just "Failed to determine bound variables type"
+        imitateRHS i bc m (Var (Bound j):ns) = case bc !? j of
+          Just (x, t) -> imitateRHS (i + 1) bc (Lam (pack ("!i" ++ show i), Just t, Exp) m) ns
+          Nothing     -> unificationError $ Just "Failed to determine bound variable's type"
         imitateRHS _ _ _ _                   = unificationError $ Just "Constraint is not in pattern fragment"
 
     -- Swap terms around if in rigid-flex order
@@ -125,7 +126,7 @@ solveConstraints env ctx st = do
     breakUpPattern m = go m [] Set.empty
       where
         go :: Term -> Spine -> Set Int -> Maybe (Var, Spine)
-        go (Var mv@(Meta j sp'))          sp _  = return (mv, sp)
+        go (Var mv@(Meta i j))            sp _  = return (mv, sp)
         go (App m (n@(Var (Bound i)), _)) sp bs = do
           -- Ensure that the flexible term is a metavariable applied to distinct bound variables
           if i `Set.member` bs
@@ -134,16 +135,16 @@ solveConstraints env ctx st = do
         -- Term is not in Miller's pattern fragment
         go _ _ _                                = Nothing
 
-    addSolution :: Int -> Spine -> Term -> Unification ()
-    addSolution i sp m = do
+    addSolution :: BoundContext -> Int -> Int -> Term -> Unification ()
+    addSolution bc i j m = do
       st   <- get
 
-      let mClosed = abstractOverCtx m sp
-      let allSols = (i, mClosed) : sols st
+      --let mShifted = shift j m
+      let allSols = (i, m) : sols st
 
       -- Expand metas in existing solutions
       let expandedSolutions = map (second $ expandMetas allSols) $ sols st
-      put $ st { sols=(i, mClosed) : expandedSolutions }
+      put $ st { sols=(i, m) : expandedSolutions }
 
       -- Wake up blocked constraints that are awaiting this metas solution
       wakeUpBlockedConstraints i
@@ -151,10 +152,10 @@ solveConstraints env ctx st = do
       case lookup i $ mctx $ mst st of
         Just md -> do
           -- Create a constraint that the type of the solved meta must match the 
-          -- metas expected type in the meta context
-          mt <- inferSolutionType (mbctx md) $ remapCtxToSpine m sp
-          appendConstraint (mbctx md) (mtype md) mt
-        Nothing -> unificationError $ Just ("No expected type of " ++ show (Var $ Meta i []) ++ " found in meta context")
+          -- its expected type
+          mt <- inferSolutionType bc m
+          appendConstraint bc (mtype md) mt
+        Nothing -> unificationError $ Just ("No expected type of " ++ show (Var $ Meta i j) ++ " found in meta context")
 
     wakeUpBlockedConstraints :: Int -> Unification ()
     wakeUpBlockedConstraints i = do
@@ -181,40 +182,6 @@ solveConstraints env ctx st = do
       case mt of
         Result t     -> return $ snd t
         Error errc s -> unificationError s
-
-    abstractOverCtx :: Term -> Spine -> Term
-    abstractOverCtx m sp = go 0 (remapCtxToSpine m sp) sp
-      where
-        go :: Int -> Term -> Spine -> Term
-        go i m []     = m
-        go i m (_:ns) = go (i + 1) (Lam (pack ("!m" ++ show i), Nothing, Exp) m) ns
-
-    -- Remaps a term to the context in the provided metas spine
-    remapCtxToSpine :: Term -> Spine -> Term
-    remapCtxToSpine (Var (Bound i)) sp
-      | Var (Bound i) `elem` sp = Var $ Bound (fromMaybe 0 $ elemIndex (Var $ Bound i) $ reverse sp)
-      | otherwise               = Var $ Bound i
-    remapCtxToSpine (Lam (x, Just t, ex) n) sp  = Lam (x, Just $ remapCtxToSpine t sp, ex) (remapCtxToSpine n sp)
-    remapCtxToSpine (Lam (x, Nothing, ex) n) sp = Lam (x, Nothing, ex) (remapCtxToSpine n sp)
-    remapCtxToSpine (Pi (x, t, ex) n) sp        = Pi (x, remapCtxToSpine t sp, ex) (remapCtxToSpine n sp)
-    remapCtxToSpine (Sigma (x, t) n) sp         = Sigma (x, remapCtxToSpine t sp) (remapCtxToSpine n sp)
-    remapCtxToSpine (Pair t n) sp               = Pair (remapCtxToSpine t sp) (remapCtxToSpine n sp)
-    remapCtxToSpine (IdFam t) sp                = IdFam $ remapCtxToSpine t sp
-    remapCtxToSpine (Id mt t n) sp              = Id (fmap (`remapCtxToSpine` sp) mt) (remapCtxToSpine t sp) (remapCtxToSpine n sp)
-    remapCtxToSpine (Sum t n) sp                = Sum (remapCtxToSpine t sp) (remapCtxToSpine n sp)
-    remapCtxToSpine (App t (n, ex)) sp          = App (remapCtxToSpine t sp) (remapCtxToSpine n sp, ex)
-    remapCtxToSpine (Inl n) sp                  = Inl $ remapCtxToSpine n sp
-    remapCtxToSpine (Inr n) sp                  = Inr $ remapCtxToSpine n sp
-    remapCtxToSpine (Refl n) sp                 = Refl $ fmap (`remapCtxToSpine` sp) n
-    remapCtxToSpine (Succ n) sp                 = Succ $ remapCtxToSpine n sp
-    remapCtxToSpine (Funext p) sp               = Funext $ remapCtxToSpine p sp
-    remapCtxToSpine (Univalence a) sp           = Univalence $ remapCtxToSpine a sp
-    remapCtxToSpine (Ind t m' c a) sp           = Ind (remapCtxToSpine t sp) (remapCtxToSpineInBoundTerm m' sp) (map (`remapCtxToSpineInBoundTerm` sp) c) (remapCtxToSpine a sp)
-      where
-        remapCtxToSpineInBoundTerm :: BoundTerm -> Spine -> BoundTerm
-        remapCtxToSpineInBoundTerm (NoBind n) sp = NoBind (remapCtxToSpine n sp)
-        remapCtxToSpineInBoundTerm (Bind x n) sp = Bind x (remapCtxToSpineInBoundTerm n sp)
-    remapCtxToSpine n _                         = n
 
     decompose :: BoundContext -> Term -> Term -> Unification Bool
     -- Flex-flex case
@@ -346,13 +313,9 @@ solveConstraints env ctx st = do
     unificationError ms = lift $ lift $ Error UnificationError ms
 
 expandMetas :: MetaSolutions -> Term -> Term
-expandMetas sols (Var (Meta i sp))        = case lookup i sols of
-  Just t -> eval $ applyTermToSpine t sp
-  _      -> Var (Meta i sp)
-  where
-    applyTermToSpine :: Term -> Spine -> Term
-    applyTermToSpine m []     = m
-    applyTermToSpine m (n:ns) = applyTermToSpine (App m (n, Exp)) ns
+expandMetas sols (Var (Meta i j))         = case lookup i sols of
+  Just t -> t
+  _      -> Var (Meta i j)
 expandMetas sols (Lam (x, Just t, ex) n)  = Lam (x, Just $ expandMetas sols t, ex) (expandMetas sols n)
 expandMetas sols (Lam x n)                = Lam x $ expandMetas sols n
 expandMetas sols (Pi (x, t, ex) n)        = Pi (x, expandMetas sols t, ex) (expandMetas sols n)

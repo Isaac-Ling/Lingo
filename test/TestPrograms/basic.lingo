@@ -41,6 +41,6 @@ not A := A -> _|_
 #check not
 
 modusPonens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
-modusPonens p := (snd p) (fst p)
+modusPonens p := (snd p) (dfst p)
 
 #type modusPonens
