@@ -29,7 +29,7 @@ goInferType (Var (Bound i))                           = do
   ctxs <- ask
 
   if i >= 0 && i < length (bctx ctxs)
-  then return (Var $ Bound i, snd $ bctx ctxs !! i)
+  then return (Var $ Bound i, shift (i + 1) $ snd $ bctx ctxs !! i)
   else typeError FailedToInferType $ Just ("Invalid index " ++ show i ++ " for bound term")
 
 goInferType (Var (Free x))                            = do

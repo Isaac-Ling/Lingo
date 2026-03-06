@@ -104,18 +104,17 @@ solveConstraints env ctx st = do
           if metaOccursIn i n
           then return False
           else do
-            sol <- imitateRHS 0 bc n sp
+            sol <- abstractOverRHS 0 bc n sp
             addSolution bc i sol
             return True
         _                     -> return False
       where
-        imitateRHS :: Int -> BoundContext -> Term -> Spine -> Unification Term
-        imitateRHS i bc m []                 = return m
-        imitateRHS i bc m (Var (Bound j):ns) = case bc !? j of
-          Just (x, t) -> let shiftedType = if null ns then t else shift (length bc - i - 1) t in
-            imitateRHS (i + 1) bc (Lam (pack ("!i" ++ show i), Just shiftedType, Exp) m) ns
-          Nothing     -> unificationError $ Just "Failed to determine bound variable's type"
-        imitateRHS _ _ _ _                   = unificationError $ Just "Constraint is not in pattern fragment"
+        abstractOverRHS :: Int -> BoundContext -> Term -> Spine -> Unification Term
+        abstractOverRHS i bc m []                 = return m
+        abstractOverRHS i bc m (Var (Bound j):ns) = case bc !? j of
+          Just (_, t) -> abstractOverRHS (i + 1) bc (Lam (pack ("!i" ++ show i), Just t, Exp) m) ns
+          Nothing     -> unificationError $ Just "Failed to determine type of bound variable"
+        abstractOverRHS _ _ _ _                   = unificationError $ Just "Constraint is not in pattern fragment"
 
     -- Swap terms around if in rigid-flex order
     tryFlexRigidSolve bc m n

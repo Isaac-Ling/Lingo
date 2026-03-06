@@ -4,7 +4,6 @@ import Core.Term
 import Core.Error
 import Core.Judgement.Utils
 
-import Data.Bifunctor (second)
 import Data.List ((!?))
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
@@ -56,10 +55,10 @@ addToCtx :: Assumption -> (Contexts -> Contexts)
 addToCtx (x, t) ctxs = ctxs { ctx=(x, t) : ctx ctxs }
 
 addToBoundCtx :: (Maybe ByteString, Term) -> (Contexts -> Contexts)
-addToBoundCtx (x, t) ctxs = ctxs { bctx=(x, bumpUp t) : map (second bumpUp) (bctx ctxs) }
+addToBoundCtx (x, t) ctxs = ctxs { bctx=(x, t) : bctx ctxs }
 
 addToTypeBoundCtx :: (Maybe ByteString, Term) -> (Contexts -> Contexts)
-addToTypeBoundCtx (x, t) ctxs = ctxs { tbctx=(x, bumpUp t) : map (second bumpUp) (tbctx ctxs) }
+addToTypeBoundCtx (x, t) ctxs = ctxs { tbctx=(x, t) : tbctx ctxs }
 
 addToBoundCtxs :: (Maybe ByteString, Term) -> (Maybe ByteString, Term) -> (Contexts -> Contexts)
 addToBoundCtxs (x, t) (x', t') = addToTypeBoundCtx (x', t') . addToBoundCtx (x, t)
