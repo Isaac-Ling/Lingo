@@ -2,15 +2,9 @@
 uniqT : (a : T) -> a = *
 uniqT * := refl
 
-#check uniqT
-
 -- Initial and terminal
 terminal : (A : U) -> T
 terminal A := *
 
-#check terminal
-
 initial : (A : U) -> _|_ -> A
 initial A a := ind[_|_](A, a)
-
-#check initial

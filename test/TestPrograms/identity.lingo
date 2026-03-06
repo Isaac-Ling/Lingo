@@ -31,6 +31,8 @@ transport P p := ind[=[A]](a. b. p. P a -> P b, z. id, a, b, p)
 
 -- Identity on type constructors
 productPath : {A : U} -> {B : U} -> (a : A x B) -> (b : A x B) -> (p : a = b) -> (fst a = fst b) x (snd a = snd b)
+
+#eval productPath
 productPath a b p := (lift fst p, lift snd p)
 
 #type productPath

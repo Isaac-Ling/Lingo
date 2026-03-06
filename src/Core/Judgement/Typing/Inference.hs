@@ -120,25 +120,27 @@ goInferType (App m (n, ex))                           = do
             let m't = bumpDown $ open (bumpUp mv) t'
 
             inferAppType m' (n, ex) m't
-        Var (Meta i)   -> do
-          (_, nt) <- goInferTypeAndElab n
-          (_, mit) <- goInferType $ Var $ Meta i
-          (_, ntt) <- goInferType nt
+        _                 ->
+          if isFlex mt
+          then do
+            (_, nt)  <- goInferTypeAndElab n
+            (_, mtt) <- goInferType mt
+            (_, ntt) <- goInferType nt
 
-          -- TODO: Implement Universe Polymorphism to avoid this erroring,
-          -- allow user to abstract over universes, and allow metas in case
-          -- statements matching universes
-          mtype <- case (mit, ntt) of
-            (Univ i, Univ j)    -> return $ Univ $ max i j
-            (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show (Var $ Meta i))
-          mv <- createMetaVar ((Nothing, nt) : bctx ctxs) mtype
+            -- TODO: Implement Universe Polymorphism to avoid this erroring,
+            -- allow user to abstract over universes, and allow metas in case
+            -- statements matching universes
+            univ <- case (mtt, ntt) of
+              (Univ i, Univ j)    -> return $ Univ $ max i j
+              (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show mt)
+            mv <- createMetaVar ((Nothing, nt) : bctx ctxs) univ
 
-          -- Refine the meta to be a pi type
-          let mmt = Pi (Nothing, nt, Exp) mv
-          unify (Var $ Meta i) mmt Nothing
+            -- Refine the meta to be a pi type
+            let newMt = Pi (Nothing, nt, Exp) $ bumpUp mv
+            unify mt newMt Nothing
 
-          inferAppType m (n, ex') mmt
-        _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
+            inferAppType m (n, ex') newMt
+          else typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
 
 goInferType (Pair m n)                                = do
   (em, mt) <- goInferTypeAndElab m

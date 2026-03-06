@@ -88,5 +88,7 @@ createMetaVar bc mt = do
         go bc i m mt
           | i < 0     = return (m, mt)
           | otherwise = case bc !? i of
-            Just (x, t) -> go bc (i - 1) (App m (Var $ Bound i, Exp)) $ Pi (x, t, Exp) $ bumpUp mt
+            Just (x, t) -> do
+              (m', t') <- go bc (i - 1) (App m (Var $ Bound i, Exp)) mt
+              return (m', Pi (x, t, Exp) t')
             Nothing     -> typeError FailedToInferType $ Just "Missing type for bound term"
