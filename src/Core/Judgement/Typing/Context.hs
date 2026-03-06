@@ -5,6 +5,7 @@ import Core.Error
 import Core.Judgement.Utils
 
 import Data.Bifunctor (second)
+import Data.List ((!?))
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
@@ -72,18 +73,21 @@ useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 createMetaVar :: BoundContext -> Term -> TypeCheck Term
 createMetaVar bc mt = do
   st <- get
-  let mid = metaID st
-  put st { metaID=mid + 1, mctx=(mid, MetaData { mtype=mt, mbctx=bc }) : mctx st }
+  let mid              = metaID st
+  -- Apply metavariable to the context to avoid scoping issues
+  (metaAppliedToCtx, mtype) <- applyToCtx bc (Var $ Meta mid) mt
+  put st { metaID=mid + 1, mctx=(mid, MetaData { mtype=mtype, mbctx=bc }) : mctx st }
 
   let n = length bc
 
-  -- Apply metavariable to the context to avoid scoping issues
-  return $ applyToCtx bc $ Var $ Meta mid
+  return metaAppliedToCtx
   where
-    applyToCtx :: BoundContext -> Term -> Term
-    applyToCtx bc m = go 0 (length bc) m
+    applyToCtx :: BoundContext -> Term -> Term -> TypeCheck (Term, Term)
+    applyToCtx bc m mt = go bc (length bc - 1) m mt
       where
-        go :: Int -> Int -> Term -> Term
-        go k i m
-          | k >= i    = m
-          | otherwise = go (k + 1) i $ App m (Var $ Bound k, Exp)
+        go :: BoundContext -> Int -> Term -> Term -> TypeCheck (Term, Term)
+        go bc i m mt
+          | i < 0     = return (m, mt)
+          | otherwise = case bc !? i of
+            Just (x, t) -> go bc (i - 1) (App m (Var $ Bound i, Exp)) $ Pi (x, t, Exp) $ bumpUp mt
+            Nothing     -> typeError FailedToInferType $ Just "Missing type for bound term"

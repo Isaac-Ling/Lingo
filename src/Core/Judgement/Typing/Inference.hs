@@ -131,7 +131,7 @@ goInferType (App m (n, ex))                           = do
           mtype <- case (mit, ntt) of
             (Univ i, Univ j)    -> return $ Univ $ max i j
             (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show (Var $ Meta i))
-          mv <- createMetaVar (bctx ctxs) mtype
+          mv <- createMetaVar ((Nothing, nt) : bctx ctxs) mtype
 
           -- Refine the meta to be a pi type
           let mmt = Pi (Nothing, nt, Exp) mv

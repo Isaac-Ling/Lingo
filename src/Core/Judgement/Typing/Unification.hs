@@ -104,7 +104,6 @@ solveConstraints env ctx st = do
           if metaOccursIn i n
           then return False
           else do
-            -- Imitate RHS by abstracting over rigid term
             sol <- imitateRHS 0 bc n sp
             addSolution bc i sol
             return True
@@ -113,7 +112,8 @@ solveConstraints env ctx st = do
         imitateRHS :: Int -> BoundContext -> Term -> Spine -> Unification Term
         imitateRHS i bc m []                 = return m
         imitateRHS i bc m (Var (Bound j):ns) = case bc !? j of
-          Just (x, t) -> imitateRHS (i + 1) bc (Lam (pack ("!i" ++ show i), Just t, Exp) $ bumpUp m) ns
+          Just (x, t) -> let shiftedType = if null ns then t else shift (length bc - i - 1) t in
+            imitateRHS (i + 1) bc (Lam (pack ("!i" ++ show i), Just shiftedType, Exp) m) ns
           Nothing     -> unificationError $ Just "Failed to determine bound variable's type"
         imitateRHS _ _ _ _                   = unificationError $ Just "Constraint is not in pattern fragment"
 
@@ -150,8 +150,7 @@ solveConstraints env ctx st = do
 
       case lookup i $ mctx $ mst st of
         Just md -> do
-          -- Create a constraint that the type of the solved meta must match the 
-          -- its expected type
+          -- Create a constraint that the type of the solved meta must match its expected type
           mt <- inferSolutionType bc m
           appendConstraint bc (mtype md) mt
         Nothing -> unificationError $ Just ("No expected type of " ++ show (Var $ Meta i) ++ " found in meta context")

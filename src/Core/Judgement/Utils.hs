@@ -197,8 +197,7 @@ showTermWithBinders b bs (Var (Meta i))
     errorString :: String
     errorString = "!ERROR"
 showTermWithBinders b bs (Var (Bound i))
---  | i >= 0    = unpack $ fromMaybe (pack errorString) a
-  | i >= 0    = show i
+  | i >= 0    = unpack $ fromMaybe (pack errorString) a
   | otherwise = errorString
   where
     a :: Maybe ByteString
