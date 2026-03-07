@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 runInferType :: Contexts -> MetaState -> Term -> CanError ((Term, Term), MetaState)
 runInferType ctxs st m = runStateT (runReaderT (goInferType m) ctxs) st
@@ -133,10 +133,10 @@ goInferType (App m (n, ex))                           = do
             univ <- case (mtt, ntt) of
               (Univ i, Univ j)    -> return $ Univ $ max i j
               (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show mt)
-            mv <- createMetaVar ((Nothing, nt) : bctx ctxs) univ
+            mv <- createMetaVar (bctx ctxs) univ
 
             -- Refine the meta to be a pi type
-            let newMt = Pi (Nothing, nt, Exp) $ bumpUp mv
+            let newMt = Pi (Just $ pack "FOO", nt, Exp) $ bumpUp mv
             unify mt newMt Nothing
 
             inferAppType m (n, ex') newMt

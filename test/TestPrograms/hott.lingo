@@ -22,6 +22,7 @@ homotopyRefl f a := refl[f a]
 #check homotopyRefl
 
 homotopySymm : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> homotopic f g -> homotopic g f
+#eval homotopySymm
 homotopySymm f g hfg a := idSymm (hfg a)
 
 #check homotopySymm

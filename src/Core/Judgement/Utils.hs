@@ -202,13 +202,13 @@ showTermWithBinders b bs (Var (Bound i))
   where
     a :: Maybe ByteString
     a = join $ bs !? i
+    --a = Just $ pack $ show i
 
     errorString :: String
     errorString = "!ERROR"
 showTermWithBinders b bs Star                                   = "*"
 showTermWithBinders False bs (App m (n, Imp))                   = showTermWithBinders False bs m
-showTermWithBinders b bs (App (Lam xt m) (Lam yt n, ex))        = "(" ++ showTermWithBinders b bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders b bs (Lam yt n) ++ showExRParen ex
-showTermWithBinders b bs (App (Lam xt m) (App p n, ex))         = "(" ++ showTermWithBinders b bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders b bs (App p n) ++ showExRParen ex
+showTermWithBinders b bs (App (Lam xt m) (n, ex))                = "(" ++ showTermWithBinders b bs (Lam xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders b bs n ++ showExRParenOrNone ex
 showTermWithBinders b bs (App m (Lam xt n, ex))                 = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Lam xt n) ++ showExRParen ex
 showTermWithBinders b bs (App m (App p n, ex))                  = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (App p n) ++ showExRParen ex
 showTermWithBinders b bs (App m (Sigma xt n, ex))               = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Sigma xt n) ++ showExRParen ex

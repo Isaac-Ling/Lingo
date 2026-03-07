@@ -104,7 +104,9 @@ solveConstraints env ctx st = do
           if metaOccursIn i n
           then return False
           else do
-            sol <- abstractOverRHS 0 bc n sp
+            -- Align indices in n to the context that the meta was created in
+            let extraBinders = length bc - length sp
+            sol <- abstractOverRHS 0 bc (shift (-extraBinders) n) sp
             addSolution bc i sol
             return True
         _                     -> return False
