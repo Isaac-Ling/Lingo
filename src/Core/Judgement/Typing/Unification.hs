@@ -305,8 +305,8 @@ solveConstraints env ctx st = do
 
     appendBoundTermConstraint :: BoundContext -> BoundTerm -> BoundTerm -> Unification ()
     appendBoundTermConstraint bc (NoBind m) (NoBind m') = appendConstraint bc m m'
-    -- We don't know the type of x here, but need to add something
-    -- to the bound context. Add Top for now (TODO?)
+    -- TODO: We don't know the type of x here, but need to add something
+    -- to the bound context. Fix this by elaborating bound terms to include type
     appendBoundTermConstraint bc (Bind x m) (Bind _ m') = appendBoundTermConstraint ((x, Top) : bc) m m'
 
     unificationError :: Maybe String -> Unification a
