@@ -152,8 +152,9 @@ solveConstraints env ctx st = do
       case lookup i $ mctx $ mst st of
         Just md -> do
           -- Create a constraint that the type of the solved meta must match its expected type
-          mt <- inferSolutionType bc m
-          appendConstraint bc (mtype md) mt
+          -- No context is needed since metas are all closed terms
+          mt <- inferSolutionType [] m
+          appendConstraint [] (mtype md) mt
         Nothing -> unificationError $ Just ("No expected type of " ++ show (Var $ Meta i) ++ " found in meta context")
 
     wakeUpBlockedConstraints :: Int -> Unification ()
