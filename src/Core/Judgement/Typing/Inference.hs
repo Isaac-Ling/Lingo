@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 runInferType :: Contexts -> MetaState -> Term -> CanError ((Term, Term), MetaState)
 runInferType ctxs st m = runStateT (runReaderT (goInferType m) ctxs) st
@@ -29,7 +29,7 @@ goInferType (Var (Bound i))                           = do
   ctxs <- ask
 
   if i >= 0 && i < length (bctx ctxs)
-  then return (Var $ Bound i, snd $ bctx ctxs !! i)
+  then return (Var $ Bound i, shift (i + 1) $ snd $ bctx ctxs !! i)
   else typeError FailedToInferType $ Just ("Invalid index " ++ show i ++ " for bound term")
 
 goInferType (Var (Free x))                            = do
@@ -39,12 +39,12 @@ goInferType (Var (Free x))                            = do
     Just t  -> return (Var $ Free x, t)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
-goInferType (Var (Meta i sp))                         = do
+goInferType (Var (Meta i))                         = do
   st <- get
 
   case lookup i $ mctx st of
-    Just d  -> return (Var $ Meta i sp, mtype d)
-    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i sp))
+    Just d  -> return (Var $ Meta i, mtype d)
+    Nothing -> typeError FailedToInferType $ Just ("Unknown meta variable " ++ show (Var $ Meta i))
 
 goInferType (Pi (x, t, ex) m)                         = do
   ctxs <- ask
@@ -115,30 +115,32 @@ goInferType (App m (n, ex))                           = do
             return (App m (n, Imp), at)
           else do
             -- Otherwise, create a meta variable and continue with type inference
-            mv <- createMetaVar t $ bctx ctxs
+            mv <- createMetaVar (bctx ctxs) t
             let m'  = App m (mv, Imp)
             let m't = bumpDown $ open (bumpUp mv) t'
 
             inferAppType m' (n, ex) m't
-        Var (Meta i sp)   -> do
-          (_, nt) <- goInferTypeAndElab n
-          (_, mit) <- goInferType $ Var $ Meta i sp
-          (_, ntt) <- goInferType nt
+        _                 ->
+          if isFlex mt
+          then do
+            (_, nt)  <- goInferTypeAndElab n
+            (_, mtt) <- goInferType mt
+            (_, ntt) <- goInferType nt
 
-          -- TODO: Implement Universe Polymorphism to avoid this erroring,
-          -- allow user to abstract over universes, and allow metas in case
-          -- statements matching universes
-          mtype <- case (mit, ntt) of
-            (Univ i, Univ j)    -> return $ Univ $ max i j
-            (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show (Var $ Meta i sp))
-          mv <- createMetaVar mtype $ bctx ctxs
+            -- TODO: Implement Universe Polymorphism to avoid this erroring,
+            -- allow user to abstract over universes, and allow metas in case
+            -- statements matching universes
+            univ <- case (mtt, ntt) of
+              (Univ i, Univ j)    -> return $ Univ $ max i j
+              (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show mt)
+            mv <- createMetaVar (bctx ctxs) univ
 
-          -- Refine the meta to be a pi type
-          let mmt = Pi (Nothing, nt, Exp) mv
-          unify (Var $ Meta i sp) mmt Nothing
+            -- Refine the meta to be a pi type
+            let newMt = Pi (Nothing, nt, Exp) $ bumpUp mv
+            unify mt newMt Nothing
 
-          inferAppType m (n, ex') mmt
-        _                 -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
+            inferAppType m (n, ex') newMt
+          else typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) m ++ " is not a term of a Pi type")
 
 goInferType (Pair m n)                                = do
   (em, mt) <- goInferTypeAndElab m
@@ -503,7 +505,7 @@ instantiateImplicits m@(Lam (_, _, Imp) _) mt@(Pi (_, _, Imp) _) = return (m, mt
 instantiateImplicits m (Pi (x, t, Imp) t')                       = do
   ctxs <- ask
 
-  mv <- createMetaVar t $ bctx ctxs
+  mv <- createMetaVar (bctx ctxs) t
   let m'  = App m (mv, Imp)
   let m't = bumpDown $ open (bumpUp mv) t'
   instantiateImplicits m' m't

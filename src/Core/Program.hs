@@ -70,17 +70,17 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       case lookup x $ rtctx ctxs of
         Just t -> do
           em <- tryRun $ elaborateWithType (rtenv ctxs) (rtctx ctxs) m t
-          continue (addToRTEnv (x, em)) (go ds')
+          continue (addToRTEnv (x, eval em)) (go ds')
         _      -> do
           (em, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, em) . addToRTCtx (x, t)) (go ds')
+          continue (addToRTEnv (x, eval em) . addToRTCtx (x, eval t)) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
 
       let t = toCoreTerm t'
       et <- tryRun $ elaborate (rtenv ctxs) (rtctx ctxs) t
-      let p = continue (addToRTCtx (x, et) . addToSourceTypeCtx (x, t')) (go ds)
+      let p = continue (addToRTCtx (x, eval et) . addToSourceTypeCtx (x, t')) (go ds)
 
       case lookup x $ rtctx ctxs of
         Just t2 -> if equal (rtenv ctxs) et t2

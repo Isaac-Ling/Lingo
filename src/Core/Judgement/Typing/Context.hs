@@ -4,10 +4,10 @@ import Core.Term
 import Core.Error
 import Core.Judgement.Utils
 
-import Data.Bifunctor (second)
+import Data.List ((!?))
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 type Assumption = (ByteString, Term)
 type Context = [Assumption]
@@ -55,10 +55,10 @@ addToCtx :: Assumption -> (Contexts -> Contexts)
 addToCtx (x, t) ctxs = ctxs { ctx=(x, t) : ctx ctxs }
 
 addToBoundCtx :: (Maybe ByteString, Term) -> (Contexts -> Contexts)
-addToBoundCtx (x, t) ctxs = ctxs { bctx=(x, bumpUp t) : map (second bumpUp) (bctx ctxs) }
+addToBoundCtx (x, t) ctxs = ctxs { bctx=(x, t) : bctx ctxs }
 
 addToTypeBoundCtx :: (Maybe ByteString, Term) -> (Contexts -> Contexts)
-addToTypeBoundCtx (x, t) ctxs = ctxs { tbctx=(x, bumpUp t) : map (second bumpUp) (tbctx ctxs) }
+addToTypeBoundCtx (x, t) ctxs = ctxs { tbctx=(x, t) : tbctx ctxs }
 
 addToBoundCtxs :: (Maybe ByteString, Term) -> (Maybe ByteString, Term) -> (Contexts -> Contexts)
 addToBoundCtxs (x, t) (x', t') = addToTypeBoundCtx (x', t') . addToBoundCtx (x, t)
@@ -69,13 +69,26 @@ useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 useBoundCtx :: Contexts -> Contexts
 useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 
-createMetaVar :: Term -> BoundContext -> TypeCheck Term
-createMetaVar mt bc = do
+createMetaVar :: BoundContext -> Term -> TypeCheck Term
+createMetaVar bc mt = do
   st <- get
-  let mid = metaID st
-  put st { metaID=mid + 1, mctx=(mid, MetaData { mtype=mt, mbctx=bc }) : mctx st }
+  let mid              = metaID st
+  -- Apply metavariable to the context to avoid scoping issues
+  (metaAppliedToCtx, mtype) <- applyToCtx bc (Var $ Meta mid) mt
+  put st { metaID=mid + 1, mctx=(mid, MetaData { mtype=mtype, mbctx=bc }) : mctx st }
 
   let n = length bc
 
-  -- Create a spine of bound variables that the meta is 'applied' to
-  return $ Var $ Meta mid [Var $ Bound i | i <- reverse [0..(n - 1)]]
+  return metaAppliedToCtx
+  where
+    applyToCtx :: BoundContext -> Term -> Term -> TypeCheck (Term, Term)
+    applyToCtx bc m mt = go bc (length bc - 1) m mt
+      where
+        go :: BoundContext -> Int -> Term -> Term -> TypeCheck (Term, Term)
+        go bc i m mt
+          | i < 0     = return (m, mt)
+          | otherwise = case bc !? i of
+            Just (x, t) -> do
+              (m', t') <- go bc (i - 1) (App m (Var $ Bound i, Exp)) mt
+              return (m', Pi (x, t, Exp) t')
+            Nothing     -> typeError FailedToInferType $ Just "Missing type for bound term"

@@ -20,7 +20,7 @@ unfold :: Environment -> Term -> Term
 unfold env (Var (Free x))           = case lookup x env of
   Just m  -> unfold env m
   Nothing -> Var $ Free x
-unfold env (Var (Meta i sp))        = Var $ Meta i sp
+unfold env (Var (Meta i))           = Var $ Meta i
 unfold env (Var (Bound i))          = Var $ Bound i
 unfold env (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (unfold env m)
 unfold env (Lam (x, Just t, ex) m)  = Lam (x, Just $ unfold env t, ex) (unfold env m)
@@ -45,6 +45,7 @@ unfold env (Ind t m c a)            = Ind (unfold env t) (unfoldBoundTerm env m)
 unfold env m                        = m
 
 shift :: Int -> Term -> Term
+shift 0 = id
 shift k = go k 0
   where
     -- Second Int is the minimum index that should be shifted
@@ -54,7 +55,6 @@ shift k = go k 0
     go k l (Var (Bound i))
       | i >= l    = Var $ Bound (i + k)
       | otherwise = Var $ Bound i
-    go k l (Var (Meta i sp))        = Var $ Meta i $ map (go k l) sp
     go k l (Lam (x, Nothing, ex) m) = Lam (x, Nothing, ex) (go k (l + 1) m)
     go k l (Lam (x, Just t, ex) m)  = Lam (x, Just $ go k l t, ex) (go k (l + 1) m)
     go k l (Pi (x, t, ex) m)        = Pi (x, go k l t, ex) (go k (l + 1) m)
@@ -92,7 +92,6 @@ openFor :: Term -> Int -> Term -> Term
 openFor m k (Var (Bound i))
   | i == k    = m
   | otherwise = Var $ Bound i
-openFor m k (Var (Meta i sp))        = Var $ Meta i $ map (openFor m k) sp
 openFor m k (Lam (x, Just t, ex) n)  = Lam (x, Just $ openFor m k t, ex) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Lam (x, Nothing, ex) n) = Lam (x, Nothing, ex) (openFor (bumpUp m) (k + 1) n)
 openFor m k (Pi (x, t, ex) n)        = Pi (x, openFor m k t, ex) (openFor (bumpUp m) (k + 1) n)
@@ -146,7 +145,7 @@ isBinderUsed = go 0
     isBinderUsedInBoundTerm k (Bind x n) = isBinderUsedInBoundTerm (k + 1) n
 
 getMetasInTerm :: Term -> Set Int
-getMetasInTerm (Var (Meta i _))        = Set.singleton i
+getMetasInTerm (Var (Meta i))          = Set.singleton i
 getMetasInTerm (Lam (x, Just t, _) n)  = getMetasInTerm t <> getMetasInTerm n
 getMetasInTerm (Lam (x, Nothing, _) n) = getMetasInTerm n
 getMetasInTerm (Pi (x, t, _) n)        = getMetasInTerm t <> getMetasInTerm n
@@ -173,9 +172,9 @@ containsMeta :: Term -> Bool
 containsMeta = not . Set.null . getMetasInTerm
 
 isRigid :: Term -> Bool
-isRigid (Var (Meta _ _)) = False
-isRigid (App m _)        = isRigid m
-isRigid _                = True
+isRigid (Var (Meta _)) = False
+isRigid (App m _)      = isRigid m
+isRigid _              = True
 
 isFlex :: Term -> Bool
 isFlex = not . isRigid
@@ -188,7 +187,7 @@ showTermWithBindersWithoutImplicits = showTermWithBinders False
 
 showTermWithBinders :: Bool -> Binders -> Term -> String
 showTermWithBinders b bs (Var (Free x))                = unpack x
-showTermWithBinders b bs (Var (Meta i sp))
+showTermWithBinders b bs (Var (Meta i))
   | i >= 0    = "?" ++ vars !! i
   | otherwise = errorString
   where
@@ -203,13 +202,13 @@ showTermWithBinders b bs (Var (Bound i))
   where
     a :: Maybe ByteString
     a = join $ bs !? i
+    --a = Just $ pack $ show i
 
     errorString :: String
     errorString = "!ERROR"
 showTermWithBinders b bs Star                                   = "*"
 showTermWithBinders False bs (App m (n, Imp))                   = showTermWithBinders False bs m
-showTermWithBinders b bs (App (Lam xt m) (Lam yt n, ex))        = "(" ++ showTermWithBinders b bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders b bs (Lam yt n) ++ showExRParen ex
-showTermWithBinders b bs (App (Lam xt m) (App p n, ex))         = "(" ++ showTermWithBinders b bs (Lam xt m) ++ ") " ++ showExLParen ex ++ showTermWithBinders b bs (App p n) ++ showExRParen ex
+showTermWithBinders b bs (App (Lam xt m) (n, ex))                = "(" ++ showTermWithBinders b bs (Lam xt m) ++ ") " ++ showExLParenOrNone ex ++ showTermWithBinders b bs n ++ showExRParenOrNone ex
 showTermWithBinders b bs (App m (Lam xt n, ex))                 = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Lam xt n) ++ showExRParen ex
 showTermWithBinders b bs (App m (App p n, ex))                  = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (App p n) ++ showExRParen ex
 showTermWithBinders b bs (App m (Sigma xt n, ex))               = showTermWithBinders b bs m ++ " " ++ showExLParen ex ++ showTermWithBinders b bs (Sigma xt n) ++ showExRParen ex
