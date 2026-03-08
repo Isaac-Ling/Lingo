@@ -136,7 +136,7 @@ goInferType (App m (n, ex))                           = do
             mv <- createMetaVar (bctx ctxs) univ
 
             -- Refine the meta to be a pi type
-            let newMt = Pi (Just $ pack "FOO", nt, Exp) $ bumpUp mv
+            let newMt = Pi (Nothing, nt, Exp) $ bumpUp mv
             unify mt newMt Nothing
 
             inferAppType m (n, ex') newMt
