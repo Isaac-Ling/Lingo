@@ -24,7 +24,7 @@ inferTypeAndElaborate env ctx m = do
   return (e, t)
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
-    initState    = MetaState { mcsts=[], mctx=[], metaID=0 }
+    initState    = MetaState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=0 }
 
 inferType :: Environment -> Context -> Term -> CanError Term
 inferType env ctx m = do
@@ -52,7 +52,7 @@ checkTypeAndElaborate env ctx m t = do
   return (e, t)
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
-    initState    = MetaState { mcsts=[], mctx=[], metaID=0 }
+    initState    = MetaState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=0 }
 
 checkType :: Environment -> Context -> Term -> Term -> CanError Term
 checkType env ctx m t = do

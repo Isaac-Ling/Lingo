@@ -20,16 +20,25 @@ type BoundContext = [(Maybe ByteString, Term)]
 type Constraint = (BoundContext, Term, Term)
 type Constraints = [Constraint]
 
+-- A universe constraint is an imposed ordering on universe metas
+data UnivConstraint
+  = LEq Universe Universe
+  | Lt Universe Universe
+
+type UnivConstraints = [UnivConstraint]
+
 data MetaState = MetaState
   { mcsts  :: Constraints
+  , ucsts  :: UnivConstraints
   , mctx   :: MetaContext
   , metaID :: Int
-  } deriving (Show)
+  , univID :: Int
+  }
 
 data MetaData = MetaData
   { mtype :: Term
   , mbctx :: BoundContext
-  } deriving (Show)
+  }
 
 type MetaContext = [(Int, MetaData)]
 
@@ -69,10 +78,17 @@ useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 useBoundCtx :: Contexts -> Contexts
 useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 
+createUnivParam :: TypeCheck Term
+createUnivParam = do
+  st <- get
+  let uid = univID st
+  put st { univID=uid + 1 }
+  return $ Univ $ UParam uid
+
 createMetaVar :: BoundContext -> Term -> TypeCheck Term
 createMetaVar bc mt = do
   st <- get
-  let mid              = metaID st
+  let mid = metaID st
   -- Apply metavariable to the context to avoid scoping issues
   (metaAppliedToCtx, mtype) <- applyToCtx bc (Var $ Meta mid) mt
   put st { metaID=mid + 1, mctx=(mid, MetaData { mtype=mtype, mbctx=bc }) : mctx st }

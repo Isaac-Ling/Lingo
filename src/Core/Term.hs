@@ -38,7 +38,7 @@ data SourceTerm
   | SApp SourceTerm (SourceTerm, Explicitness)
   | SStar
   | SPair SourceTerm SourceTerm
-  | SUniv Integer
+  | SUniv (Maybe Int)
   | SBot
   | STop
   | SNat
@@ -69,6 +69,12 @@ data Var
   | Bound Int
   | Meta Int
 
+data Universe
+  = ULvl Int
+  | UMeta Int
+  | UParam Int
+  deriving Eq
+
 instance Eq Var where
   Free x == Free y   = x == y
   Bound i == Bound j = i == j
@@ -94,7 +100,7 @@ data Term
   | App Term (Term, Explicitness)
   | Star
   | Pair Term Term
-  | Univ Integer
+  | Univ Universe
   | Bot
   | Top
   | Nat

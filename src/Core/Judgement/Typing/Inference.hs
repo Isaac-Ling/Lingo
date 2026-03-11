@@ -19,11 +19,12 @@ evalInferType :: Contexts -> MetaState -> Term -> CanError (Term, Term)
 evalInferType ctxs st m = evalStateT (runReaderT (goInferType m) ctxs) st
 
 goInferType :: Term -> TypeCheck (Term, Term)
-goInferType (Univ i)                                  = return (Univ i, Univ (i + 1))
 goInferType Star                                      = return (Star, Top)
-goInferType Bot                                       = return (Bot, Univ 0)
-goInferType Top                                       = return (Top, Univ 0)
-goInferType Nat                                       = return (Nat, Univ 0)
+goInferType Bot                                       = return (Bot, Univ $ ULvl 0)
+goInferType Top                                       = return (Top, Univ $ ULvl 0)
+goInferType Nat                                       = return (Nat, Univ $ ULvl 0)
+
+goInferType (Univ (ULvl i))                           = return (Univ $ ULvl i, Univ $ ULvl $ i + 1)
 
 goInferType (Var (Bound i))                           = do
   ctxs <- ask

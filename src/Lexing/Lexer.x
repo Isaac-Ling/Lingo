@@ -92,11 +92,11 @@ createUnivTk ((AlexPn _ line col), _, str, _) len = return PositionedToken
   , ptPosition = (line, col)
   }
   where
-    getUnivLevel :: String -> Integer
-    getUnivLevel []     = 0
-    getUnivLevel (u:i) = case i of
+    getUnivLevel :: String -> Maybe Int
+    getUnivLevel []     = Nothing
+    getUnivLevel (_:i) = case i of
       []    -> 0
-      level -> read level
+      level -> Just $ read level
 
 createStringTk :: AlexAction PositionedToken
 createStringTk ((AlexPn _ line col), _, str, _) len = return PositionedToken 
