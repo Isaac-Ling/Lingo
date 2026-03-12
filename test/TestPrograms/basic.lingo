@@ -1,3 +1,6 @@
+test : U
+test := U
+
 -- Identity
 id : {A : U} -> A -> A
 id a := a

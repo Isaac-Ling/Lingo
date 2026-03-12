@@ -69,8 +69,8 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
       case lookup x $ rtctx ctxs of
         Just t -> do
-          em <- tryRun $ elaborateWithType (rtenv ctxs) (rtctx ctxs) m t
-          continue (addToRTEnv (x, TermData {eterm=eval $ unfold (rtenv ctxs) em, ecsts=[]})) (go ds')
+          tr <- tryRun $ checkTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m t
+          continue (addToRTEnv (x, TermData {eterm=eval $ unfold (rtenv ctxs) $ tterm tr, ecsts=tcsts tr })) (go ds')
         _      -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
           continue (addToRTEnv (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToRTCtx (x, eval $ ttype tr)) (go ds')

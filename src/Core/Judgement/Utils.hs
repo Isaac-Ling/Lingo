@@ -354,12 +354,15 @@ instance Show Term where
 
 instance Show Universe where
   show (UVar i) = "U?" ++ show i
-  show (ULvl i)  = "U" ++ show i
-  show UFlex     = "U?"
+  show (ULvl i) = "U" ++ show i
+  show UFlex    = "U?"
 
 instance Show UnivConstraint where
   show (ULeq u v) = show u ++ " <= " ++ show v
   show (ULt u v)  = show u ++ " < " ++ show v
+
+instance Show TermData where
+  show td = "{ " ++  show (eterm td) ++ ", " ++ show (ecsts td) ++ " }"
 
 instance Show BoundTerm where
   show = showBoundTermWithBinders True binders

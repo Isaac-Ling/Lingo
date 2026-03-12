@@ -8,4 +8,6 @@ import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Inference
 
 checkUnivConstraintsSatisfiable :: UnivConstraints -> CanError ()
-checkUnivConstraintsSatisfiable csts = return ()
+checkUnivConstraintsSatisfiable csts = case csts of
+  [] -> return ()
+  _  -> return ()

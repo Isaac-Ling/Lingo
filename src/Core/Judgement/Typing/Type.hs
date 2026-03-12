@@ -36,7 +36,7 @@ inferTypeAndElaborate env ctx m = do
   checkUnivConstraintsSatisfiable $ ucsts $ snd result
   let univConstraints = filterConstraints e $ ucsts $ snd result
 
-  return TypingResult {tterm=e, ttype=t}
+  return TypingResult {tterm=e, ttype=t, tcsts=univConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
@@ -69,7 +69,7 @@ checkTypeAndElaborate env ctx m t = do
   checkUnivConstraintsSatisfiable $ ucsts $ snd result
   let univConstraints = filterConstraints e $ ucsts $ snd result
 
-  return TypingResult {tterm=e, ttype=t}
+  return TypingResult {tterm=e, ttype=t, tcsts=univConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
