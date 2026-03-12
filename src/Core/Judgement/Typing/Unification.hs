@@ -53,7 +53,7 @@ solveConstraints env ctx st = do
     go :: Unification ()
     go = do
       ctxs <- ask
-      st  <- get
+      st   <- get
 
       -- Get constraint from worklist
       case mcsts $ tcst st of

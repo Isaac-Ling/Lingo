@@ -346,9 +346,9 @@ instance Show Term where
       binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
 instance Show Universe where
-  show (Univ (UMeta _)) = "U"
-  show (Univ (ULvl i))  = "U" ++ show i
-  show (Univ UFlex)     = "U?"
+  show (UMeta i) = "U?" ++ show i
+  show (ULvl i)  = "U" ++ show i
+  show UFlex     = "U?"
 
 instance Show BoundTerm where
   show = showBoundTermWithBinders True binders
