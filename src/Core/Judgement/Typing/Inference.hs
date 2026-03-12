@@ -12,10 +12,10 @@ import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
-runInferType :: Contexts -> MetaState -> Term -> CanError ((Term, Term), MetaState)
+runInferType :: Contexts -> TypeCheckState -> Term -> CanError ((Term, Term), TypeCheckState)
 runInferType ctxs st m = runStateT (runReaderT (goInferType m) ctxs) st
 
-evalInferType :: Contexts -> MetaState -> Term -> CanError (Term, Term)
+evalInferType :: Contexts -> TypeCheckState -> Term -> CanError (Term, Term)
 evalInferType ctxs st m = evalStateT (runReaderT (goInferType m) ctxs) st
 
 goInferType :: Term -> TypeCheck (Term, Term)
@@ -23,13 +23,13 @@ goInferType Star                                      = return (Star, Top)
 goInferType Bot                                       = return (Bot, Univ $ ULvl 0)
 goInferType Top                                       = return (Top, Univ $ ULvl 0)
 goInferType Nat                                       = return (Nat, Univ $ ULvl 0)
-
 goInferType (Univ (ULvl i))                           = return (Univ $ ULvl i, Univ $ ULvl $ i + 1)
+goInferType (Univ UFlex)                              = typeError FailedToInferType $ Just "Uninstantiated flex universe"
 
 goInferType (Univ (UMeta i))                          = do
-  univ <- createUnivMeta
-  imposeUnivLt (Univ $ UMeta i) univ
-  return (Univ $ UMeta i, univ)
+  u <- createUnivMeta
+  imposeUnivLt (UMeta i) u
+  return (Univ $ UMeta i, Univ u)
 
 goInferType (Var (Bound i))                           = do
   ctxs <- ask
@@ -58,13 +58,12 @@ goInferType (Pi (x, t, ex) m)                         = do
   (et, tt) <- goInferEvaluatedType t
   (em, mt) <- local (addToBoundCtx (x, et)) (goInferEvaluatedType m)
 
-  univ <- createUnivMeta
-
   case (tt, mt) of
     (Univ i, Univ j) -> do
-      imposeUnivLeq (Univ i) univ
-      imposeUnivLeq (Univ j) univ
-      return (Pi (x, et, ex) em, univ)
+      u <- createUnivMeta
+      imposeUnivLeq i u
+      imposeUnivLeq j u
+      return (Pi (x, et, ex) em, Univ u)
     (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
     (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
@@ -75,7 +74,11 @@ goInferType (Sigma (x, t) m)                          = do
   (em, mt) <- local (addToBoundCtx (x, et)) (goInferEvaluatedType m)
 
   case (tt, mt) of
-    (Univ i, Univ j) -> return (Sigma (x, et) em, Univ $ max i j)
+    (Univ i, Univ j) -> do
+      u <- createUnivMeta
+      imposeUnivLeq i u
+      imposeUnivLeq j u
+      return (Sigma (x, et) em, Univ u)
     (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
     (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
@@ -138,13 +141,14 @@ goInferType (App m (n, ex))                           = do
             (_, mtt) <- goInferType mt
             (_, ntt) <- goInferType nt
 
-            -- TODO: Implement Universe Polymorphism to avoid this erroring,
-            -- allow user to abstract over universes, and allow metas in case
-            -- statements matching universes
             univ <- case (mtt, ntt) of
-              (Univ i, Univ j)    -> return $ Univ $ max i j
+              (Univ i, Univ j)    -> do
+                u <- createUnivMeta
+                imposeUnivLeq i u
+                imposeUnivLeq j u
+                return u
               (_, _)              -> typeError TypeMismatch $ Just ("Unable to unfold type of meta " ++ show mt)
-            mv <- createMetaVar (bctx ctxs) univ
+            mv <- createMetaVar (bctx ctxs) $ Univ univ
 
             -- Refine the meta to be a pi type
             let newMt = Pi (Nothing, nt, Exp) $ bumpUp mv
@@ -166,7 +170,11 @@ goInferType (Sum m n)                                 = do
   (en, nt) <- goInferEvaluatedType n
 
   case (mt, nt) of
-    (Univ i, Univ j) -> return (Sum em en, Univ $ max i j)
+    (Univ i, Univ j) -> do
+      u <- createUnivMeta
+      imposeUnivLeq i u
+      imposeUnivLeq j u
+      return (Sum em en, Univ u)
     (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) en ++ " is not a term of a universe")
     (_, _)           -> typeError TypeMismatch $ Just (show em ++ " is not a term of a universe")
 
@@ -398,10 +406,10 @@ goInferType (Ind t m c a)                              = do
   then goInferType $ Ind et m c a
   else typeError FailedToInferType $ Just ("Invalid eliminator " ++ showTermWithContext (bctx ctxs) (Ind t m c a))
 
-runCheckType :: Contexts -> MetaState -> Term -> Term -> CanError ((Term, Term), MetaState)
+runCheckType :: Contexts -> TypeCheckState -> Term -> Term -> CanError ((Term, Term), TypeCheckState)
 runCheckType ctxs st m mt = runStateT (runReaderT (goCheckType m mt) ctxs) st
 
-evalCheckType :: Contexts -> MetaState -> Term -> Term -> CanError (Term, Term)
+evalCheckType :: Contexts -> TypeCheckState -> Term -> Term -> CanError (Term, Term)
 evalCheckType ctxs st m mt = evalStateT (runReaderT (goCheckType m mt) ctxs) st
 
 goCheckType :: Term -> Term -> TypeCheck (Term, Term)
@@ -527,8 +535,8 @@ goInferTypeAndElab m = do
   (em, mt) <- goInferType m
   instantiateImplicits em mt
 
-imposeUnivLEq :: Universe -> Universe -> TypeCheck ()
-imposeUnivLEq u v = do
+imposeUnivLeq :: Universe -> Universe -> TypeCheck ()
+imposeUnivLeq u v = do
   st <- get
   let ucst = ULeq u v
   put st { ucsts=ucst : ucsts st }
@@ -544,7 +552,7 @@ unify t t' ms = do
   ctxs <- ask
   let errorString = fromMaybe ("Failed to unify types " ++ showTermWithContext (bctx ctxs) t ++ " and " ++ showTermWithContext (bctx ctxs) t') ms
 
-  if containsMeta t || containsMeta t'
+  if containsMeta t  || containsUnivMeta t || containsMeta t' || containsUnivMeta t'
   then do
     -- Add constraint
     st <- get

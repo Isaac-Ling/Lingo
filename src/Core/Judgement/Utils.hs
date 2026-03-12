@@ -171,6 +171,33 @@ getMetasInTerm m                       = Set.empty
 containsMeta :: Term -> Bool
 containsMeta = not . Set.null . getMetasInTerm
 
+getUnivMetasInTerm :: Term -> Set Int
+getUnivMetasInTerm (Univ (UMeta i))        = Set.singleton i
+getUnivMetasInTerm (Lam (x, Just t, _) n)  = getUnivMetasInTerm t <> getUnivMetasInTerm n
+getUnivMetasInTerm (Lam (x, Nothing, _) n) = getUnivMetasInTerm n
+getUnivMetasInTerm (Pi (x, t, _) n)        = getUnivMetasInTerm t <> getUnivMetasInTerm n
+getUnivMetasInTerm (Sum m n)               = getUnivMetasInTerm m <> getUnivMetasInTerm n
+getUnivMetasInTerm (Sigma (x, t) n)        = getUnivMetasInTerm t <> getUnivMetasInTerm n
+getUnivMetasInTerm (Pair t n)              = getUnivMetasInTerm t <> getUnivMetasInTerm n
+getUnivMetasInTerm (App t (n, _))          = getUnivMetasInTerm t <> getUnivMetasInTerm n
+getUnivMetasInTerm (Id mt m n)             = maybe Set.empty getUnivMetasInTerm mt <> getUnivMetasInTerm m <> getUnivMetasInTerm n
+getUnivMetasInTerm (Refl m)                = maybe Set.empty getUnivMetasInTerm m
+getUnivMetasInTerm (Funext m)              = getUnivMetasInTerm m
+getUnivMetasInTerm (Univalence m)          = getUnivMetasInTerm m
+getUnivMetasInTerm (Succ m)                = getUnivMetasInTerm m
+getUnivMetasInTerm (Inl m)                 = getUnivMetasInTerm m
+getUnivMetasInTerm (Inr m)                 = getUnivMetasInTerm m
+getUnivMetasInTerm (IdFam m)               = getUnivMetasInTerm m
+getUnivMetasInTerm (Ind t m' c a)          = getUnivMetasInTerm t <> getMetasInBoundTerm m' <> Set.unions (map getMetasInBoundTerm c) <> getUnivMetasInTerm a
+  where
+    getMetasInBoundTerm :: BoundTerm -> Set Int
+    getMetasInBoundTerm (NoBind m) = getUnivMetasInTerm m
+    getMetasInBoundTerm (Bind _ m) = getMetasInBoundTerm m
+getUnivMetasInTerm m                       = Set.empty
+
+containsUnivMeta :: Term -> Bool
+containsUnivMeta = not . Set.null . getUnivMetasInTerm
+
 isRigid :: Term -> Bool
 isRigid (Var (Meta _)) = False
 isRigid (App m _)      = isRigid m

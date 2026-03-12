@@ -60,7 +60,7 @@ lingo :-
 <0> "funext"           { createTk TkFunext }
 <0> "ua"               { createTk TkUnivalence }
 <0> @univ              { createUnivTk }
-<0> \U                 { createTk $ TkUniv 0 }
+<0> \U                 { createTk $ TkUniv Nothing }
 <0> \T                 { createTk TkTop }
 <0> "_|_"              { createTk TkBot }
 <0> @var               { createVarTk }
@@ -95,7 +95,7 @@ createUnivTk ((AlexPn _ line col), _, str, _) len = return PositionedToken
     getUnivLevel :: String -> Maybe Int
     getUnivLevel []     = Nothing
     getUnivLevel (_:i) = case i of
-      []    -> 0
+      []    -> Just 0
       level -> Just $ read level
 
 createStringTk :: AlexAction PositionedToken

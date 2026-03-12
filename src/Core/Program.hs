@@ -70,7 +70,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       case lookup x $ rtctx ctxs of
         Just t -> do
           em <- tryRun $ elaborateWithType (rtenv ctxs) (rtctx ctxs) m t
-          continue (addToRTEnv (x, eval em)) (go ds')
+          continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) em)) (go ds')
         _      -> do
           (em, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
           continue (addToRTEnv (x, eval em) . addToRTCtx (x, eval t)) (go ds')

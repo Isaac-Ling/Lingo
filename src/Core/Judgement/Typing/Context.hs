@@ -22,12 +22,12 @@ type Constraints = [Constraint]
 
 -- A universe constraint is an imposed ordering on universe metas
 data UnivConstraint
-  = LEq Universe Universe
-  | Lt Universe Universe
+  = ULeq Universe Universe
+  | ULt Universe Universe
 
 type UnivConstraints = [UnivConstraint]
 
-data MetaState = MetaState
+data TypeCheckState = TypeCheckState
   { mcsts   :: Constraints
   , ucsts   :: UnivConstraints
   , mctx    :: MetaContext
@@ -50,7 +50,7 @@ data Contexts = Contexts
   , tbctx :: BoundContext
   } deriving (Show)
 
-type TypeCheck a = ReaderT Contexts (StateT MetaState CanError) a
+type TypeCheck a = ReaderT Contexts (StateT TypeCheckState CanError) a
 
 typeError :: ErrorCode -> Maybe String -> TypeCheck a
 typeError errc ms = lift $ lift $ Error errc ms
@@ -79,19 +79,19 @@ useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 useBoundCtx :: Contexts -> Contexts
 useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 
-createUnivParam :: TypeCheck Term
+createUnivParam :: TypeCheck Universe
 createUnivParam = do
   st <- get
   let upid = univPID st
   put st { univPID=upid + 1 }
-  return $ Univ $ UParam upid
+  return $ UParam upid
 
-createUnivMeta :: TypeCheck Term
+createUnivMeta :: TypeCheck Universe
 createUnivMeta = do
   st <- get
   let uid = univID st
   put st { univID=uid + 1 }
-  return $ Univ $ UMeta uid
+  return $ UMeta uid
 
 createMetaVar :: BoundContext -> Term -> TypeCheck Term
 createMetaVar bc mt = do

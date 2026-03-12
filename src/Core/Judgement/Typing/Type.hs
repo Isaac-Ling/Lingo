@@ -9,11 +9,12 @@ import Core.Judgement.Typing.Inference
 import Core.Judgement.Typing.Unification
 
 import Control.Monad (when)
+import Control.Monad.State.Lazy
 
 inferTypeAndElaborate :: Environment -> Context -> Term -> CanError (Term, Term)
 inferTypeAndElaborate env ctx m = do
   let (m', univID) = instantiateFlexUnivs m 0
-  let initState    = MetaState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=univID, univPID=0 }
+  let initState    = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=univID, univPID=0 }
   result <- runInferType initContexts initState m'
   msol   <- solveConstraints env ctx $ snd result
   let ts = fst result
@@ -42,9 +43,9 @@ elaborate env ctx m = do
 checkTypeAndElaborate :: Environment-> Context -> Term -> Term -> CanError (Term, Term)
 checkTypeAndElaborate env ctx m t = do
   let (m', univID) = instantiateFlexUnivs m 0
-  let (t', univID') = instantiateFlexUnivs m univID
-  let initState    = MetaState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=univID', univPID=0 }
-  result <- runCheckType initContexts initState m $ eval $ unfold env t
+  let (t', univID') = instantiateFlexUnivs t univID
+  let initState    = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=univID', univPID=0 }
+  result <- runCheckType initContexts initState m' $ eval $ unfold env t'
   msol   <- solveConstraints env ctx $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
@@ -84,7 +85,7 @@ instantiateFlexUnivs m = runState (go m)
       return $ Lam (x, Nothing, ex) m'
     go (Lam (x, Just t, ex) m)         = do
       t' <- go t
-      m' <-  go m
+      m' <- go m
       return $ Lam (x, Just t', ex) m'
     go (Pi (x, t, ex) m)               = do
       t' <- go t
@@ -130,6 +131,6 @@ instantiateFlexUnivs m = runState (go m)
       return $ Refl m'
     go m                               = return m
 
-    boundTermToCoreTerm :: Term -> InsUniv BoundTerm
+    boundTermToCoreTerm :: BoundTerm -> InsUniv BoundTerm
     boundTermToCoreTerm (NoBind m) = NoBind <$> go m
-    boundTermToCoreTerm (Bind x m) = Bind (Just x) <$> go (boundTermToCoreTerm m)
+    boundTermToCoreTerm (Bind x m) = Bind x <$> boundTermToCoreTerm m

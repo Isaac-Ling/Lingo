@@ -29,11 +29,8 @@ paramsToBinders (_:bs) m               = paramsToBinders bs m
 type CoreTerm a = Reader Binders a
 
 toCoreTerm :: SourceTerm -> Term
-toCoreTerm m = evalState (runReaderT (go m) []) initState
+toCoreTerm m = runReader (go m) []
   where
-    initState :: CoreTermState
-    initState = CoreTermState { univMetaID=0 }
-
     go :: SourceTerm -> CoreTerm Term
     go (SVar x)                         = do
       bs <- ask
@@ -98,7 +95,9 @@ toCoreTerm m = evalState (runReaderT (go m) []) initState
       return $ Refl m'
     go (SParamTerm ps m)                = go $ paramsToBinders ps m
     go (SubstitutionTerm [] m)          = go m
-
+    go (SubstitutionTerm ((x, y):ss) m) = do
+      m' <- go $ SubstitutionTerm ss $ SApp (SLam (y, Nothing, Exp) m) (x, Exp)
+      return $ beta m'
     boundTermToCoreTerm :: SourceBoundTerm -> CoreTerm BoundTerm
     boundTermToCoreTerm (SNoBind m) = NoBind <$> go m
     boundTermToCoreTerm (SBind x m) = Bind (Just x) <$> local (Just x :) (boundTermToCoreTerm m)

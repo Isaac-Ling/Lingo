@@ -31,7 +31,7 @@ type Spine = [Term]
 
 data UniState = UniState
   { sols  :: MetaSolutions
-  , mst   :: MetaState
+  , tcst  :: TypeCheckState
   , bcsts :: BlockedConstraints
   }
 
@@ -42,12 +42,12 @@ data UniContexts = UniContexts
 
 type Unification a = ReaderT UniContexts (StateT UniState CanError) a
 
-solveConstraints :: Environment -> Context -> MetaState -> CanError MetaSolutions
+solveConstraints :: Environment -> Context -> TypeCheckState -> CanError MetaSolutions
 solveConstraints env ctx st = do
   result <- execStateT (runReaderT go initContexts) initState
   return $ sols result
   where
-    initState    = UniState { sols=[], mst=st, bcsts=[] }
+    initState    = UniState { sols=[], tcst=st, bcsts=[] }
     initContexts = UniContexts { uenv=env, uctx=ctx }
 
     go :: Unification ()
@@ -56,7 +56,7 @@ solveConstraints env ctx st = do
       st  <- get
 
       -- Get constraint from worklist
-      case mcsts $ mst st of
+      case mcsts $ tcst st of
         []              -> do
           st <- get
 
@@ -90,10 +90,10 @@ solveConstraints env ctx st = do
     dropConstraint = do
       st <- get
 
-      case mcsts $ mst st of
+      case mcsts $ tcst st of
         []     -> return ()
         (c:cs) -> do
-          put $ st { mst=(mst st) { mcsts=cs } }
+          put $ st { tcst=(tcst st) { mcsts=cs } }
 
     tryFlexRigidSolve :: BoundContext -> Term -> Term -> Unification Bool
     tryFlexRigidSolve bc m n
@@ -149,7 +149,7 @@ solveConstraints env ctx st = do
       -- Wake up blocked constraints that are awaiting this metas solution
       wakeUpBlockedConstraints i
 
-      case lookup i $ mctx $ mst st of
+      case lookup i $ mctx $ tcst st of
         Just md -> do
           -- Create a constraint that the type of the solved meta must match its expected type
           -- No context is needed since metas are all closed terms
@@ -168,8 +168,8 @@ solveConstraints env ctx st = do
             st <- get
 
             let newBcsts = delete bc $ bcsts st
-            let newCsts = mcsts (mst st) ++ [c]
-            put $ st { mst=(mst st) { mcsts=newCsts }, bcsts=newBcsts }
+            let newCsts = mcsts (tcst st) ++ [c]
+            put $ st { tcst=(tcst st) { mcsts=newCsts }, bcsts=newBcsts }
 
     inferSolutionType :: BoundContext -> Term -> Unification Term
     inferSolutionType bc m = do
@@ -177,7 +177,7 @@ solveConstraints env ctx st = do
       st   <- get
 
       let initContexts = Contexts { env=uenv ctxs, ctx=uctx ctxs, bctx=bc, tbctx=[] }
-      let mt = evalInferType initContexts (mst st) m
+      let mt = evalInferType initContexts (tcst st) m
 
       case mt of
         Result t     -> return $ snd t
@@ -192,6 +192,9 @@ solveConstraints env ctx st = do
     decompose bc (Lam (x, Just t, _) m) (Lam (_, Just t', _) m') = do
       appendConstraint bc t t'
       appendConstraint ((Just x, t) : bc) m m'
+      return True
+    decompose bc (Univ i) (Univ j)                               = do
+      unifyUnivs i j
       return True
     decompose bc (Lam (x, Nothing, _) m) (Lam _ m')              = do
       unificationError $ Just "Unable to decompose implicit lambda for unification"
@@ -289,7 +292,7 @@ solveConstraints env ctx st = do
     appendConstraint :: BoundContext -> Term -> Term -> Unification ()
     appendConstraint bc m m' = do
       st <- get
-      put $ st { mst=(mst st) { mcsts=mcsts (mst st) ++ [(bc, m, m')] } }
+      put $ st { tcst=(tcst st) { mcsts=mcsts (tcst st) ++ [(bc, m, m')] } }
 
     appendBlockedConstraint :: BoundContext -> Term -> Term -> Unification ()
     appendBlockedConstraint bc m m' = do
@@ -308,6 +311,15 @@ solveConstraints env ctx st = do
     -- TODO: We don't know the type of x here, but need to add something
     -- to the bound context. Fix this by elaborating bound terms to include type
     appendBoundTermConstraint bc (Bind x m) (Bind _ m') = appendBoundTermConstraint ((x, Top) : bc) m m'
+
+    unifyUnivs :: Universe -> Universe -> Unification ()
+    unifyUnivs u v = do
+      st <- get
+
+      -- Set u leq v and v leq u to constraint u = v
+      let ucst1 = ULeq u v
+      let ucst2 = ULeq v u
+      put $ st { tcst=(tcst st) { ucsts=ucst1 : ucst2 : ucsts (tcst st) } }
 
     unificationError :: Maybe String -> Unification a
     unificationError ms = lift $ lift $ Error UnificationError ms
