@@ -26,11 +26,7 @@ paramsToBinders [] m                   = m
 paramsToBinders ((BinderParam b):bs) m = paramsToBinders bs $ SLam b m
 paramsToBinders (_:bs) m               = paramsToBinders bs m
 
-newtype CoreTermState = CoreTermState
-  { univMetaID :: Int
-  }
-
-type CoreTerm a = ReaderT Binders (State CoreTermState) a
+type CoreTerm a = Reader Binders a
 
 toCoreTerm :: SourceTerm -> Term
 toCoreTerm m = evalState (runReaderT (go m) []) initState
@@ -44,12 +40,6 @@ toCoreTerm m = evalState (runReaderT (go m) []) initState
       case elemIndex (Just x) bs of
         Just i  -> return $ Var (Bound i)
         Nothing -> return $ Var (Free x)
-    go (SUniv Nothing)                  = do
-      st <- get
-      let umid = univMetaID st
-      put st { univMetaID=umid + 1 }
-      return $ Univ $ UMeta umid
-    go (SUniv (Just i))                 = return $ Univ $ ULvl i
     go (SLam (x, Nothing, ex) m)        = do
       m' <- local (Just x :) $ go m
       return $ Lam (x, Nothing, ex) m'
@@ -96,6 +86,8 @@ toCoreTerm m = evalState (runReaderT (go m) []) initState
     go SNat                             = return Nat
     go SZero                            = return Zero
     go SStar                            = return Star
+    go (SUniv Nothing)                  = return $ Univ $ UFlex
+    go (SUniv (Just i))                 = return $ Univ $ ULvl i
     go (SSucc m)                        = Succ <$> go m
     go (SInl m)                         = Inl <$> go m
     go (SInr m)                         = Inr <$> go m

@@ -26,6 +26,11 @@ goInferType Nat                                       = return (Nat, Univ $ ULvl
 
 goInferType (Univ (ULvl i))                           = return (Univ $ ULvl i, Univ $ ULvl $ i + 1)
 
+goInferType (Univ (UMeta i))                          = do
+  univ <- createUnivMeta
+  imposeUnivLt (Univ $ UMeta i) univ
+  return (Univ $ UMeta i, univ)
+
 goInferType (Var (Bound i))                           = do
   ctxs <- ask
 
@@ -516,6 +521,18 @@ goInferTypeAndElab :: Term -> TypeCheck (Term, Term)
 goInferTypeAndElab m = do
   (em, mt) <- goInferType m
   instantiateImplicits em mt
+
+imposeUnivLEq :: Universe -> Universe -> TypeCheck ()
+imposeUnivLEq u v = do
+  st <- get
+  let ucst = ULeq u v
+  put st { ucsts=ucst : ucsts st }
+
+imposeUnivLt :: Universe -> Universe -> TypeCheck ()
+imposeUnivLt u v = do
+  st <- get
+  let ucst = ULt u v
+  put st { ucsts=ucst : ucsts st }
 
 unify :: Term -> Term -> Maybe String -> TypeCheck ()
 unify t t' ms = do

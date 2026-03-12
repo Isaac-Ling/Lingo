@@ -28,11 +28,12 @@ data UnivConstraint
 type UnivConstraints = [UnivConstraint]
 
 data MetaState = MetaState
-  { mcsts  :: Constraints
-  , ucsts  :: UnivConstraints
-  , mctx   :: MetaContext
-  , metaID :: Int
-  , univID :: Int
+  { mcsts   :: Constraints
+  , ucsts   :: UnivConstraints
+  , mctx    :: MetaContext
+  , metaID  :: Int
+  , univID  :: Int
+  , univPID :: Int
   }
 
 data MetaData = MetaData
@@ -81,9 +82,16 @@ useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 createUnivParam :: TypeCheck Term
 createUnivParam = do
   st <- get
+  let upid = univPID st
+  put st { univPID=upid + 1 }
+  return $ Univ $ UParam upid
+
+createUnivMeta :: TypeCheck Term
+createUnivMeta = do
+  st <- get
   let uid = univID st
   put st { univID=uid + 1 }
-  return $ Univ $ UParam uid
+  return $ Univ $ UMeta uid
 
 createMetaVar :: BoundContext -> Term -> TypeCheck Term
 createMetaVar bc mt = do

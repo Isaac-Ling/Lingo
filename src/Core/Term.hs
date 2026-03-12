@@ -73,6 +73,7 @@ data Universe
   = ULvl Int
   | UMeta Int
   | UParam Int
+  | UFlex
   deriving Eq
 
 instance Eq Var where
