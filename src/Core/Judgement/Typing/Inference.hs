@@ -4,7 +4,7 @@ import Core.Term
 import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
-import Core.Judgement.Typing.Context
+import Core.Judgement.Context
 
 import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
@@ -26,10 +26,10 @@ goInferType Nat                                       = return (Nat, Univ $ ULvl
 goInferType (Univ (ULvl i))                           = return (Univ $ ULvl i, Univ $ ULvl $ i + 1)
 goInferType (Univ UFlex)                              = typeError FailedToInferType $ Just "Uninstantiated flex universe"
 
-goInferType (Univ (UMeta i))                          = do
-  u <- createUnivMeta
-  imposeUnivLt (UMeta i) u
-  return (Univ $ UMeta i, Univ u)
+goInferType (Univ (UVar i))                          = do
+  u <- createUnivVar
+  imposeUnivLt (UVar i) u
+  return (Univ $ UVar i, Univ u)
 
 goInferType (Var (Bound i))                           = do
   ctxs <- ask
@@ -60,7 +60,7 @@ goInferType (Pi (x, t, ex) m)                         = do
 
   case (tt, mt) of
     (Univ i, Univ j) -> do
-      u <- createUnivMeta
+      u <- createUnivVar
       imposeUnivLeq i u
       imposeUnivLeq j u
       return (Pi (x, et, ex) em, Univ u)
@@ -75,7 +75,7 @@ goInferType (Sigma (x, t) m)                          = do
 
   case (tt, mt) of
     (Univ i, Univ j) -> do
-      u <- createUnivMeta
+      u <- createUnivVar
       imposeUnivLeq i u
       imposeUnivLeq j u
       return (Sigma (x, et) em, Univ u)
@@ -143,7 +143,7 @@ goInferType (App m (n, ex))                           = do
 
             univ <- case (mtt, ntt) of
               (Univ i, Univ j)    -> do
-                u <- createUnivMeta
+                u <- createUnivVar
                 imposeUnivLeq i u
                 imposeUnivLeq j u
                 return u
@@ -171,7 +171,7 @@ goInferType (Sum m n)                                 = do
 
   case (mt, nt) of
     (Univ i, Univ j) -> do
-      u <- createUnivMeta
+      u <- createUnivVar
       imposeUnivLeq i u
       imposeUnivLeq j u
       return (Sum em en, Univ u)
@@ -366,7 +366,7 @@ goInferType (Ind (Var (Free x)) m c a)                 = do
   ctxs <- ask
 
   case lookup x $ env ctxs of
-    Just t  -> goInferType $ Ind t m c a
+    Just t  -> goInferType $ Ind (eterm t) m c a
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
 goInferType (Ind
@@ -418,7 +418,7 @@ goCheckType m (Var (Free x))                             = do
 
   case lookup x $ env ctxs of
     Just t  -> do
-      (em, _) <- goCheckType m t
+      (em, _) <- goCheckType m (eterm t)
       return (em, Var $ Free x)
     Nothing -> unifyInferredType m (Var $ Free x)
 
@@ -552,7 +552,10 @@ unify t t' ms = do
   ctxs <- ask
   let errorString = fromMaybe ("Failed to unify types " ++ showTermWithContext (bctx ctxs) t ++ " and " ++ showTermWithContext (bctx ctxs) t') ms
 
-  if containsMeta t  || containsUnivMeta t || containsMeta t' || containsUnivMeta t'
+  if containsMeta t
+    || containsUnivVar t
+    || containsMeta t'
+    || containsUnivVar t'
   then do
     -- Add constraint
     st <- get

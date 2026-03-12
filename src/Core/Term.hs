@@ -71,8 +71,7 @@ data Var
 
 data Universe
   = ULvl Int
-  | UMeta Int
-  | UParam Int
+  | UVar Int
   | UFlex
   deriving Eq
 
@@ -81,9 +80,6 @@ instance Eq Var where
   Bound i == Bound j = i == j
   Meta i == Meta j   = i == j
   _ == _             = False
-
-type Alias = (ByteString, Term)
-type Environment = [Alias]
 
 type Binder = (ByteString, Term)
 

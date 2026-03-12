@@ -1,8 +1,7 @@
-module Core.Judgement.Typing.Context where
+module Core.Judgement.Context where
 
 import Core.Term
 import Core.Error
-import Core.Judgement.Utils
 
 import Data.List ((!?))
 import Control.Monad.Reader
@@ -11,6 +10,14 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
 type Assumption = (ByteString, Term)
 type Context = [Assumption]
+
+data TermData = TermData
+  { eterm :: Term
+  , ecsts :: UnivConstraints
+  }
+
+type EnvEntry = (ByteString, TermData)
+type Environment = [EnvEntry]
 
 -- This context records the type of bound variables, where the ith type in the
 -- context is the type of the ith binder away from the current term
@@ -24,10 +31,6 @@ type Constraints = [Constraint]
 data UnivConstraint
   = ULeq Universe Universe
   | ULt Universe Universe
-
-instance Show UnivConstraint where
-  show (ULeq u v) = show u ++ " <= " ++ show v
-  show (ULt u v)  = show u ++ " < " ++ show v
 
 type UnivConstraints = [UnivConstraint]
 
@@ -52,18 +55,12 @@ data Contexts = Contexts
   , ctx   :: Context
   , bctx  :: BoundContext
   , tbctx :: BoundContext
-  } deriving (Show)
+  }
 
 type TypeCheck a = ReaderT Contexts (StateT TypeCheckState CanError) a
 
 typeError :: ErrorCode -> Maybe String -> TypeCheck a
 typeError errc ms = lift $ lift $ Error errc ms
-
-showTermWithContext :: BoundContext -> Term -> String
-showTermWithContext bctx = showTermWithBindersWithImplicits (map fst bctx)
-
-showTermWithContextWithoutImplicits :: BoundContext -> Term -> String
-showTermWithContextWithoutImplicits bctx = showTermWithBindersWithoutImplicits (map fst bctx)
 
 addToCtx :: Assumption -> (Contexts -> Contexts)
 addToCtx (x, t) ctxs = ctxs { ctx=(x, t) : ctx ctxs }
@@ -83,19 +80,12 @@ useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 useBoundCtx :: Contexts -> Contexts
 useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 
-createUnivParam :: TypeCheck Universe
-createUnivParam = do
-  st <- get
-  let upid = univPID st
-  put st { univPID=upid + 1 }
-  return $ UParam upid
-
-createUnivMeta :: TypeCheck Universe
-createUnivMeta = do
+createUnivVar :: TypeCheck Universe
+createUnivVar = do
   st <- get
   let uid = univID st
   put st { univID=uid + 1 }
-  return $ UMeta uid
+  return $ UVar uid
 
 createMetaVar :: BoundContext -> Term -> TypeCheck Term
 createMetaVar bc mt = do

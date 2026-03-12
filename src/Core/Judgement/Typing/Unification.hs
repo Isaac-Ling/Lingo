@@ -4,7 +4,7 @@ import Core.Term
 import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
-import Core.Judgement.Typing.Context
+import Core.Judgement.Context
 import Core.Judgement.Typing.Inference
 
 import Data.Set (Set)
@@ -42,8 +42,8 @@ data UniContexts = UniContexts
 
 type Unification a = ReaderT UniContexts (StateT UniState CanError) a
 
-solveConstraints :: Environment -> Context -> TypeCheckState -> CanError MetaSolutions
-solveConstraints env ctx st = do
+solveMetaConstraints :: Environment -> Context -> TypeCheckState -> CanError MetaSolutions
+solveMetaConstraints env ctx st = do
   result <- execStateT (runReaderT go initContexts) initState
   return $ sols result
   where

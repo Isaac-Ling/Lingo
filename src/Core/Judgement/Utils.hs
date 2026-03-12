@@ -2,6 +2,7 @@ module Core.Judgement.Utils where
 
 import Core.Term
 import Core.Error
+import Core.Judgement.Context
 
 import Data.Set (Set)
 import Control.Monad (join)
@@ -12,13 +13,13 @@ import qualified Data.Set as Set
 
 delta  :: Environment -> Term -> Term
 delta env (Var (Free x)) = case lookup x env of
-  Just m  -> m
+  Just m  -> eterm m
   Nothing -> Var $ Free x
 delta _ m                = m
 
 unfold :: Environment -> Term -> Term
 unfold env (Var (Free x))           = case lookup x env of
-  Just m  -> unfold env m
+  Just m  -> unfold env $ eterm m
   Nothing -> Var $ Free x
 unfold env (Var (Meta i))           = Var $ Meta i
 unfold env (Var (Bound i))          = Var $ Bound i
@@ -171,32 +172,32 @@ getMetasInTerm m                       = Set.empty
 containsMeta :: Term -> Bool
 containsMeta = not . Set.null . getMetasInTerm
 
-getUnivMetasInTerm :: Term -> Set Int
-getUnivMetasInTerm (Univ (UMeta i))        = Set.singleton i
-getUnivMetasInTerm (Lam (x, Just t, _) n)  = getUnivMetasInTerm t <> getUnivMetasInTerm n
-getUnivMetasInTerm (Lam (x, Nothing, _) n) = getUnivMetasInTerm n
-getUnivMetasInTerm (Pi (x, t, _) n)        = getUnivMetasInTerm t <> getUnivMetasInTerm n
-getUnivMetasInTerm (Sum m n)               = getUnivMetasInTerm m <> getUnivMetasInTerm n
-getUnivMetasInTerm (Sigma (x, t) n)        = getUnivMetasInTerm t <> getUnivMetasInTerm n
-getUnivMetasInTerm (Pair t n)              = getUnivMetasInTerm t <> getUnivMetasInTerm n
-getUnivMetasInTerm (App t (n, _))          = getUnivMetasInTerm t <> getUnivMetasInTerm n
-getUnivMetasInTerm (Id mt m n)             = maybe Set.empty getUnivMetasInTerm mt <> getUnivMetasInTerm m <> getUnivMetasInTerm n
-getUnivMetasInTerm (Refl m)                = maybe Set.empty getUnivMetasInTerm m
-getUnivMetasInTerm (Funext m)              = getUnivMetasInTerm m
-getUnivMetasInTerm (Univalence m)          = getUnivMetasInTerm m
-getUnivMetasInTerm (Succ m)                = getUnivMetasInTerm m
-getUnivMetasInTerm (Inl m)                 = getUnivMetasInTerm m
-getUnivMetasInTerm (Inr m)                 = getUnivMetasInTerm m
-getUnivMetasInTerm (IdFam m)               = getUnivMetasInTerm m
-getUnivMetasInTerm (Ind t m' c a)          = getUnivMetasInTerm t <> getMetasInBoundTerm m' <> Set.unions (map getMetasInBoundTerm c) <> getUnivMetasInTerm a
+getUnivVarsInTerm :: Term -> Set Int
+getUnivVarsInTerm (Univ (UVar i))        = Set.singleton i
+getUnivVarsInTerm (Lam (x, Just t, _) n)  = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (Lam (x, Nothing, _) n) = getUnivVarsInTerm n
+getUnivVarsInTerm (Pi (x, t, _) n)        = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (Sum m n)               = getUnivVarsInTerm m <> getUnivVarsInTerm n
+getUnivVarsInTerm (Sigma (x, t) n)        = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (Pair t n)              = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (App t (n, _))          = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (Id mt m n)             = maybe Set.empty getUnivVarsInTerm mt <> getUnivVarsInTerm m <> getUnivVarsInTerm n
+getUnivVarsInTerm (Refl m)                = maybe Set.empty getUnivVarsInTerm m
+getUnivVarsInTerm (Funext m)              = getUnivVarsInTerm m
+getUnivVarsInTerm (Univalence m)          = getUnivVarsInTerm m
+getUnivVarsInTerm (Succ m)                = getUnivVarsInTerm m
+getUnivVarsInTerm (Inl m)                 = getUnivVarsInTerm m
+getUnivVarsInTerm (Inr m)                 = getUnivVarsInTerm m
+getUnivVarsInTerm (IdFam m)               = getUnivVarsInTerm m
+getUnivVarsInTerm (Ind t m' c a)          = getUnivVarsInTerm t <> getMetasInBoundTerm m' <> Set.unions (map getMetasInBoundTerm c) <> getUnivVarsInTerm a
   where
     getMetasInBoundTerm :: BoundTerm -> Set Int
-    getMetasInBoundTerm (NoBind m) = getUnivMetasInTerm m
+    getMetasInBoundTerm (NoBind m) = getUnivVarsInTerm m
     getMetasInBoundTerm (Bind _ m) = getMetasInBoundTerm m
-getUnivMetasInTerm m                       = Set.empty
+getUnivVarsInTerm m                       = Set.empty
 
-containsUnivMeta :: Term -> Bool
-containsUnivMeta = not . Set.null . getUnivMetasInTerm
+containsUnivVar :: Term -> Bool
+containsUnivVar = not . Set.null . getUnivVarsInTerm
 
 isRigid :: Term -> Bool
 isRigid (Var (Meta _)) = False
@@ -339,6 +340,12 @@ showTermWithoutImplicits = showTermWithBinders False binders
     binders :: [Maybe ByteString]
     binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
+showTermWithContext :: BoundContext -> Term -> String
+showTermWithContext bctx = showTermWithBindersWithImplicits (map fst bctx)
+
+showTermWithContextWithoutImplicits :: BoundContext -> Term -> String
+showTermWithContextWithoutImplicits bctx = showTermWithBindersWithoutImplicits (map fst bctx)
+
 instance Show Term where
   show = showTermWithBinders True binders
     where
@@ -346,9 +353,13 @@ instance Show Term where
       binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
 instance Show Universe where
-  show (UMeta i) = "U?" ++ show i
+  show (UVar i) = "U?" ++ show i
   show (ULvl i)  = "U" ++ show i
   show UFlex     = "U?"
+
+instance Show UnivConstraint where
+  show (ULeq u v) = show u ++ " <= " ++ show v
+  show (ULt u v)  = show u ++ " < " ++ show v
 
 instance Show BoundTerm where
   show = showBoundTermWithBinders True binders

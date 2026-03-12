@@ -5,9 +5,9 @@ import Core.Error
 import Parsing.Parser
 import Core.Elaboration
 import Core.Judgement.Utils
+import Core.Judgement.Context
 import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Type
-import Core.Judgement.Typing.Context
 import IO.Source (readSource)
 
 import Control.Monad (when)
@@ -70,10 +70,10 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       case lookup x $ rtctx ctxs of
         Just t -> do
           em <- tryRun $ elaborateWithType (rtenv ctxs) (rtctx ctxs) m t
-          continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) em)) (go ds')
+          continue (addToRTEnv (x, TermData {eterm=eval $ unfold (rtenv ctxs) em, ecsts=[]})) (go ds')
         _      -> do
-          (em, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, eval em) . addToRTCtx (x, eval t)) (go ds')
+          tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
+          continue (addToRTEnv (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToRTCtx (x, eval $ ttype tr)) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
@@ -92,12 +92,12 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toCoreTerm m'
-      (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
+      tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
 
-      let erf = eval $ unfold (rtenv ctxs) f
-      let et = eval t
+      let erf = eval $ unfold (rtenv ctxs) $ tterm tr
+      let et = eval $ ttype tr
 
-      liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf ++ " : " ++ showTerm et)
+      liftIO $ putStrLn (showTerm (tterm tr) ++ " =>* " ++ showTerm erf ++ " : " ++ showTerm et)
 
       go ds
 
@@ -105,9 +105,9 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toCoreTerm m'
-      (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-      let et = eval t
-      liftIO $ putStrLn (showTerm f ++ " : " ++ showTerm et)
+      tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
+      let et = eval $ ttype tr
+      liftIO $ putStrLn (showTerm (tterm tr) ++ " : " ++ showTerm et)
 
       go ds
 
@@ -115,9 +115,9 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toCoreTerm m'
-      (f, t) <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-      let erf = eval $ unfold (rtenv ctxs) f
-      liftIO $ putStrLn (showTerm f ++ " =>* " ++ showTerm erf)
+      tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
+      let erf = eval $ unfold (rtenv ctxs) $ tterm tr
+      liftIO $ putStrLn (showTerm (tterm tr) ++ " =>* " ++ showTerm erf)
 
       go ds
 
@@ -158,8 +158,8 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     abort :: ErrorCode -> Maybe String -> Runtime a
     abort errc ms = CanErrorT $ return $ Error errc ms
 
-    addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
-    addToRTEnv def ctxs = ctxs { rtenv=def : rtenv ctxs }
+    addToRTEnv :: EnvEntry -> (RuntimeContext -> RuntimeContext)
+    addToRTEnv entry ctxs = ctxs { rtenv=entry : rtenv ctxs }
 
     addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
     addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
