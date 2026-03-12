@@ -25,6 +25,10 @@ data UnivConstraint
   = ULeq Universe Universe
   | ULt Universe Universe
 
+instance Show UnivConstraint where
+  show (ULeq u v) = show u ++ " <= " ++ show v
+  show (ULt u v)  = show u ++ " < " ++ show v
+
 type UnivConstraints = [UnivConstraint]
 
 data TypeCheckState = TypeCheckState

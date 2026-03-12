@@ -257,8 +257,7 @@ showTermWithBinders False bs (Lam (x, Just t, Imp) m)           = showTermWithBi
 showTermWithBinders b bs (Lam (x, Just t, ex) m)                = "\\" ++ showExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders b bs t ++ showExRParen ex ++ ". " ++ showTermWithBinders b (Just x : bs) m
 showTermWithBinders False bs (Lam (x, Nothing, Imp) m)          = showTermWithBinders False (Just x : bs) m
 showTermWithBinders b bs (Lam (x, Nothing, ex) m)               = "\\" ++ showExLParenOrNone ex ++ unpack x ++ showExRParenOrNone ex ++ ". " ++ showTermWithBinders b (Just x : bs) m
-showTermWithBinders b bs (Univ (UMeta _))                       = "U"
-showTermWithBinders b bs (Univ (ULvl i))                        = "U" ++ show i
+showTermWithBinders b bs (Univ u)                               = show u
 showTermWithBinders b bs Bot                                    = "_|_"
 showTermWithBinders b bs Top                                    = "T"
 showTermWithBinders b bs Nat                                    = "Nat"
@@ -345,6 +344,11 @@ instance Show Term where
     where
       binders :: [Maybe ByteString]
       binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
+
+instance Show Universe where
+  show (Univ (UMeta _)) = "U"
+  show (Univ (ULvl i))  = "U" ++ show i
+  show (Univ UFlex)     = "U?"
 
 instance Show BoundTerm where
   show = showBoundTermWithBinders True binders
