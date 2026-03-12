@@ -58,8 +58,13 @@ goInferType (Pi (x, t, ex) m)                         = do
   (et, tt) <- goInferEvaluatedType t
   (em, mt) <- local (addToBoundCtx (x, et)) (goInferEvaluatedType m)
 
+  univ <- createUnivMeta
+
   case (tt, mt) of
-    (Univ i, Univ j) -> return (Pi (x, et, ex) em, Univ $ max i j)
+    (Univ i, Univ j) -> do
+      imposeUnivLeq (Univ i) univ
+      imposeUnivLeq (Univ j) univ
+      return (Pi (x, et, ex) em, univ)
     (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
     (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
