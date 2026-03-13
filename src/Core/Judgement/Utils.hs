@@ -8,19 +8,18 @@ import Data.Set (Set)
 import Control.Monad (join)
 import Data.List ((!?))
 import Data.Maybe (fromMaybe)
-import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 import qualified Data.Set as Set
 
 delta  :: Environment -> Term -> Term
 delta env (Var (Free x)) = case lookup x env of
-  Just m  -> eterm m
+  Just m  -> m
   Nothing -> Var $ Free x
 delta _ m                = m
 
 unfold :: Environment -> Term -> Term
 unfold env (Var (Free x))           = case lookup x env of
-  Just m  -> unfold env $ eterm m
+  Just m  -> unfold env m
   Nothing -> Var $ Free x
 unfold env (Var (Meta i))           = Var $ Meta i
 unfold env (Var (Bound i))          = Var $ Bound i
@@ -208,85 +207,6 @@ isRigid _              = True
 isFlex :: Term -> Bool
 isFlex = not . isRigid
 
-type InsUniv a = State (Int, UnivSub) a
-type UnivSub   = [(Int, Int)]
-
-data UnivData = UnivData
-  { uterm :: Term
-  , fuid  :: Int
-  , usub  :: UnivSub
-  }
-
-instantiateUnivs :: Term -> Int -> UnivData
-instantiateUnivs m i = udata
-  where
-    result = runState (go m) (i, [])
-    udata  = UnivData { uterm=fst result, fuid=fst $ snd result, usub=snd $ snd result }
-
-    go :: Term -> InsUniv Term
-    go (Univ UFlex)             = do
-      (univID, sub) <- get
-      put (univID + 1, sub)
-      return $ Univ $ UVar univID
-    go (Univ (UParam i))        = do
-      (univID, sub) <- get
-      put (univID + 1, (i, univID) : sub)
-      return $ Univ $ UVar univID
-    go (Lam (x, Nothing, ex) m) = do
-      m' <- go m
-      return $ Lam (x, Nothing, ex) m'
-    go (Lam (x, Just t, ex) m)  = do
-      t' <- go t
-      m' <- go m
-      return $ Lam (x, Just t', ex) m'
-    go (Pi (x, t, ex) m)        = do
-      t' <- go t
-      m' <- go m
-      return $ Pi (x, t', ex) m'
-    go (Sigma (x, t) m)         = do
-      t' <- go t
-      m' <- go m
-      return $ Sigma (x, t') m'
-    go (App m (n, ex))          = do
-      m' <- go m
-      n' <- go n
-      return $ App m' (n', ex)
-    go (Pair m n)               = do
-      m' <- go m
-      n' <- go n
-      return $ Pair m' n'
-    go (Sum m n)                = do
-      m' <- go m
-      n' <- go n
-      return $ Sum m' n'
-    go (IdFam t)                = do
-      t' <- go t
-      return $ IdFam t'
-    go (Id t m n)               = do
-      t' <- traverse go t
-      m' <- go m
-      n' <- go n
-      return $ Id t' m' n'
-    go (Ind t m c a)            = do
-      t' <- go t
-      m' <- instantiateUnivsInBoundTerm m
-      c' <- traverse instantiateUnivsInBoundTerm c
-      a' <- go a
-      return $ Ind t' m' c' a'
-    go (Succ m)                 = Succ <$> go m
-    go (Inl m)                  = Inl <$> go m
-    go (Inr m)                  = Inr <$> go m
-    go (Funext p)               = Funext <$> go p
-    go (Univalence f)           = Univalence <$> go f
-    go (Refl m)                 = do
-      m' <- traverse go m
-      return $ Refl m'
-    go m                        = return m
-
-    instantiateUnivsInBoundTerm :: BoundTerm -> InsUniv BoundTerm
-    instantiateUnivsInBoundTerm (NoBind m) = NoBind <$> go m
-    instantiateUnivsInBoundTerm (Bind x m) = Bind x <$> instantiateUnivsInBoundTerm m
-
 showTermWithBindersWithImplicits :: Binders -> Term -> String
 showTermWithBindersWithImplicits = showTermWithBinders True
 
@@ -310,7 +230,6 @@ showTermWithBinders b bs (Var (Bound i))
   where
     a :: Maybe ByteString
     a = join $ bs !? i
-    --a = Just $ pack $ show i
 
     errorString :: String
     errorString = "!ERROR"
@@ -433,9 +352,10 @@ instance Show Term where
       binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
 instance Show Universe where
-  show (UVar i) = "U?" ++ show i
-  show (ULvl i) = "U" ++ show i
-  show UFlex    = "U?"
+  show (UVar i)   = "U?" ++ show i
+  show (UParam i) = "U!" ++ show i
+  show (ULvl i)   = "U" ++ show i
+  show UFlex      = "U?"
 
 instance Show UnivConstraint where
   show (ULeq u v) = show u ++ " <= " ++ show v

@@ -16,8 +16,8 @@ data TermData = TermData
 type Assumption = (ByteString, TermData)
 type Context = [Assumption]
 
-type EnvEntry = (ByteString, TermData)
-type Environment = [EnvEntry]
+type Alias = (ByteString, Term)
+type Environment = [Alias]
 
 -- This context records the type of bound variables, where the ith type in the
 -- context is the type of the ith binder away from the current term

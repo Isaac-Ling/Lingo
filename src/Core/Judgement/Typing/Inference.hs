@@ -5,6 +5,7 @@ import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
 import Core.Judgement.Context
+import Core.Judgement.Typing.Universe
 
 import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
@@ -43,7 +44,10 @@ goInferType (Var (Free x))                            = do
 
   case lookup x $ ctx ctxs of
     -- TODO: instantiate univ params, apply substitution to constraints in td then add them
-    Just td -> return (Var $ Free x, eterm td)
+    Just td -> do
+      st <- get
+      let uData = instantiateUnivs (eterm td) $ univID st
+      return (Var $ Free x, eterm td)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
 goInferType (Var (Meta i))                         = do
@@ -367,7 +371,7 @@ goInferType (Ind (Var (Free x)) m c a)                 = do
   ctxs <- ask
 
   case lookup x $ env ctxs of
-    Just t  -> goInferType $ Ind (eterm t) m c a
+    Just t  -> goInferType $ Ind t m c a
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
 goInferType (Ind
@@ -419,7 +423,7 @@ goCheckType m (Var (Free x))                             = do
 
   case lookup x $ env ctxs of
     Just t  -> do
-      (em, _) <- goCheckType m (eterm t)
+      (em, _) <- goCheckType m t
       return (em, Var $ Free x)
     Nothing -> unifyInferredType m (Var $ Free x)
 

@@ -1,6 +1,3 @@
-test : U -> U
-test A := A
-
 -- Identity
 id : {A : U} -> A -> A
 id a := a

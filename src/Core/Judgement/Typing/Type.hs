@@ -9,15 +9,12 @@ import Core.Judgement.Typing.Universe
 import Core.Judgement.Typing.Inference
 import Core.Judgement.Typing.Unification
 
-import Data.Set (Set)
 import Control.Monad (when)
-import qualified Data.Set as Set
 
 data TypingResult = TypingResult
   { tterm   :: Term
   , ttype   :: Term
   , tcsts   :: UnivConstraints
-  , ttycsts :: UnivConstraints
   }
 
 inferTypeAndElaborate :: Environment -> Context -> Term -> CanError TypingResult
@@ -34,10 +31,12 @@ inferTypeAndElaborate env ctx m = do
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable $ ucsts $ snd result
-  let univConstraints     = filterConstraints e $ ucsts $ snd result
-  let typeUnivConstraints = filterConstraints t $ ucsts $ snd result
+  let ut              = univVarsToParams t
+  let univConstraints = filterConstraints t $ ucsts $ snd result
+  let subConstraints  = applySubToConstraints (usub ut) univConstraints
+  let polyUnivType    = uterm ut
 
-  return TypingResult {tterm=e, ttype=t, tcsts=univConstraints, ttycsts=typeUnivConstraints}
+  return TypingResult {tterm=e, ttype=polyUnivType, tcsts=subConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
@@ -68,10 +67,12 @@ checkTypeAndElaborate env ctx m t = do
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable $ ucsts $ snd result
-  let univConstraints = filterConstraints e $ ucsts $ snd result
-  let typeUnivConstraints = filterConstraints t $ ucsts $ snd result
-  
-  return TypingResult {tterm=e, ttype=t, tcsts=univConstraints, ttycsts=typeUnivConstraints}
+  let ut              = univVarsToParams t
+  let univConstraints = filterConstraints t $ ucsts $ snd result
+  let subConstraints  = applySubToConstraints (usub ut) univConstraints
+  let polyUnivType    = uterm ut
+
+  return TypingResult {tterm=e, ttype=polyUnivType, tcsts=subConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
@@ -86,24 +87,3 @@ elaborateWithType env ctx m t = do
   tr <- checkTypeAndElaborate env ctx m t
   
   return $ tterm tr
-
-filterConstraints :: Term -> UnivConstraints -> UnivConstraints
-filterConstraints m = filter (areVarsInConstraint uVars)
-  where
-    areVarsInConstraint :: Set Int -> UnivConstraint -> Bool
-    areVarsInConstraint vs (ULeq u v) = areUnivsInSet vs u v
-    areVarsInConstraint vs (ULt u v)  = areUnivsInSet vs u v
-
-    areUnivsInSet :: Set Int -> Universe -> Universe -> Bool
-    areUnivsInSet vs u v = case (getIDFromUniv u, getIDFromUniv v) of
-      (Just i, Just j) -> i `Set.member` vs && j `Set.member` vs
-      (Just i, _     ) -> i `Set.member` vs
-      (_     , Just j) -> j `Set.member` vs
-      (_     , _     ) -> False
-
-    getIDFromUniv :: Universe -> Maybe Int
-    getIDFromUniv (UVar i) = Just i
-    getIDFromUniv _        = Nothing
-
-    uVars :: Set Int
-    uVars = getUnivVarsInTerm m

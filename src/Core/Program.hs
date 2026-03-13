@@ -70,10 +70,10 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       case lookup x $ rtctx ctxs of
         Just t -> do
           tr <- tryRun $ checkTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m $ eterm t
-          continue (addToRTEnv (x, TermData {eterm=eval $ unfold (rtenv ctxs) $ tterm tr, ecsts=tcsts tr })) (go ds')
+          continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) $ tterm tr)) (go ds')
         _      -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=ttycsts tr})) (go ds')
+          continue (addToRTEnv (x, eval $ tterm tr) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=tcsts tr})) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
@@ -158,8 +158,8 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     abort :: ErrorCode -> Maybe String -> Runtime a
     abort errc ms = CanErrorT $ return $ Error errc ms
 
-    addToRTEnv :: EnvEntry -> (RuntimeContext -> RuntimeContext)
-    addToRTEnv entry ctxs = ctxs { rtenv=entry : rtenv ctxs }
+    addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
+    addToRTEnv a ctxs = ctxs { rtenv=a : rtenv ctxs }
 
     addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
     addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
