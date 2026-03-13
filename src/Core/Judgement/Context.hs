@@ -8,13 +8,13 @@ import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
-type Assumption = (ByteString, Term)
-type Context = [Assumption]
-
 data TermData = TermData
   { eterm :: Term
   , ecsts :: UnivConstraints
   }
+
+type Assumption = (ByteString, TermData)
+type Context = [Assumption]
 
 type EnvEntry = (ByteString, TermData)
 type Environment = [EnvEntry]
@@ -40,7 +40,6 @@ data TypeCheckState = TypeCheckState
   , mctx    :: MetaContext
   , metaID  :: Int
   , univID  :: Int
-  , univPID :: Int
   }
 
 data MetaData = MetaData

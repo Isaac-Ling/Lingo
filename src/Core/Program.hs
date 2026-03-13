@@ -69,23 +69,24 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
       case lookup x $ rtctx ctxs of
         Just t -> do
-          tr <- tryRun $ checkTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m t
+          tr <- tryRun $ checkTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m $ eterm t
           continue (addToRTEnv (x, TermData {eterm=eval $ unfold (rtenv ctxs) $ tterm tr, ecsts=tcsts tr })) (go ds')
         _      -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToRTCtx (x, eval $ ttype tr)) (go ds')
+          -- TODO: What univ constraints are recorded for the inferred type?
+          continue (addToRTEnv (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=tcsts tr})) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
 
       let t = toCoreTerm t'
-      et <- tryRun $ elaborate (rtenv ctxs) (rtctx ctxs) t
-      let p = continue (addToRTCtx (x, eval et) . addToSourceTypeCtx (x, t')) (go ds)
+      tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) t
+      let p = continue (addToRTCtx (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToSourceTypeCtx (x, t')) (go ds)
 
       case lookup x $ rtctx ctxs of
-        Just t2 -> if equal (rtenv ctxs) et t2
+        Just td -> if equal (rtenv ctxs) (tterm tr) (eterm td)
           then p
-          else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show t2))
+          else abort TypeMismatch (Just ("The type of " ++ unpack x ++ " is " ++ show t ++ " but expected " ++ show (eterm td)))
         _       -> p
 
     go (Pragma (Check m'):ds)  = do

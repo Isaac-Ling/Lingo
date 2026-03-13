@@ -11,7 +11,6 @@ import Core.Judgement.Typing.Unification
 
 import Data.Set (Set)
 import Control.Monad (when)
-import Control.Monad.State.Lazy
 import qualified Data.Set as Set
 
 data TypingResult = TypingResult
@@ -22,9 +21,9 @@ data TypingResult = TypingResult
 
 inferTypeAndElaborate :: Environment -> Context -> Term -> CanError TypingResult
 inferTypeAndElaborate env ctx m = do
-  let (m', univID) = instantiateFlexUnivs m 0
-  let initState    = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=univID, univPID=0 }
-  result <- runInferType initContexts initState m'
+  let mUData    = instantiateUnivs m 0
+  let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid mUData }
+  result <- runInferType initContexts initState $ uterm mUData
   msol   <- solveMetaConstraints env ctx $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
@@ -54,10 +53,10 @@ elaborate env ctx m = do
 
 checkTypeAndElaborate :: Environment-> Context -> Term -> Term -> CanError TypingResult
 checkTypeAndElaborate env ctx m t = do
-  let (m', univID)  = instantiateFlexUnivs m 0
-  let (t', univID') = instantiateFlexUnivs t univID
-  let initState     = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=univID', univPID=0 }
-  result <- runCheckType initContexts initState m' $ eval $ unfold env t'
+  let mUData    = instantiateUnivs m 0
+  let tUData    = instantiateUnivs t $ fuid mUData
+  let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid tUData }
+  result <- runCheckType initContexts initState (uterm mUData) $ eval $ unfold env (uterm tUData)
   msol   <- solveMetaConstraints env ctx $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
@@ -85,8 +84,6 @@ elaborateWithType env ctx m t = do
   
   return $ tterm tr
 
-type InsUniv a = State Int a
-
 filterConstraints :: Term -> UnivConstraints -> UnivConstraints
 filterConstraints m = filter (areVarsInConstraint uVars)
   where
@@ -107,66 +104,3 @@ filterConstraints m = filter (areVarsInConstraint uVars)
 
     uVars :: Set Int
     uVars = getUnivVarsInTerm m
-
-instantiateFlexUnivs :: Term -> Int -> (Term, Int)
-instantiateFlexUnivs m = runState (go m)
-  where
-    go :: Term -> InsUniv Term
-    go (Univ UFlex)                   = do
-      univID <- get
-      put $ univID + 1
-      return $ Univ $ UVar univID
-    go (Lam (x, Nothing, ex) m)        = do
-      m' <- go m
-      return $ Lam (x, Nothing, ex) m'
-    go (Lam (x, Just t, ex) m)         = do
-      t' <- go t
-      m' <- go m
-      return $ Lam (x, Just t', ex) m'
-    go (Pi (x, t, ex) m)               = do
-      t' <- go t
-      m' <- go m
-      return $ Pi (x, t', ex) m'
-    go (Sigma (x, t) m)                = do
-      t' <- go t
-      m' <- go m
-      return $ Sigma (x, t') m'
-    go (App m (n, ex))                 = do
-      m' <- go m
-      n' <- go n
-      return $ App m' (n', ex)
-    go (Pair m n)                      = do
-      m' <- go m
-      n' <- go n
-      return $ Pair m' n'
-    go (Sum m n)                       = do
-      m' <- go m
-      n' <- go n
-      return $ Sum m' n'
-    go (IdFam t)                       = do
-      t' <- go t
-      return $ IdFam t'
-    go (Id t m n)                      = do
-      t' <- traverse go t
-      m' <- go m
-      n' <- go n
-      return $ Id t' m' n'
-    go (Ind t m c a)                   = do
-      t' <- go t
-      m' <- boundTermToCoreTerm m
-      c' <- traverse boundTermToCoreTerm c
-      a' <- go a
-      return $ Ind t' m' c' a'
-    go (Succ m)                        = Succ <$> go m
-    go (Inl m)                         = Inl <$> go m
-    go (Inr m)                         = Inr <$> go m
-    go (Funext p)                      = Funext <$> go p
-    go (Univalence f)                  = Univalence <$> go f
-    go (Refl m)                        = do
-      m' <- traverse go m
-      return $ Refl m'
-    go m                               = return m
-
-    boundTermToCoreTerm :: BoundTerm -> InsUniv BoundTerm
-    boundTermToCoreTerm (NoBind m) = NoBind <$> go m
-    boundTermToCoreTerm (Bind x m) = Bind x <$> boundTermToCoreTerm m

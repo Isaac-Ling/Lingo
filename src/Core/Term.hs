@@ -72,6 +72,7 @@ data Var
 data Universe
   = ULvl Int
   | UVar Int
+  | UParam Int
   | UFlex
   deriving Eq
 

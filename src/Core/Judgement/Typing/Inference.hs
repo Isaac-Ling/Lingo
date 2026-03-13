@@ -42,7 +42,8 @@ goInferType (Var (Free x))                            = do
   ctxs <- ask
 
   case lookup x $ ctx ctxs of
-    Just t  -> return (Var $ Free x, t)
+    -- TODO: instantiate univ params, apply substitution to constraints in td then add them
+    Just td -> return (Var $ Free x, eterm td)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
 goInferType (Var (Meta i))                         = do
