@@ -1,4 +1,4 @@
-test : (A : U) -> U
+test : U -> U
 test A := A
 
 -- Identity

@@ -73,8 +73,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
           continue (addToRTEnv (x, TermData {eterm=eval $ unfold (rtenv ctxs) $ tterm tr, ecsts=tcsts tr })) (go ds')
         _      -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          -- TODO: What univ constraints are recorded for the inferred type?
-          continue (addToRTEnv (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=tcsts tr})) (go ds')
+          continue (addToRTEnv (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=ttycsts tr})) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
@@ -176,7 +175,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
     isSameDefinition :: ByteString -> Declaration -> Bool
     isSameDefinition b (Def (x, _)) = b == x
-    isSameDefinition _ _             = False
+    isSameDefinition _ _            = False
 
     unsafeGetDefinitionFromDeclaration :: Declaration -> SourceTerm
     unsafeGetDefinitionFromDeclaration (Def (_, m')) = m'

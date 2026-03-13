@@ -14,9 +14,10 @@ import Control.Monad (when)
 import qualified Data.Set as Set
 
 data TypingResult = TypingResult
-  { tterm :: Term
-  , ttype :: Term
-  , tcsts :: UnivConstraints
+  { tterm   :: Term
+  , ttype   :: Term
+  , tcsts   :: UnivConstraints
+  , ttycsts :: UnivConstraints
   }
 
 inferTypeAndElaborate :: Environment -> Context -> Term -> CanError TypingResult
@@ -33,9 +34,10 @@ inferTypeAndElaborate env ctx m = do
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable $ ucsts $ snd result
-  let univConstraints = filterConstraints e $ ucsts $ snd result
+  let univConstraints     = filterConstraints e $ ucsts $ snd result
+  let typeUnivConstraints = filterConstraints t $ ucsts $ snd result
 
-  return TypingResult {tterm=e, ttype=t, tcsts=univConstraints}
+  return TypingResult {tterm=e, ttype=t, tcsts=univConstraints, ttycsts=typeUnivConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
@@ -67,8 +69,9 @@ checkTypeAndElaborate env ctx m t = do
 
   checkUnivConstraintsSatisfiable $ ucsts $ snd result
   let univConstraints = filterConstraints e $ ucsts $ snd result
-
-  return TypingResult {tterm=e, ttype=t, tcsts=univConstraints}
+  let typeUnivConstraints = filterConstraints t $ ucsts $ snd result
+  
+  return TypingResult {tterm=e, ttype=t, tcsts=univConstraints, ttycsts=typeUnivConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
