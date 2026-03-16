@@ -70,6 +70,8 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       case lookup x $ rtctx ctxs of
         Just t -> do
           tr <- tryRun $ checkTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m $ eterm t
+
+          -- TODO: Add additional constraints to the constraints in the type!!
           continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) $ tterm tr)) (go ds')
         _      -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
