@@ -1,6 +1,3 @@
-not : (A : U) -> U
-not A := A -> _|_
-
 -- Identity
 id : {A : U} -> A -> A
 id a := a
@@ -38,7 +35,8 @@ flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
 flip f b a := f a b
 
 -- Propositional Logic
-
+not : (A : U) -> U
+not A := A -> _|_
 
 #check not
 
