@@ -26,6 +26,7 @@ goInferType Top                                       = return (Top, Univ $ ULvl
 goInferType Nat                                       = return (Nat, Univ $ ULvl 0)
 goInferType (Univ (ULvl i))                           = return (Univ $ ULvl i, Univ $ ULvl $ i + 1)
 goInferType (Univ UFlex)                              = typeError FailedToInferType $ Just "Uninstantiated flex universe"
+goInferType (Univ (UParam i))                         = typeError FailedToInferType $ Just "Uninstantiated universe parameter"
 
 goInferType (Univ (UVar i))                          = do
   u <- createUnivVar
@@ -47,8 +48,8 @@ goInferType (Var (Free x))                            = do
       -- Add universe constraints from this term to the constraints list
       st <- get
       let uData = instantiateUnivs (eterm td) $ univID st
-      put st { ucsts=applySubToConstraints (usub uData) (ecsts td) ++ ucsts st }
-      return (Var $ Free x, eterm td)
+      put st { univID=fuid uData, ucsts=applySubToConstraints (usub uData) (ecsts td) ++ ucsts st }
+      return (Var $ Free x, uterm uData)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
 goInferType (Var (Meta i))                         = do
@@ -114,7 +115,9 @@ goInferType (App m (n, ex))                           = do
     _                       ->
       goInferType m
 
-  inferAppType em (n, ex) $ eval $ unfold (env ctxs) mt
+  st <- get
+  et <- unfoldAndInstantiateUnivs mt
+  inferAppType em (n, ex) et
   where
     inferAppType :: Term -> (Term, Explicitness) -> Term -> TypeCheck (Term, Term)
     inferAppType m (n, ex') mt = do
@@ -209,7 +212,8 @@ goInferType (Funext p)                                = do
 
   (ep, pt) <- goInferTypeAndElab p
 
-  case eval $ unfold (env ctxs) pt of
+  et <- unfoldAndInstantiateUnivs pt
+  case et of
     Pi _ (Id _ (App f (Var (Bound 0), Exp)) (App g (Var (Bound 0), Exp))) -> do
       goInferType pt
       return (Funext ep, Id Nothing (bumpDown f) (bumpDown g))
@@ -230,7 +234,8 @@ goInferType (IdFam t)                                 = do
 
   (et, tt) <- goInferTypeAndElab t
 
-  case eval $ unfold (env ctxs) tt of
+  ett <- unfoldAndInstantiateUnivs tt
+  case ett of
     Univ i -> return (IdFam et, Pi (Nothing, et, Exp) $ Pi (Nothing, et, Exp) tt)
     _      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
 
@@ -372,7 +377,11 @@ goInferType (Ind (Var (Free x)) m c a)                 = do
   ctxs <- ask
 
   case lookup x $ env ctxs of
-    Just t  -> goInferType $ Ind t m c a
+    Just t  -> do
+      st <- get
+      let uData = instantiateUnivs t $ univID st
+      put st { univID=fuid uData }
+      goInferType $ Ind (uterm uData) m c a
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
 goInferType (Ind
@@ -406,7 +415,7 @@ goInferType (Ind t m c a)                              = do
 
   -- Try fully unfolding motive
   (_, tt) <- goInferType t
-  let et = eval $ unfold (env ctxs) t
+  et <- unfoldAndInstantiateUnivs t
 
   if et /= t
   then goInferType $ Ind et m c a
@@ -424,7 +433,10 @@ goCheckType m (Var (Free x))                             = do
 
   case lookup x $ env ctxs of
     Just t  -> do
-      (em, _) <- goCheckType m t
+      st <- get
+      let uData = instantiateUnivs t $ univID st
+      put st { univID=fuid uData }
+      (em, _) <- goCheckType m (uterm uData)
       return (em, Var $ Free x)
     Nothing -> unifyInferredType m (Var $ Free x)
 
@@ -545,13 +557,15 @@ goInferEvaluatedType m = do
   ctxs <- ask
 
   (em, mt) <- goInferTypeAndElab m
-  return (em, eval $ unfold (env ctxs) mt)
+  et <- unfoldAndInstantiateUnivs mt
+  return (em, et)
 
 goCheckEvaluatedType :: Term -> Term -> TypeCheck (Term, Term)
 goCheckEvaluatedType m t = do
   ctxs <- ask
 
-  goCheckType m (eval $ unfold (env ctxs) t)
+  et <- unfoldAndInstantiateUnivs t
+  goCheckType m et
 
 instantiateImplicits :: Term -> Term -> TypeCheck (Term, Term)
 instantiateImplicits m@(Lam (_, _, Imp) _) mt@(Pi (_, _, Imp) _) = return (m, mt)
@@ -598,3 +612,11 @@ unify t t' ms = do
   else do
     unless (equal (env ctxs) t t') $
       typeError TypeMismatch $ Just errorString
+
+unfoldAndInstantiateUnivs :: Term -> TypeCheck Term
+unfoldAndInstantiateUnivs m = do
+  ctxs <- ask
+  st   <- get
+  let uData = instantiateUnivs (eval $ unfold (env ctxs) m) $ univID st
+  put st { univID=fuid uData }
+  return $ uterm uData

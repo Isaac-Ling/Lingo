@@ -33,7 +33,7 @@ inferTypeAndElaborate env ctx m = do
 
   checkUnivConstraintsSatisfiable ucsts
   let ut               = univVarsToParams t
-  let ue               = -- TODO: Apply universe sub to e
+  let ue               = univVarsToParams e
   let eUnivConstraints = filterConstraints e ucsts
   let tUnivConstraints = filterConstraints t ucsts
   let eSubConstraints  = applySubToConstraints (usub ut) eUnivConstraints
@@ -60,9 +60,9 @@ elaborate env ctx m = do
 checkTypeAndElaborate :: Environment-> Context -> Term -> Term -> CanError TypingResult
 checkTypeAndElaborate env ctx m t = do
   let mUData    = instantiateUnivs m 0
-  let tUData    = instantiateUnivs t $ fuid mUData
+  let tUData    = instantiateUnivs (eval $ unfold env t) $ fuid mUData
   let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid tUData }
-  result <- runCheckType initContexts initState (uterm mUData) $ eval $ unfold env (uterm tUData)
+  result <- runCheckType initContexts initState (uterm mUData) $ uterm tUData
   (msol, ucsts) <- solveMetaConstraints env ctx $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
@@ -71,7 +71,6 @@ checkTypeAndElaborate env ctx m t = do
   when (containsMeta e || containsMeta t) $
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
-  -- TODO: Make sure both univ vars -> params align
   checkUnivConstraintsSatisfiable ucsts
   let ut               = univVarsToParams t
   let ue               = univVarsToParams e

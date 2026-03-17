@@ -4,7 +4,6 @@ binaryOp s := s -> s -> s
 Magma : U1
 Magma := (M : U) x (binaryOp M)
 
--- Compare with no pattern matching, needing many fst/snds etc
 getMagmaUnderlyingType : Magma -> U
 getMagmaUnderlyingType (M, op) := M
 
