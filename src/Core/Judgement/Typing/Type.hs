@@ -32,12 +32,12 @@ inferTypeAndElaborate env ctx m = do
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable ucsts
-  let ue               = univVarsToParams e
   let ut               = univVarsToParams t
+  let ue               = -- TODO: Apply universe sub to e
   let eUnivConstraints = filterConstraints e ucsts
   let tUnivConstraints = filterConstraints t ucsts
-  let eSubConstraints   = applySubToConstraints (usub ut) eUnivConstraints
-  let tSubConstraints   = applySubToConstraints (usub ut) tUnivConstraints
+  let eSubConstraints  = applySubToConstraints (usub ut) eUnivConstraints
+  let tSubConstraints  = applySubToConstraints (usub ut) tUnivConstraints
   let polyUnivTerm     = uterm ue
   let polyUnivType     = uterm ut
 
@@ -71,17 +71,18 @@ checkTypeAndElaborate env ctx m t = do
   when (containsMeta e || containsMeta t) $
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
+  -- TODO: Make sure both univ vars -> params align
   checkUnivConstraintsSatisfiable ucsts
-  let ue               = univVarsToParams e
   let ut               = univVarsToParams t
+  let ue               = univVarsToParams e
   let eUnivConstraints = filterConstraints e ucsts
   let tUnivConstraints = filterConstraints t ucsts
-  let eSubConstraints   = applySubToConstraints (usub ut) eUnivConstraints
-  let tSubConstraints   = applySubToConstraints (usub ut) tUnivConstraints
+  let eSubConstraints  = applySubToConstraints (usub ut) eUnivConstraints
+  let tSubConstraints  = applySubToConstraints (usub ut) tUnivConstraints
   let polyUnivTerm     = uterm ue
   let polyUnivType     = uterm ut
 
-  return TypingResult {tterm=e, ttype=polyUnivType, tecsts=eSubConstraints, tycsts=tSubConstraints}
+  return TypingResult {tterm=polyUnivTerm, ttype=polyUnivType, tecsts=eSubConstraints, tycsts=tSubConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
