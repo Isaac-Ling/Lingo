@@ -22,7 +22,7 @@ inferTypeAndElaborate env ctx m = do
   let mUData    = instantiateUnivs m 0
   let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid mUData }
   result <- runInferType initContexts initState $ uterm mUData
-  msol   <- solveMetaConstraints env ctx $ snd result
+  (msol, ucsts) <- solveMetaConstraints env ctx $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
   let t  = expandMetas msol $ snd ts
@@ -30,9 +30,9 @@ inferTypeAndElaborate env ctx m = do
   when (containsMeta e || containsMeta t) $
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
-  checkUnivConstraintsSatisfiable $ ucsts $ snd result
+  checkUnivConstraintsSatisfiable ucsts
   let ut              = univVarsToParams t
-  let univConstraints = filterConstraints t $ ucsts $ snd result
+  let univConstraints = filterConstraints t ucsts
   let subConstraints  = applySubToConstraints (usub ut) univConstraints
   let polyUnivType    = uterm ut
 
@@ -58,7 +58,7 @@ checkTypeAndElaborate env ctx m t = do
   let tUData    = instantiateUnivs t $ fuid mUData
   let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid tUData }
   result <- runCheckType initContexts initState (uterm mUData) $ eval $ unfold env (uterm tUData)
-  msol   <- solveMetaConstraints env ctx $ snd result
+  (msol, ucsts) <- solveMetaConstraints env ctx $ snd result
   let ts = fst result
   let e  = expandMetas msol $ fst ts
   let t  = expandMetas msol $ snd ts
@@ -66,9 +66,9 @@ checkTypeAndElaborate env ctx m t = do
   when (containsMeta e || containsMeta t) $
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
-  checkUnivConstraintsSatisfiable $ ucsts $ snd result
+  checkUnivConstraintsSatisfiable ucsts
   let ut              = univVarsToParams t
-  let univConstraints = filterConstraints t $ ucsts $ snd result
+  let univConstraints = filterConstraints t ucsts
   let subConstraints  = applySubToConstraints (usub ut) univConstraints
   let polyUnivType    = uterm ut
 

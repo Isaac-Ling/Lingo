@@ -454,6 +454,34 @@ goCheckType (Lam (x, Nothing, ex) m) (Pi (x', t, ex') n) = do
       else typeError TypeMismatch $ Just ("Mismatching explicitness between " ++ showTermWithContext (bctx ctxs) (Lam (x, Nothing, ex) em) ++ " and " ++ showTermWithContext (tbctx ctxs) (Pi (x', et, ex') n))
     _      -> typeError TypeMismatch $ Just (showTermWithContext (tbctx ctxs) et ++ " is not a term of a universe")
 
+goCheckType (Pi (x, t, ex) m) (Univ u)                   = do
+  ctxs <- ask
+
+  (et, tt) <- goInferEvaluatedType t
+  (em, mt) <- local (addToBoundCtx (x, et)) (goInferEvaluatedType m)
+
+  case (tt, mt) of
+    (Univ i, Univ j) -> do
+      imposeUnivLeq i u
+      imposeUnivLeq j u
+      return (Pi (x, et, ex) em, Univ u)
+    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
+
+goCheckType (Sigma (x, t) m) (Univ u)                       = do
+  ctxs <- ask
+
+  (et, tt) <- goInferEvaluatedType t
+  (em, mt) <- local (addToBoundCtx (x, et)) (goInferEvaluatedType m)
+
+  case (tt, mt) of
+    (Univ i, Univ j) -> do
+      imposeUnivLeq i u
+      imposeUnivLeq j u
+      return (Sigma (x, et) em, Univ u)
+    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
+
 goCheckType (Pair m n) (Sigma (x, t) t')                 = do
   ctxs <- ask
 

@@ -42,11 +42,10 @@ data UniContexts = UniContexts
 
 type Unification a = ReaderT UniContexts (StateT UniState CanError) a
 
--- TODO: This might make more universe constraints, need to return them
-solveMetaConstraints :: Environment -> Context -> TypeCheckState -> CanError MetaSolutions
+solveMetaConstraints :: Environment -> Context -> TypeCheckState -> CanError (MetaSolutions, UnivConstraints)
 solveMetaConstraints env ctx st = do
   result <- execStateT (runReaderT go initContexts) initState
-  return $ sols result
+  return (sols result, ucsts $ tcst result)
   where
     initState    = UniState { sols=[], tcst=st, bcsts=[] }
     initContexts = UniContexts { uenv=env, uctx=ctx }

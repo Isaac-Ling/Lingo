@@ -35,7 +35,6 @@ filterConstraints m = filter (areVarsInConstraint uVars)
     uVars :: Set Int
     uVars = getUnivVarsInTerm m
 
-type InsUniv a = State (Int, UnivSub) a
 type UnivSub   = [(Universe, Universe)]
 
 data UnivData = UnivData
@@ -54,6 +53,8 @@ applySubToUniverse sub u = case lookup u sub of
   Just v -> v
   _      -> u
 
+type InsUniv a = State (Int, UnivSub) a
+
 instantiateUnivs :: Term -> Int -> UnivData
 instantiateUnivs m i = udata
   where
@@ -69,6 +70,10 @@ instantiateUnivs m i = udata
       (univID, sub) <- get
       put (univID + 1, (UParam i, UVar univID) : sub)
       return $ Univ $ UVar univID
+    go (Univ (UVar i))          = do
+      (univID, sub) <- get
+      put (max univID (i + 1), sub)
+      return $ Univ $ UVar i
     go (Lam (x, Nothing, ex) m) = do
       m' <- go m
       return $ Lam (x, Nothing, ex) m'
