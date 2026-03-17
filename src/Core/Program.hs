@@ -71,8 +71,8 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
         Just t -> do
           tr <- tryRun $ checkTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m $ eterm t
 
-          -- TODO: Add additional constraints to the constraints in the type!!
-          continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) $ tterm tr)) (go ds')
+          -- TODO: Add additional constraints to the constraints in the type
+          continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) $ tterm tr) . addConstraintsToRTCtx x (tcsts tr)) (go ds')
         _      -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
           continue (addToRTEnv (x, eval $ tterm tr) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=tcsts tr})) (go ds')
@@ -165,6 +165,15 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
     addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
     addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
+
+    addConstraintsToRTCtx :: ByteString -> UnivConstraints -> (RuntimeContext -> RuntimeContext)
+    addConstraintsToRTCtx x csts ctxs = ctxs { rtctx=go x csts (rtctx ctxs) } 
+      where
+        go :: ByteString -> UnivConstraints -> (Context -> Context)
+        go x csts []             = []
+        go x csts ((y, td):cs)
+          | x == y    = (x, td { ecsts=csts ++ ecsts td }) : cs
+          | otherwise = (y, td) : go x csts cs
 
     addToSourceTypeCtx :: (ByteString, SourceTerm) -> (RuntimeContext -> RuntimeContext)
     addToSourceTypeCtx nt ctxs = ctxs { stctx=nt : stctx ctxs }

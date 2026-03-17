@@ -43,10 +43,11 @@ goInferType (Var (Free x))                            = do
   ctxs <- ask
 
   case lookup x $ ctx ctxs of
-    -- TODO: instantiate univ params, apply substitution to constraints in td then add them
     Just td -> do
+      -- Add universe constraints from this term to the constraints list
       st <- get
       let uData = instantiateUnivs (eterm td) $ univID st
+      put st { ucsts=applySubToConstraints (usub uData) (ecsts td) ++ ucsts st }
       return (Var $ Free x, eterm td)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
