@@ -71,18 +71,18 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
         Just t -> do
           tr <- tryRun $ checkTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m $ eterm t
 
-          -- TODO: Add additional constraints to the constraints in the type
-          continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) $ tterm tr) . addConstraintsToRTCtx x (tcsts tr)) (go ds')
+          -- TODO: Add term universe constraints and use them when unfolding a term
+          continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) $ tterm tr) . addConstraintsToRTCtx x (tycsts tr)) (go ds')
         _      -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, eval $ tterm tr) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=tcsts tr})) (go ds')
+          continue (addToRTEnv (x, eval $ tterm tr) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=tycsts tr})) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
 
       let t = toCoreTerm t'
       tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) t
-      let p = continue (addToRTCtx (x, TermData {eterm=eval $ tterm tr, ecsts=tcsts tr}) . addToSourceTypeCtx (x, t')) (go ds)
+      let p = continue (addToRTCtx (x, TermData {eterm=eval $ tterm tr, ecsts=tecsts tr}) . addToSourceTypeCtx (x, t')) (go ds)
 
       case lookup x $ rtctx ctxs of
         Just td -> if equal (rtenv ctxs) (tterm tr) (eterm td)
@@ -160,16 +160,16 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
     abort :: ErrorCode -> Maybe String -> Runtime a
     abort errc ms = CanErrorT $ return $ Error errc ms
 
-    addToRTEnv :: Alias -> (RuntimeContext -> RuntimeContext)
+    addToRTEnv :: Alias -> RuntimeContext -> RuntimeContext
     addToRTEnv a ctxs = ctxs { rtenv=a : rtenv ctxs }
 
-    addToRTCtx :: Assumption -> (RuntimeContext -> RuntimeContext)
+    addToRTCtx :: Assumption -> RuntimeContext -> RuntimeContext
     addToRTCtx sig ctxs = ctxs { rtctx=sig : rtctx ctxs }
 
-    addConstraintsToRTCtx :: ByteString -> UnivConstraints -> (RuntimeContext -> RuntimeContext)
+    addConstraintsToRTCtx :: ByteString -> UnivConstraints -> RuntimeContext -> RuntimeContext
     addConstraintsToRTCtx x csts ctxs = ctxs { rtctx=go x csts (rtctx ctxs) } 
       where
-        go :: ByteString -> UnivConstraints -> (Context -> Context)
+        go :: ByteString -> UnivConstraints -> Context -> Context
         go x csts []             = []
         go x csts ((y, td):cs)
           | x == y    = (x, td { ecsts=csts ++ ecsts td }) : cs

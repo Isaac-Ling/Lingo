@@ -12,9 +12,10 @@ import Core.Judgement.Typing.Unification
 import Control.Monad (when)
 
 data TypingResult = TypingResult
-  { tterm   :: Term
-  , ttype   :: Term
-  , tcsts   :: UnivConstraints
+  { tterm  :: Term
+  , ttype  :: Term
+  , tycsts :: UnivConstraints
+  , tecsts :: UnivConstraints
   }
 
 inferTypeAndElaborate :: Environment -> Context -> Term -> CanError TypingResult
@@ -31,12 +32,16 @@ inferTypeAndElaborate env ctx m = do
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable ucsts
-  let ut              = univVarsToParams t
-  let univConstraints = filterConstraints t ucsts
-  let subConstraints  = applySubToConstraints (usub ut) univConstraints
-  let polyUnivType    = uterm ut
+  let ue               = univVarsToParams e
+  let ut               = univVarsToParams t
+  let eUnivConstraints = filterConstraints e ucsts
+  let tUnivConstraints = filterConstraints t ucsts
+  let eSubConstraints   = applySubToConstraints (usub ut) eUnivConstraints
+  let tSubConstraints   = applySubToConstraints (usub ut) tUnivConstraints
+  let polyUnivTerm     = uterm ue
+  let polyUnivType     = uterm ut
 
-  return TypingResult {tterm=e, ttype=polyUnivType, tcsts=subConstraints}
+  return TypingResult {tterm=polyUnivTerm, ttype=polyUnivType, tecsts=eSubConstraints, tycsts=tSubConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
@@ -67,12 +72,16 @@ checkTypeAndElaborate env ctx m t = do
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable ucsts
-  let ut              = univVarsToParams t
-  let univConstraints = filterConstraints t ucsts
-  let subConstraints  = applySubToConstraints (usub ut) univConstraints
-  let polyUnivType    = uterm ut
+  let ue               = univVarsToParams e
+  let ut               = univVarsToParams t
+  let eUnivConstraints = filterConstraints e ucsts
+  let tUnivConstraints = filterConstraints t ucsts
+  let eSubConstraints   = applySubToConstraints (usub ut) eUnivConstraints
+  let tSubConstraints   = applySubToConstraints (usub ut) tUnivConstraints
+  let polyUnivTerm     = uterm ue
+  let polyUnivType     = uterm ut
 
-  return TypingResult {tterm=e, ttype=polyUnivType, tcsts=subConstraints}
+  return TypingResult {tterm=e, ttype=polyUnivType, tecsts=eSubConstraints, tycsts=tSubConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
