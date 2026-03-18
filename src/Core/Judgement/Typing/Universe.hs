@@ -9,10 +9,43 @@ import Data.Set (Set)
 import Control.Monad.State.Lazy
 import qualified Data.Set as Set
 
+data BFNode
+  = BFVar Int
+  | BFNum Int
+
+data BFEdge = BFEdge
+  { source :: BFNode
+  , target :: BFNode
+  , weight :: Int
+  }
+
+type BFGraph = [BFEdge]
+
 checkUnivConstraintsSatisfiable :: UnivConstraints -> CanError ()
-checkUnivConstraintsSatisfiable csts = case csts of
-  [] -> return ()
-  _  -> return ()
+checkUnivConstraintsSatisfiable csts = do
+  g <- toBFGraph csts
+  return ()
+  where
+    toBFNode :: Universe -> CanError BFTerm
+    toBFNode (UVar i) = BFVar i
+    toBFNode (ULvl i) = BFNum i
+    toBFNode _        = Error UniverseError $ Just "Invalid universe for satisfiability check"
+
+    toBFEdge :: UnivConstraint -> CanError BFEdge
+        toBFCsts (ULeq u v) = do
+      ut  <- toBFNode u
+      vt  <- toBFNode v
+      -- u - v <= 0
+      return BFEdge { source=vt, target=ut, weight=0 }
+    toBFEdge (ULt u v)      = do
+      ut  <- toBFNode u
+      vt  <- toBFNode v
+      -- u - v <= -1
+      return BFEdge { source=vt, target=ut, weight=-1 }
+
+    -- TODO: Check if duplicated edges are ok
+    toBFGraph :: UniverseConstraints -> CanError BFGraph
+    toBFGraph csts = traverse toBFEdge csts
 
 filterConstraints :: Term -> UnivConstraints -> UnivConstraints
 filterConstraints m = filter (areVarsInConstraint uVars)
