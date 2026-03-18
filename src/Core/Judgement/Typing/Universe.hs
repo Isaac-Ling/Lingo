@@ -26,26 +26,26 @@ checkUnivConstraintsSatisfiable csts = do
   g <- toBFGraph csts
   return ()
   where
-    toBFNode :: Universe -> CanError BFTerm
-    toBFNode (UVar i) = BFVar i
-    toBFNode (ULvl i) = BFNum i
-    toBFNode _        = Error UniverseError $ Just "Invalid universe for satisfiability check"
+    toBFNode :: Universe -> CanError BFNode
+    toBFNode (UVar i) = return $ BFVar i
+    toBFNode (ULvl i) = return $ BFNum i
+    toBFNode u        = Error UniverseError $ Just ("Invalid universe " ++ show u ++ " for satisfiability check")
 
     toBFEdge :: UnivConstraint -> CanError BFEdge
-        toBFCsts (ULeq u v) = do
+    toBFEdge (ULeq u v) = do
       ut  <- toBFNode u
       vt  <- toBFNode v
       -- u - v <= 0
       return BFEdge { source=vt, target=ut, weight=0 }
-    toBFEdge (ULt u v)      = do
+    toBFEdge (ULt u v)  = do
       ut  <- toBFNode u
       vt  <- toBFNode v
       -- u - v <= -1
-      return BFEdge { source=vt, target=ut, weight=-1 }
+      return BFEdge { source=vt, target=ut, weight= -1 }
 
     -- TODO: Check if duplicated edges are ok
-    toBFGraph :: UniverseConstraints -> CanError BFGraph
-    toBFGraph csts = traverse toBFEdge csts
+    toBFGraph :: UnivConstraints -> CanError BFGraph
+    toBFGraph = traverse toBFEdge
 
 filterConstraints :: Term -> UnivConstraints -> UnivConstraints
 filterConstraints m = filter (areVarsInConstraint uVars)
