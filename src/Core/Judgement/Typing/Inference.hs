@@ -373,17 +373,6 @@ goInferType (Ind
       ep', shift (-3) $ openFor (shift 3 ea) 2 $ openFor (shift 3 eb) 1 $ open (shift 3 ep') em)
     _      -> typeError TypeMismatch $ Just (showTermWithContext ((p, Id (Just $ shift 2 t) (Var $ Bound 2) (Var $ Bound 1)) : (y, bumpUp t) : (x, t) : bctx ctxs) em ++ " is not a term of a universe")
 
-goInferType (Ind (Var (Free x)) m c a)                 = do
-  ctxs <- ask
-
-  case lookup x $ env ctxs of
-    Just t  -> do
-      st <- get
-      let uData = instantiateUnivs t $ univID st
-      put st { univID=fuid uData }
-      goInferType $ Ind (uterm uData) m c a
-    Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
-
 goInferType (Ind
   Nat
   (NoBind m)
@@ -494,6 +483,20 @@ goCheckType (Sigma (x, t) m) (Univ u)                       = do
       return (Sigma (x, et) em, Univ u)
     (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext ((x, t) : bctx ctxs) em ++ " is not a term of a universe")
     (_, _)           -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) et ++ " is not a term of a universe")
+
+goCheckType (Sum m n) (Univ u)                           = do
+  ctxs <- ask
+
+  (em, mt) <- goInferEvaluatedType m
+  (en, nt) <- goInferEvaluatedType n
+
+  case (mt, nt) of
+    (Univ i, Univ j) -> do
+      imposeUnivLeq i u
+      imposeUnivLeq j u
+      return (Sum em en, Univ u)
+    (Univ i, _)      -> typeError TypeMismatch $ Just (showTermWithContext (bctx ctxs) en ++ " is not a term of a universe")
+    (_, _)           -> typeError TypeMismatch $ Just (show em ++ " is not a term of a universe")
 
 goCheckType (Pair m n) (Sigma (x, t) t')                 = do
   ctxs <- ask

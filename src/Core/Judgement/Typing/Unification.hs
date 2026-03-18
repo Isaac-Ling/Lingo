@@ -5,6 +5,7 @@ import Core.Error
 import Core.Judgement.Utils
 import Core.Judgement.Evaluation
 import Core.Judgement.Context
+import Core.Judgement.Typing.Universe
 import Core.Judgement.Typing.Inference
 
 import Data.Set (Set)
@@ -258,12 +259,20 @@ solveMetaConstraints env ctx st = do
       ctxs <- ask
 
       -- Try fully unfolding terms
-      let em  = eval $ unfold (uenv ctxs) m
-      let em' = eval $ unfold (uenv ctxs) m'
+      em  <- unfoldAndInstantiateUnivs m
+      em' <- unfoldAndInstantiateUnivs m'
 
       if em /= m || em' /= m'
       then decompose bc em em'
       else unificationError $ Just ("Failed to unify " ++ showTermWithContext bc m ++ " and " ++ showTermWithContext bc m')
+
+    unfoldAndInstantiateUnivs :: Term -> Unification Term
+    unfoldAndInstantiateUnivs m = do
+      ctxs <- ask
+      st   <- get
+      let uData = instantiateUnivs (eval $ unfold (uenv ctxs) m) $ univID $ tcst st
+      put st { tcst=(tcst st) { univID=fuid uData } }
+      return $ uterm uData
 
     metaOccursIn :: Int -> Term -> Bool
     metaOccursIn k (Var (Meta i))
