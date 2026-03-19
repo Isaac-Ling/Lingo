@@ -31,6 +31,7 @@ type Constraints = [Constraint]
 data UnivConstraint
   = ULeq Universe Universe
   | ULt Universe Universe
+  deriving Eq
 
 type UnivConstraints = [UnivConstraint]
 

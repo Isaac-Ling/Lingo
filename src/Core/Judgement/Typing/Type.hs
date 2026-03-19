@@ -9,6 +9,7 @@ import Core.Judgement.Typing.Universe
 import Core.Judgement.Typing.Inference
 import Core.Judgement.Typing.Unification
 
+import Data.List (nub)
 import Control.Monad (when)
 
 data TypingResult = TypingResult
@@ -23,7 +24,8 @@ inferTypeAndElaborate env ctx m = do
   let mUData    = instantiateUnivs m 0
   let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid mUData }
   result <- runInferType initContexts initState $ uterm mUData
-  (msol, ucsts) <- solveMetaConstraints env ctx $ snd result
+  (msol, ucsts') <- solveMetaConstraints env ctx $ snd result
+  let ucsts = nub ucsts'
   let ts  = fst result
   let e   = expandMetas msol $ fst ts
   let et  = expandMetas msol $ snd ts
@@ -64,7 +66,8 @@ checkTypeAndElaborate env ctx m t = do
   let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid tUData }
   result <- runCheckType initContexts initState (uterm mUData) $ uterm tUData
 
-  (msol, ucsts) <- solveMetaConstraints env ctx $ snd result
+  (msol, ucsts') <- solveMetaConstraints env ctx $ snd result
+  let ucsts = nub ucsts'
   let ts  = fst result
   let e   = expandMetas msol $ fst ts
   let et  = expandMetas msol $ snd ts
@@ -76,7 +79,7 @@ checkTypeAndElaborate env ctx m t = do
   let ut               = univVarsToParams et
   let ue               = univVarsToParams e
   let eUnivConstraints = filterConstraints e ucsts
-  let tUnivConstraints = filterConstraints t ucsts
+  let tUnivConstraints = filterConstraints et ucsts
   let eSubConstraints  = applySubToConstraints (usub ut) eUnivConstraints
   let tSubConstraints  = applySubToConstraints (usub ut) tUnivConstraints
   let polyUnivTerm     = uterm ue

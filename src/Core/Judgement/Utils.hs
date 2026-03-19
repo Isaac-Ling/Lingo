@@ -352,7 +352,7 @@ instance Show Term where
       binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
 instance Show Universe where
-  show (UParam i) = "U"
+  show (UParam i) = "U!" ++ show i
   show (UVar i)   = "U?" ++ show i
   show (ULvl i)   = "U" ++ show i
   show UFlex      = "U?"

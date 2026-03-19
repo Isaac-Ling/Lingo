@@ -7,6 +7,7 @@ import Core.Judgement.Context
 
 import Data.Set (Set)
 import Data.Map (Map)
+import Data.List (nub)
 import Control.Monad (when)
 import Control.Monad.State.Lazy
 import qualified Data.Set as Set
@@ -23,15 +24,21 @@ data BFEdge = BFEdge
   , weight :: Int
   } deriving Show
 
+data Distance
+  = Fin Int
+  | Inf
+  deriving (Eq, Show)
+
 type BFGraph = [BFEdge]
-type Dist    = Map BFNode Int
+type Dist    = Map BFNode Distance
 
 checkUnivConstraintsSatisfiable :: UnivConstraints -> CanError ()
 checkUnivConstraintsSatisfiable csts = do
   g' <- toBFGraph csts
-  let g  = addNumEdges $ addSource g'
+  let g = addNumEdges $ addSource g'
+  let d = bellmanFord g
 
-  when (hasNegativeCycle (bellmanFord g) g) $
+  when (hasNegativeCycle d g) $
     Error UniverseError $ Just "Universe constraints unsatisfiable"
   where
     toBFNode :: Universe -> CanError BFNode
@@ -55,7 +62,7 @@ checkUnivConstraintsSatisfiable csts = do
     toBFGraph = traverse toBFEdge
 
     getNodes :: BFGraph -> [BFNode]
-    getNodes = concatMap getNodesFromEdge
+    getNodes = nub . concatMap getNodesFromEdge
       where
         getNodesFromEdge :: BFEdge -> [BFNode]
         getNodesFromEdge e = [source e, target e]
@@ -64,7 +71,7 @@ checkUnivConstraintsSatisfiable csts = do
     s = BFVar (-1)
 
     initDist :: [BFNode] -> Dist
-    initDist ns = Map.fromList $ (s, 0) : [(n, maxBound) | n <- ns]
+    initDist ns = Map.fromList $ (s, Fin 0) : [(n, Inf) | n <- ns, n /= s]
 
     getNums :: BFGraph -> [Int]
     getNums g = [ i | BFNum i <- getNodes g ]
@@ -78,17 +85,17 @@ checkUnivConstraintsSatisfiable csts = do
         makeNumEdges :: Int -> [BFEdge]
         makeNumEdges i = 
           [ BFEdge { source=s, target=BFNum i, weight=i }
-          , BFEdge { source=BFNum i, target=s, weight=i }
+          , BFEdge { source=BFNum i, target=s, weight= -i }
           ]
 
     addSource :: BFGraph -> BFGraph
     addSource g = [BFEdge { source=s, target=n, weight=0 } | n <- getNodes g] ++ g
 
-    du :: Dist -> BFEdge -> Int
-    du d e = Map.findWithDefault maxBound (source e) d
+    du :: Dist -> BFEdge -> Distance
+    du d e = Map.findWithDefault Inf (source e) d
 
-    dv :: Dist -> BFEdge -> Int
-    dv d e = Map.findWithDefault maxBound (target e) d
+    dv :: Dist -> BFEdge -> Distance
+    dv d e = Map.findWithDefault Inf (target e) d
 
     -- Relax constraints |g| - 1 times
     bellmanFord :: BFGraph -> Dist
@@ -98,9 +105,14 @@ checkUnivConstraintsSatisfiable csts = do
         d  = initDist ns
 
     relax :: Dist -> BFEdge -> Dist
-    relax d e = if dv d e > du d e + weight e
-      then Map.insert (target e) (du d e + weight e) d
-      else d
+    relax d e = case (du d e, dv d e) of
+      (Fin u, Fin v) -> if v > u + w
+        then Map.insert (target e) (Fin $ u + w) d
+        else d
+      (Fin u, Inf)   -> Map.insert (target e) (Fin $ u + w) d
+      _              -> d
+      where
+        w = weight e
 
     relaxGraph :: BFGraph -> Dist -> Dist
     relaxGraph g d = foldl relax d g
@@ -115,25 +127,24 @@ checkUnivConstraintsSatisfiable csts = do
     hasNegativeCycle d = any (isRelaxable d)
       where
         isRelaxable :: Dist -> BFEdge -> Bool
-        isRelaxable d e = dv d e > du d e + weight e
+        isRelaxable d e = case (du d e, dv d e) of
+          (Fin u, Fin v) -> v > u + w
+          (Fin u, Inf)   -> True
+          _              -> False
+          where
+            w = weight e
 
 filterConstraints :: Term -> UnivConstraints -> UnivConstraints
-filterConstraints m = filter (areVarsInConstraint uVars)
+filterConstraints m = filter (filterConstraint uVars)
   where
-    areVarsInConstraint :: Set Int -> UnivConstraint -> Bool
-    areVarsInConstraint vs (ULeq u v) = areUnivsInSet vs u v
-    areVarsInConstraint vs (ULt u v)  = areUnivsInSet vs u v
+    filterConstraint :: Set Int -> UnivConstraint -> Bool
+    filterConstraint vs (ULeq u v) = filterUniv vs u && filterUniv vs v
+    filterConstraint vs (ULt u v)  = filterUniv vs u && filterUniv vs v
 
-    areUnivsInSet :: Set Int -> Universe -> Universe -> Bool
-    areUnivsInSet vs u v = case (getIDFromUniv u, getIDFromUniv v) of
-      (Just i, Just j) -> i `Set.member` vs && j `Set.member` vs
-      (Just i, _     ) -> i `Set.member` vs
-      (_     , Just j) -> j `Set.member` vs
-      (_     , _     ) -> False
-
-    getIDFromUniv :: Universe -> Maybe Int
-    getIDFromUniv (UVar i) = Just i
-    getIDFromUniv _        = Nothing
+    filterUniv :: Set Int -> Universe -> Bool
+    filterUniv vs (UVar i) = i `Set.member` vs
+    filterUniv vs (ULvl _) = True
+    filterUniv vs _        = False
 
     uVars :: Set Int
     uVars = getUnivVarsInTerm m
