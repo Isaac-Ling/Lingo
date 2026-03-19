@@ -43,7 +43,6 @@ checkUnivConstraintsSatisfiable csts = do
       -- u - v <= -1
       return BFEdge { source=vt, target=ut, weight= -1 }
 
-    -- TODO: Check if duplicated edges are ok
     toBFGraph :: UnivConstraints -> CanError BFGraph
     toBFGraph = traverse toBFEdge
 
