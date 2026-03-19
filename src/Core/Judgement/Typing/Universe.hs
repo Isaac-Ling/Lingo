@@ -117,12 +117,6 @@ checkUnivConstraintsSatisfiable csts = do
     relaxGraph :: BFGraph -> Dist -> Dist
     relaxGraph g d = foldl relax d g
 
-    update :: Eq a => a -> b -> [(a, b)] -> [(a, b)]
-    update k v [] = [(k, v)]
-    update k v ((k', v'):xs)
-      | k == k'   = (k, v) : xs
-      | otherwise = (k', v') : update k v xs
-
     hasNegativeCycle :: Dist -> BFGraph -> Bool
     hasNegativeCycle d = any (isRelaxable d)
       where
