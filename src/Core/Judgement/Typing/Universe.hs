@@ -6,25 +6,33 @@ import Core.Judgement.Utils
 import Core.Judgement.Context
 
 import Data.Set (Set)
+import Data.Map (Map)
+import Control.Monad (when)
 import Control.Monad.State.Lazy
 import qualified Data.Set as Set
+import qualified Data.Map.Strict as Map
 
 data BFNode
   = BFVar Int
   | BFNum Int
+  deriving (Eq, Show, Ord)
 
 data BFEdge = BFEdge
   { source :: BFNode
   , target :: BFNode
   , weight :: Int
-  }
+  } deriving Show
 
 type BFGraph = [BFEdge]
+type Dist    = Map BFNode Int
 
 checkUnivConstraintsSatisfiable :: UnivConstraints -> CanError ()
 checkUnivConstraintsSatisfiable csts = do
-  g <- toBFGraph csts
-  return ()
+  g' <- toBFGraph csts
+  let g  = addNumEdges $ addSource g'
+
+  when (hasNegativeCycle (bellmanFord g) g) $
+    Error UniverseError $ Just "Universe constraints unsatisfiable"
   where
     toBFNode :: Universe -> CanError BFNode
     toBFNode (UVar i) = return $ BFVar i
@@ -45,6 +53,69 @@ checkUnivConstraintsSatisfiable csts = do
 
     toBFGraph :: UnivConstraints -> CanError BFGraph
     toBFGraph = traverse toBFEdge
+
+    getNodes :: BFGraph -> [BFNode]
+    getNodes = concatMap getNodesFromEdge
+      where
+        getNodesFromEdge :: BFEdge -> [BFNode]
+        getNodesFromEdge e = [source e, target e]
+
+    s :: BFNode
+    s = BFVar (-1)
+
+    initDist :: [BFNode] -> Dist
+    initDist ns = Map.fromList $ (s, 0) : [(n, maxBound) | n <- ns]
+
+    getNums :: BFGraph -> [Int]
+    getNums g = [ i | BFNum i <- getNodes g ]
+
+    -- Add edges to constrain distances to constant numeric nodes
+    addNumEdges :: BFGraph -> BFGraph
+    addNumEdges g = concatMap makeNumEdges is ++ g
+      where
+        is = getNums g
+
+        makeNumEdges :: Int -> [BFEdge]
+        makeNumEdges i = 
+          [ BFEdge { source=s, target=BFNum i, weight=i }
+          , BFEdge { source=BFNum i, target=s, weight=i }
+          ]
+
+    addSource :: BFGraph -> BFGraph
+    addSource g = [BFEdge { source=s, target=n, weight=0 } | n <- getNodes g] ++ g
+
+    du :: Dist -> BFEdge -> Int
+    du d e = Map.findWithDefault maxBound (source e) d
+
+    dv :: Dist -> BFEdge -> Int
+    dv d e = Map.findWithDefault maxBound (target e) d
+
+    -- Relax constraints |g| - 1 times
+    bellmanFord :: BFGraph -> Dist
+    bellmanFord g = iterate (relaxGraph g) d !! length ns
+      where
+        ns = getNodes g
+        d  = initDist ns
+
+    relax :: Dist -> BFEdge -> Dist
+    relax d e = if dv d e > du d e + weight e
+      then Map.insert (target e) (du d e + weight e) d
+      else d
+
+    relaxGraph :: BFGraph -> Dist -> Dist
+    relaxGraph g d = foldl relax d g
+
+    update :: Eq a => a -> b -> [(a, b)] -> [(a, b)]
+    update k v [] = [(k, v)]
+    update k v ((k', v'):xs)
+      | k == k'   = (k, v) : xs
+      | otherwise = (k', v') : update k v xs
+
+    hasNegativeCycle :: Dist -> BFGraph -> Bool
+    hasNegativeCycle d = any (isRelaxable d)
+      where
+        isRelaxable :: Dist -> BFEdge -> Bool
+        isRelaxable d e = dv d e > du d e + weight e
 
 filterConstraints :: Term -> UnivConstraints -> UnivConstraints
 filterConstraints m = filter (areVarsInConstraint uVars)
