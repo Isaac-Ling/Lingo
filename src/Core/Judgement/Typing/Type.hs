@@ -24,18 +24,18 @@ inferTypeAndElaborate env ctx m = do
   let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid mUData }
   result <- runInferType initContexts initState $ uterm mUData
   (msol, ucsts) <- solveMetaConstraints env ctx $ snd result
-  let ts = fst result
-  let e  = expandMetas msol $ fst ts
-  let t  = expandMetas msol $ snd ts
+  let ts  = fst result
+  let e   = expandMetas msol $ fst ts
+  let et  = expandMetas msol $ snd ts
 
-  when (containsMeta e || containsMeta t) $
+  when (containsMeta e || containsMeta et) $
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable ucsts
-  let ut               = univVarsToParams t
+  let ut               = univVarsToParams et
   let ue               = univVarsToParams e
   let eUnivConstraints = filterConstraints e ucsts
-  let tUnivConstraints = filterConstraints t ucsts
+  let tUnivConstraints = filterConstraints et ucsts
   let eSubConstraints  = applySubToConstraints (usub ut) eUnivConstraints
   let tSubConstraints  = applySubToConstraints (usub ut) tUnivConstraints
   let polyUnivTerm     = uterm ue
@@ -63,16 +63,17 @@ checkTypeAndElaborate env ctx m t = do
   let tUData    = instantiateUnivs (eval $ unfold env t) $ fuid mUData
   let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid tUData }
   result <- runCheckType initContexts initState (uterm mUData) $ uterm tUData
-  (msol, ucsts) <- solveMetaConstraints env ctx $ snd result
-  let ts = fst result
-  let e  = expandMetas msol $ fst ts
-  let t  = expandMetas msol $ snd ts
 
-  when (containsMeta e || containsMeta t) $
+  (msol, ucsts) <- solveMetaConstraints env ctx $ snd result
+  let ts  = fst result
+  let e   = expandMetas msol $ fst ts
+  let et  = expandMetas msol $ snd ts
+
+  when (containsMeta e || containsMeta et) $
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable ucsts
-  let ut               = univVarsToParams t
+  let ut               = univVarsToParams et
   let ue               = univVarsToParams e
   let eUnivConstraints = filterConstraints e ucsts
   let tUnivConstraints = filterConstraints t ucsts
