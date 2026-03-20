@@ -7,15 +7,15 @@ import Core.Judgement.Context
 
 import Data.Set (Set)
 import Data.Map (Map)
-import Data.List (nub)
-import Control.Monad (when)
+import Data.List (nub, partition)
+import Control.Monad (when, unless)
 import Control.Monad.State.Lazy
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 
 data BFNode
   = BFVar Int
-  | BFNum Int
+  | BFZero
   deriving (Eq, Show, Ord)
 
 data BFEdge = BFEdge
@@ -34,29 +34,47 @@ type Dist    = Map BFNode Distance
 
 checkUnivConstraintsSatisfiable :: UnivConstraints -> CanError ()
 checkUnivConstraintsSatisfiable csts = do
-  g' <- toBFGraph csts
-  let g = addNumEdges $ addSource g'
+  let (ccsts, vcsts) = partition isConstantConstraint csts
+
+  unless (all checkConstantConstraint ccsts) $
+    Error UniverseError $ Just "Universe constraints unsatisfiable"
+
+  g' <- toBFGraph vcsts
+  let g = addSource g'
   let d = bellmanFord g
 
   when (hasNegativeCycle d g) $
     Error UniverseError $ Just "Universe constraints unsatisfiable"
   where
-    toBFNode :: Universe -> CanError BFNode
-    toBFNode (UVar i) = return $ BFVar i
-    toBFNode (ULvl i) = return $ BFNum i
-    toBFNode u        = Error UniverseError $ Just ("Invalid universe " ++ show u ++ " for satisfiability check")
-
     toBFEdge :: UnivConstraint -> CanError BFEdge
-    toBFEdge (ULeq u v) = do
-      ut  <- toBFNode u
-      vt  <- toBFNode v
-      -- u - v <= 0
-      return BFEdge { source=vt, target=ut, weight=0 }
-    toBFEdge (ULt u v)  = do
-      ut  <- toBFNode u
-      vt  <- toBFNode v
-      -- u - v <= -1
-      return BFEdge { source=vt, target=ut, weight= -1 }
+    toBFEdge (ULeq u v) = case (u, v) of
+      (ULvl c, UVar x) ->
+        -- c <= x  =>  0 - x <= -c
+        return $ BFEdge { source=BFVar x, target=BFZero, weight= -c }
+      (UVar x, ULvl c) ->
+        -- x <= c  =>  x - 0 <= c
+        return $ BFEdge { source=BFZero, target=BFVar x, weight=c }
+      (UVar x, UVar y) -> return $ BFEdge { source=BFVar y, target=BFVar x, weight=0 }
+      _                -> Error UniverseError $ Just "Unexpected universe constraint"
+    toBFEdge (ULt u v) = case (u, v) of
+      (ULvl c, UVar x) ->
+        -- c < x  =>  0 - x <= -(c+1)
+        return $ BFEdge { source=BFVar x, target=BFZero, weight= -(c + 1) }
+      (UVar x, ULvl c) ->
+        -- x < c  =>  x - 0 <= c-1
+        return $ BFEdge { source=BFZero, target=BFVar x, weight=c - 1 }
+      (UVar x, UVar y) -> return $ BFEdge { source=BFVar y, target=BFVar x, weight= -1 }
+      _                -> Error UniverseError $ Just "Unexpected universe constraint"
+
+    isConstantConstraint :: UnivConstraint -> Bool
+    isConstantConstraint (ULeq (ULvl _) (ULvl _)) = True
+    isConstantConstraint (ULt (ULvl _) (ULvl _))  = True
+    isConstantConstraint _                        = False
+
+    checkConstantConstraint :: UnivConstraint -> Bool
+    checkConstantConstraint (ULeq (ULvl i) (ULvl j)) = i <= j
+    checkConstantConstraint (ULt (ULvl i) (ULvl j))  = i < j
+    checkConstantConstraint _                        = False
 
     toBFGraph :: UnivConstraints -> CanError BFGraph
     toBFGraph = traverse toBFEdge
@@ -73,21 +91,6 @@ checkUnivConstraintsSatisfiable csts = do
     initDist :: [BFNode] -> Dist
     initDist ns = Map.fromList $ (s, Fin 0) : [(n, Inf) | n <- ns, n /= s]
 
-    getNums :: BFGraph -> [Int]
-    getNums g = [ i | BFNum i <- getNodes g ]
-
-    -- Add edges to constrain distances to constant numeric nodes
-    addNumEdges :: BFGraph -> BFGraph
-    addNumEdges g = concatMap makeNumEdges is ++ g
-      where
-        is = getNums g
-
-        makeNumEdges :: Int -> [BFEdge]
-        makeNumEdges i = 
-          [ BFEdge { source=s, target=BFNum i, weight=i }
-          , BFEdge { source=BFNum i, target=s, weight= -i }
-          ]
-
     addSource :: BFGraph -> BFGraph
     addSource g = [BFEdge { source=s, target=n, weight=0 } | n <- getNodes g] ++ g
 
@@ -97,9 +100,9 @@ checkUnivConstraintsSatisfiable csts = do
     dv :: Dist -> BFEdge -> Distance
     dv d e = Map.findWithDefault Inf (target e) d
 
-    -- Relax constraints |g| - 1 times
+    -- Relax constraints |V| - 1 times
     bellmanFord :: BFGraph -> Dist
-    bellmanFord g = iterate (relaxGraph g) d !! length ns
+    bellmanFord g = iterate (relaxGraph g) d !! (length ns - 1)
       where
         ns = getNodes g
         d  = initDist ns
