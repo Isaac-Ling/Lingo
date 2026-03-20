@@ -120,6 +120,9 @@ checkUnivConstraintsSatisfiable csts = do
     relaxGraph :: BFGraph -> Dist -> Dist
     relaxGraph g d = foldl relax d g
 
+    -- If an edge is still relaxable after |V| - 1 iterations,
+    -- then the distances are diverging downwards, so the constraints
+    -- are not satisfiable
     hasNegativeCycle :: Dist -> BFGraph -> Bool
     hasNegativeCycle d = any (isRelaxable d)
       where

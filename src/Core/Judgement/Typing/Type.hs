@@ -26,24 +26,24 @@ inferTypeAndElaborate env ctx m = do
   result <- runInferType initContexts initState $ uterm mUData
   (msol, ucsts') <- solveMetaConstraints env ctx $ snd result
   let ucsts = nub ucsts'
-  let ts  = fst result
-  let e   = expandMetas msol $ fst ts
-  let et  = expandMetas msol $ snd ts
+  let ts    = fst result
+  let em    = expandMetas msol $ fst ts
+  let et    = expandMetas msol $ snd ts
 
-  when (containsMeta e || containsMeta et) $
+  when (containsMeta em || containsMeta et) $
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable ucsts
+  let um               = univVarsToParams em
   let ut               = univVarsToParams et
-  let ue               = univVarsToParams e
-  let eUnivConstraints = filterConstraints e ucsts
+  let mUnivConstraints = filterConstraints em ucsts
   let tUnivConstraints = filterConstraints et ucsts
-  let eSubConstraints  = applySubToConstraints (usub ut) eUnivConstraints
+  let mSubConstraints  = applySubToConstraints (usub um) mUnivConstraints
   let tSubConstraints  = applySubToConstraints (usub ut) tUnivConstraints
-  let polyUnivTerm     = uterm ue
+  let polyUnivTerm     = uterm um
   let polyUnivType     = uterm ut
 
-  return TypingResult {tterm=polyUnivTerm, ttype=polyUnivType, tecsts=eSubConstraints, tycsts=tSubConstraints}
+  return TypingResult {tterm=polyUnivTerm, ttype=polyUnivType, tecsts=mSubConstraints, tycsts=tSubConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
@@ -68,24 +68,24 @@ checkTypeAndElaborate env ctx m t = do
 
   (msol, ucsts') <- solveMetaConstraints env ctx $ snd result
   let ucsts = nub ucsts'
-  let ts  = fst result
-  let e   = expandMetas msol $ fst ts
-  let et  = expandMetas msol $ snd ts
+  let ts    = fst result
+  let em    = expandMetas msol $ fst ts
+  let et    = expandMetas msol $ snd ts
 
-  when (containsMeta e || containsMeta et) $
+  when (containsMeta em || containsMeta et) $
     Error FailedToInferType $ Just "Unsolved meta variable(s) remaining"
 
   checkUnivConstraintsSatisfiable ucsts
+  let um               = univVarsToParams em
   let ut               = univVarsToParams et
-  let ue               = univVarsToParams e
-  let eUnivConstraints = filterConstraints e ucsts
+  let mUnivConstraints = filterConstraints em ucsts
   let tUnivConstraints = filterConstraints et ucsts
-  let eSubConstraints  = applySubToConstraints (usub ut) eUnivConstraints
+  let mSubConstraints  = applySubToConstraints (usub um) mUnivConstraints
   let tSubConstraints  = applySubToConstraints (usub ut) tUnivConstraints
-  let polyUnivTerm     = uterm ue
+  let polyUnivTerm     = uterm um
   let polyUnivType     = uterm ut
 
-  return TypingResult {tterm=polyUnivTerm, ttype=polyUnivType, tecsts=eSubConstraints, tycsts=tSubConstraints}
+  return TypingResult {tterm=polyUnivTerm, ttype=polyUnivType, tecsts=mSubConstraints, tycsts=tSubConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
