@@ -1,0 +1,50 @@
+binaryOp : U -> U
+binaryOp s := s -> s -> s
+
+Magma : U
+Magma := (M : U) x (binaryOp M)
+
+getMagmaUnderlyingType : Magma -> U
+getMagmaUnderlyingType (M, op) := M
+
+magmaAssoc : Magma -> U
+magmaAssoc (M, op) := (a : M) -> (b : M) -> (c : M) -> op (op a b) c = op a (op b c)
+
+magmaComm : Magma -> U
+magmaComm (M, op) := (a : M) -> (b : M) -> op a b = op b a
+
+SemiGroup : U
+SemiGroup := (M : Magma) x (magmaAssoc M)
+
+getSemiGroupUnderlyingType : SemiGroup -> U
+getSemiGroupUnderlyingType (M, a) := getMagmaUnderlyingType M
+
+magmaElemIsIdentity : (M : Magma) -> getMagmaUnderlyingType M -> U
+magmaElemIsIdentity (M, op) e := ((a : M) -> op e a = a) x ((a : M) -> op a e = a)
+
+semiGroupElemIsIdentity : (G : SemiGroup) -> getSemiGroupUnderlyingType G -> U
+semiGroupElemIsIdentity (M, a) e := magmaElemIsIdentity M e
+
+semiGroupHasIdentity : SemiGroup -> U
+semiGroupHasIdentity (M, a) := (e : getMagmaUnderlyingType M) x (magmaElemIsIdentity M e)
+
+semiGroupComm : SemiGroup -> U
+semiGroupComm (M, a) := magmaComm M
+
+Monoid : U
+Monoid := (G : SemiGroup) x (semiGroupHasIdentity G)
+
+getMonoidUnderlyingType : Monoid -> U
+getMonoidUnderlyingType (G, e) := getSemiGroupUnderlyingType G
+
+getIdentityFromIdentityLaw : (G : SemiGroup) -> semiGroupHasIdentity G -> getSemiGroupUnderlyingType G
+getIdentityFromIdentityLaw (M, a) (e, law) := e
+
+getMonoidIdentity : (G : Monoid) -> getMonoidUnderlyingType G
+getMonoidIdentity (G, elaw) := getIdentityFromIdentityLaw G elaw
+
+monoidComm : Monoid -> U
+monoidComm (G, e) := semiGroupComm G
+
+CommutativeMonoid : U
+CommutativeMonoid := (G : Monoid) x (monoidComm G)

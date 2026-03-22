@@ -14,11 +14,26 @@ false := inr(*)
 
 -- Conditional
 ifThenElse : {C : U} -> Bool -> C -> C -> C
-ifThenElse b c c' := ind[Bool](C, a. c, a. c', b)
+ifThenElse inl(a) c c' := c
+ifThenElse inr(a) c c' := c'
 
 #check ifThenElse
 
-not : Bool -> Bool
-not b := ifThenElse b false true
+boolNot : Bool -> Bool
+boolNot b := ifThenElse b false true
 
-#check not false
+#check boolNot false
+
+-- Pattern matching
+sumPattern : {A : U} -> A + A -> A + A -> A
+sumPattern inl(a) t      := a
+sumPattern inr(b) inl(c) := c
+sumPattern inr(b) inr(d) := b
+
+left : Nat + Nat
+left := inl(1)
+
+right : Nat + Nat
+right := inr(9)
+
+#check sumPattern left right

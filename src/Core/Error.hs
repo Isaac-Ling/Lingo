@@ -1,5 +1,6 @@
 module Core.Error where
 
+import Text.Printf
 import Control.Monad.Trans
 import qualified System.Exit as Sys ( ExitCode(ExitFailure), exitWith, exitSuccess)
 
@@ -13,6 +14,7 @@ data ErrorCode
   | DuplicateDefinitions
   | CircularDependency
   | UnificationError
+  | UniverseError
   deriving Eq
 
 data CanError a
@@ -72,6 +74,7 @@ instance Show ErrorCode where
   show DuplicateDefinitions           = "Duplicate definitions"
   show CircularDependency             = "Circular dependency"
   show UnificationError               = "Unification Error"
+  show UniverseError                  = "Universe Error"
 
 instance Show (CanError a) where
   show (Result a)            = "Success (0)"
@@ -88,6 +91,7 @@ getErrorCode TypeMismatch                   = 6
 getErrorCode DuplicateDefinitions           = 7
 getErrorCode CircularDependency             = 8
 getErrorCode UnificationError               = 9
+getErrorCode UniverseError                  = 10
 
 errorWith :: CanError a -> b
 errorWith e = errorWithoutStackTrace ("Program exited with: " ++ show e)
@@ -99,3 +103,21 @@ exitWith (Result a) = do
 exitWith (Error errc s)          = do
   putStrLn ("Program exited with: " ++ show (Error errc s))
   Sys.exitWith $ Sys.ExitFailure $ getErrorCode errc
+
+exitWithTime :: Integer -> CanError b -> IO c
+exitWithTime t (Result a) = do
+  putStrLn ("Program exited in " ++ formatRunTime t ++ " with: " ++ show (Result a))
+  Sys.exitSuccess
+exitWithTime t (Error errc s)          = do
+  putStrLn ("Program exited in " ++ formatRunTime t ++ " with: " ++ show (Error errc s))
+  Sys.exitWith $ Sys.ExitFailure $ getErrorCode errc
+
+formatRunTime :: Integer -> String
+formatRunTime ns
+  | ns < 10^3  = printf "%dns"   ns
+  | ns < 10^6  = printf "%.2fµs" (ns `to` 1e3)
+  | ns < 10^9  = printf "%.2fms" (ns `to` 1e6)
+  | otherwise  = printf "%.2fs"  (ns `to` 1e9)
+  where
+    to :: Integer -> Double -> Double
+    to ns scale = fromIntegral ns / scale

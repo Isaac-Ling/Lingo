@@ -6,22 +6,22 @@ id a := a
 
 -- Projections
 dfst : {A : U} -> {B : A -> U} -> (a : A) x B a -> A
-dfst p := ind[(a : A) x B a](A, a. b. a, p)
+dfst (a, b) := a
 
 #check dfst
 
-dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst {A} {B} p)
-dsnd p := ind[(a : A) x B a](p. B (dfst {A} {B} p), a. b. b, p)
+dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst p)
+dsnd (a, b) := b
 
 #check dsnd
 
 fst : {A : U} -> {B : U} -> A x B -> A
-fst p := dfst {A} {\(a : A). B} p
+fst p := dfst p
 
 #check fst (*, 32)
 
 snd : {A : U} -> {B : U} -> A x B -> B
-snd p := dsnd {A} {\(a : A). B} p
+snd p := dsnd p
 
 #check snd (*, 32)
 
@@ -31,8 +31,16 @@ comp g f a := g (f a)
 
 #check comp
 
+flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
+flip f b a := f a b
+
 -- Propositional Logic
+not : (A : U) -> U
+not A := A -> _|_
+
+#check not
+
 modusPonens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
-modusPonens p := (snd p) (fst p)
+modusPonens (p, h) := h p
 
 #type modusPonens

@@ -50,6 +50,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
   'ua'     { PositionedToken TkUnivalence _ }
   'T'      { PositionedToken (TkTop) _ }
   '_|_'    { PositionedToken (TkBot) _ }
+  '0'      { PositionedToken (TkInt 0) _ }
   univ     { PositionedToken (TkUniv $$) _ }
   var      { PositionedToken (TkVar $$) _ }
   int      { PositionedToken (TkInt $$) _ }
@@ -61,7 +62,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %nonassoc '='
 %right 'x'
 %right '+'
-%nonassoc var univ int '(' '{' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua'
+%nonassoc var univ int '0' '(' '{' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua'
 %nonassoc APP
 
 %%
@@ -74,22 +75,30 @@ Declarations :: { Program }
   | '\n' Declarations       { $2 }
   | Definition Declarations { $1 : $2 }
   | Signature Declarations  { Signature $1 : $2 }
-  | Pragma     Declarations { Pragma $1 : $2 }
+  | Pragma Declarations     { Pragma $1 : $2 }
 
 Definition :: { Declaration }
   : var Params ':=' Term
   {
-    Def ($1, elaborateParams $2 $4)
+    Def ($1, SParamTerm (reverse $2) $4)
   }
 
-Param :: { SourceLambdaBinder }
-  : var                  { ($1, Nothing, Exp) }
-  | '(' var ')'          { ($2, Nothing, Exp) }
-  | '{' var '}'          { ($2, Nothing, Imp) }
-  | '(' var ':' Term ')' { ($2, Just $4, Exp) }
-  | '{' var ':' Term '}' { ($2, Just $4, Imp) }
+Param :: { Parameter }
+  : var                  { BinderParam ($1, Nothing, Exp) }
+  | '(' var ')'          { BinderParam ($2, Nothing, Exp) }
+  | '{' var '}'          { BinderParam ($2, Nothing, Imp) }
+  | '(' var ':' Term ')' { BinderParam ($2, Just $4, Exp) }
+  | '{' var ':' Term '}' { BinderParam ($2, Just $4, Imp) }
 
-Params :: { [SourceLambdaBinder] }
+  -- TODO: Complete possible constructor patterns
+  | '0'                 { Pattern $ SZero }
+  | 'succ' '(' var ')'  { Pattern $ SSucc (SVar $3) }
+  | '*'                 { Pattern $ SStar }
+  | '(' var ',' var ')' { Pattern $ SPair (SVar $2) (SVar $4) }
+  | 'inl' '(' var ')'   { Pattern $ SInl $ SVar $ $3 }
+  | 'inr' '(' var ')'   { Pattern $ SInr $ SVar $ $3 }
+
+Params :: { [Parameter] }
   :              { [] }
   | Param Params { $1 : $2 }
 
@@ -136,21 +145,22 @@ PiType :: { SourceTerm }
   | Term '->' Term                 { SPi (Nothing, $1, Exp) $3 }
 
 Terminal :: { SourceTerm }
-  : 'T'          { STop }
-  | '_|_'        { SBot }
+  : 'T'   { STop }
+  | '_|_' { SBot }
 
 Identity :: { SourceTerm }
   : Term '=' Term              { SId Nothing $1 $3 }
   | '=' '[' Term ']'           { SIdFam $3 }
   | Term '=' '[' Term ']' Term { SId (Just $4) $1 $6 }
-  | 'refl' '[' Term ']'        { SRefl $3 }
+  | 'refl' '[' Term ']'        { SRefl $ Just $3 }
+  | 'refl'                     { SRefl Nothing }
 
 SigmaType :: { SourceTerm }
   : '(' var ':' Term ')' 'x' Term { SSigma (Just $2, $4) $7 }
   | Term 'x' Term                 { SSigma (Nothing, $1) $3 }
 
 CoProduct :: { SourceTerm }
-  : Term '+' Term      { SSum $1 $3 }
+  : Term '+' Term { SSum $1 $3 }
   | 'inl' '(' Term ')' { SInl $3 }
   | 'inr' '(' Term ')' { SInr $3 }
 
@@ -169,6 +179,7 @@ Tuple :: { SourceTerm }
 NatNums :: { SourceTerm }
   : 'Nat'               { SNat }
   | 'succ' '(' Term ')' { SSucc $3 }
+  | '0'                 { SZero }
   | int                 { parseNum $1 }
 
 Funext :: { SourceTerm }
@@ -232,15 +243,11 @@ parse f s = case runAlex s parser of
     ""     -> Error SyntaxError Nothing
     (x:xs) -> Error SyntaxError (Just (toUpper x : xs ++ " in source file " ++ show f))
 
-parseNum :: Integer -> SourceTerm
+parseNum :: Int -> SourceTerm
 parseNum 0 = SZero
 parseNum n = SSucc $ parseNum (n - 1)
 
 parseTuple :: SourceTerm -> SourceTerm -> [SourceTerm] -> SourceTerm
 parseTuple m n []     = SPair m n
 parseTuple m n (t:ts) = SPair m $ parseTuple n t ts
-
-elaborateParams :: [SourceLambdaBinder] -> SourceTerm -> SourceTerm
-elaborateParams [] m     = m
-elaborateParams (b:bs) m = SLam b $ elaborateParams bs m
 }

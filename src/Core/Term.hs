@@ -5,7 +5,11 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 data Explicitness
   = Exp
   | Imp
-  deriving (Eq)
+  deriving (Eq, Show)
+
+-- A list of binders, where the ith element is the ith binder away from the
+-- current term. Nothing is used if we should never match against that binder
+type Binders = [Maybe ByteString]
 
 -- Source terms --
 
@@ -18,9 +22,15 @@ type SourceLambdaBinder = (ByteString, Maybe SourceTerm, Explicitness)
 type SourceSigmaBinder = (Maybe ByteString, SourceTerm)
 type SourcePiBinder = (Maybe ByteString, SourceTerm, Explicitness)
 
+data Parameter
+  = BinderParam SourceLambdaBinder 
+  | Pattern SourceTerm
+  deriving (Show, Eq)
+
 data SourceBoundTerm
   = SNoBind SourceTerm
   | SBind ByteString SourceBoundTerm
+  deriving (Show, Eq)
 
 data SourceTerm
   = SVar ByteString
@@ -28,7 +38,7 @@ data SourceTerm
   | SApp SourceTerm (SourceTerm, Explicitness)
   | SStar
   | SPair SourceTerm SourceTerm
-  | SUniv Integer
+  | SUniv (Maybe Int)
   | SBot
   | STop
   | SNat
@@ -39,37 +49,38 @@ data SourceTerm
   | SInl SourceTerm
   | SFunext SourceTerm
   | SUnivalence SourceTerm
-  | SRefl SourceTerm
+  | SRefl (Maybe SourceTerm)
   | SPi SourcePiBinder SourceTerm
   | SIdFam SourceTerm
   | SId (Maybe SourceTerm) SourceTerm SourceTerm
   | SSigma SourceSigmaBinder SourceTerm
   | SInd SourceTerm SourceBoundTerm [SourceBoundTerm] SourceTerm
+  | SParamTerm [Parameter] SourceTerm
+  -- Substitution terms are emitted by the elaborator: for each
+  -- pair in the list, the first term will be substituted for the
+  -- second var when converted to a core term
+  | SubstitutionTerm [(SourceTerm, ByteString)] SourceTerm
+  deriving (Show, Eq)
 
--- De Bruijn Terms --
-
--- Spine of a meta variable is a telescope of all variables in the
--- bound context that it can depend on. We carry this along with the
--- meta variable as this corresponds to how a meta var is actually
--- a function of the current context to a meta. This ensures contexts
--- are managed correctly as meta spines will be bumped up and down
--- as we navigate through a term. As an invariant, spines will only 
--- contain variables, not arbitrary terms.
-type Spine = [Term]
+-- Core Terms --
 
 data Var
   = Free ByteString
   | Bound Int
-  | Meta Int Spine
+  | Meta Int
+
+data Universe
+  = ULvl Int
+  | UVar Int
+  | UParam Int
+  | UFlex
+  deriving Eq
 
 instance Eq Var where
-  Free x == Free y     = x == y
-  Bound i == Bound j   = i == j
-  Meta i _ == Meta j _ = i == j
-  _ == _               = False
-
-type Alias = (ByteString, Term)
-type Environment = [Alias]
+  Free x == Free y   = x == y
+  Bound i == Bound j = i == j
+  Meta i == Meta j   = i == j
+  _ == _             = False
 
 type Binder = (ByteString, Term)
 
@@ -87,7 +98,7 @@ data Term
   | App Term (Term, Explicitness)
   | Star
   | Pair Term Term
-  | Univ Integer
+  | Univ Universe
   | Bot
   | Top
   | Nat
@@ -98,7 +109,7 @@ data Term
   | Inr Term
   | Funext Term
   | Univalence Term
-  | Refl Term
+  | Refl (Maybe Term)
   | Pi PiBinder Term
   | IdFam Term
   | Id (Maybe Term) Term Term
