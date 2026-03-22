@@ -551,15 +551,17 @@ goCheckType m t                                          = do
 
   -- Try unfolding type
   let t' = eval $ unfold (env ctxs) t
-  let r  = runCheckType ctxs st m t'
 
-  if equal (env ctxs) t t'
+  if t == t'
   then unifyInferredType m t
-  else case r of
-    Result ((rm, rt), st') -> do
-      put st'
-      return (rm, rt)
-    _                      -> unifyInferredType m t
+  else do
+    let r = runCheckType ctxs st m t'
+    case r of
+      Result ((rm, rt), st') -> do
+        put st'
+        return (rm, rt)
+      Error e s              -> do
+        typeError e s
 
 unifyInferredType :: Term -> Term -> TypeCheck (Term, Term)
 unifyInferredType m t = do
