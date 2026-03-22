@@ -72,6 +72,12 @@ double 0       := 0
 double succ(n) := succ(succ(double n))
 ```
 
+## Polymorphic Universes
+
+Universe levels can be written explicitly as `U0`, `U1`, etc. Alternatively,
+using `U` denotes a polymorphic universe, which can be instantiated at any
+universe level, so long as there are no unsatisfiable level constraints.
+
 ## Induction
 
 The notation for eliminators follows that of the HoTT book, e.g. defining the double function using natural induction would be:

@@ -3,6 +3,7 @@ module Core.Judgement.Evaluation where
 import Core.Term
 import Core.Error
 import Core.Judgement.Utils
+import Core.Judgement.Context
 
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 

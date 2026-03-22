@@ -1,16 +1,23 @@
-module Core.Judgement.Typing.Context where
+module Core.Judgement.Context where
 
 import Core.Term
 import Core.Error
-import Core.Judgement.Utils
 
 import Data.List ((!?))
 import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
 
-type Assumption = (ByteString, Term)
+data TermData = TermData
+  { eterm :: Term
+  , ecsts :: UnivConstraints
+  }
+
+type Assumption = (ByteString, TermData)
 type Context = [Assumption]
+
+type Alias = (ByteString, Term)
+type Environment = [Alias]
 
 -- This context records the type of bound variables, where the ith type in the
 -- context is the type of the ith binder away from the current term
@@ -20,16 +27,26 @@ type BoundContext = [(Maybe ByteString, Term)]
 type Constraint = (BoundContext, Term, Term)
 type Constraints = [Constraint]
 
-data MetaState = MetaState
-  { mcsts  :: Constraints
-  , mctx   :: MetaContext
-  , metaID :: Int
-  } deriving (Show)
+-- A universe constraint is an imposed ordering on universe metas
+data UnivConstraint
+  = ULeq Universe Universe
+  | ULt Universe Universe
+  deriving Eq
+
+type UnivConstraints = [UnivConstraint]
+
+data TypeCheckState = TypeCheckState
+  { mcsts   :: Constraints
+  , ucsts   :: UnivConstraints
+  , mctx    :: MetaContext
+  , metaID  :: Int
+  , univID  :: Int
+  }
 
 data MetaData = MetaData
   { mtype :: Term
   , mbctx :: BoundContext
-  } deriving (Show)
+  }
 
 type MetaContext = [(Int, MetaData)]
 
@@ -38,18 +55,12 @@ data Contexts = Contexts
   , ctx   :: Context
   , bctx  :: BoundContext
   , tbctx :: BoundContext
-  } deriving (Show)
+  }
 
-type TypeCheck a = ReaderT Contexts (StateT MetaState CanError) a
+type TypeCheck a = ReaderT Contexts (StateT TypeCheckState CanError) a
 
 typeError :: ErrorCode -> Maybe String -> TypeCheck a
 typeError errc ms = lift $ lift $ Error errc ms
-
-showTermWithContext :: BoundContext -> Term -> String
-showTermWithContext bctx = showTermWithBindersWithImplicits (map fst bctx)
-
-showTermWithContextWithoutImplicits :: BoundContext -> Term -> String
-showTermWithContextWithoutImplicits bctx = showTermWithBindersWithoutImplicits (map fst bctx)
 
 addToCtx :: Assumption -> (Contexts -> Contexts)
 addToCtx (x, t) ctxs = ctxs { ctx=(x, t) : ctx ctxs }
@@ -69,10 +80,17 @@ useTypeBoundCtx ctxs = ctxs { bctx=tbctx ctxs }
 useBoundCtx :: Contexts -> Contexts
 useBoundCtx ctxs = ctxs { tbctx=bctx ctxs }
 
+createUnivVar :: TypeCheck Universe
+createUnivVar = do
+  st <- get
+  let uid = univID st
+  put st { univID=uid + 1 }
+  return $ UVar uid
+
 createMetaVar :: BoundContext -> Term -> TypeCheck Term
 createMetaVar bc mt = do
   st <- get
-  let mid              = metaID st
+  let mid = metaID st
   -- Apply metavariable to the context to avoid scoping issues
   (metaAppliedToCtx, mtype) <- applyToCtx bc (Var $ Meta mid) mt
   put st { metaID=mid + 1, mctx=(mid, MetaData { mtype=mtype, mbctx=bc }) : mctx st }

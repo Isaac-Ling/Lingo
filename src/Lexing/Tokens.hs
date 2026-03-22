@@ -29,9 +29,9 @@ data Token
   | TkTop
   | TkBot
   -- Numbers
-  | TkInt Integer
+  | TkInt Int
   -- Keywords
-  | TkUniv Integer
+  | TkUniv (Maybe Int)
   | TkInd
   | TkCheck
   | TkType

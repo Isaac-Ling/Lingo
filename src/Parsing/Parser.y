@@ -243,7 +243,7 @@ parse f s = case runAlex s parser of
     ""     -> Error SyntaxError Nothing
     (x:xs) -> Error SyntaxError (Just (toUpper x : xs ++ " in source file " ++ show f))
 
-parseNum :: Integer -> SourceTerm
+parseNum :: Int -> SourceTerm
 parseNum 0 = SZero
 parseNum n = SSucc $ parseNum (n - 1)
 

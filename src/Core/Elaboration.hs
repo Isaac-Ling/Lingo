@@ -8,6 +8,7 @@ import Core.Judgement.Evaluation
 import Control.Monad ((<=<), unless, replicateM)
 import Data.List (sortOn, elemIndex, (!?))
 import Data.ByteString.Lazy.Char8 (ByteString, pack)
+import Control.Monad.Reader
 import Control.Monad.State.Lazy
 
 addImplicitParameters :: SourceTerm -> SourceTerm -> SourceTerm
@@ -25,42 +26,81 @@ paramsToBinders [] m                   = m
 paramsToBinders ((BinderParam b):bs) m = paramsToBinders bs $ SLam b m
 paramsToBinders (_:bs) m               = paramsToBinders bs m
 
-toCoreTerm :: SourceTerm -> Term
-toCoreTerm = go []
-  where
-    go :: Binders -> SourceTerm -> Term
-    go bs (SVar x)                         = case elemIndex (Just x) bs of
-      Just i  -> Var (Bound i)
-      Nothing -> Var (Free x)
-    go bs (SLam (x, Nothing, ex) m)        = Lam (x, Nothing, ex) (go (Just x : bs) m)
-    go bs (SLam (x, Just t, ex) m)         = Lam (x, Just $ go bs t, ex) (go (Just x : bs) m)
-    go bs (SPi (x, t, ex) m)               = Pi (x, go bs t, ex) (go (x : bs) m)
-    go bs (SSigma (x, t) m)                = Sigma (x, go bs t) (go (x : bs) m)
-    go bs (SApp m (n, ex))                 = App (go bs m) (go bs n, ex)
-    go bs (SPair m n)                      = Pair (go bs m) (go bs n)
-    go bs (SSum m n)                       = Sum (go bs m) (go bs n)
-    go bs (SIdFam t)                       = IdFam $ go bs t
-    go bs (SId t m n)                      = Id (fmap (go bs) t) (go bs m) (go bs n)
-    go bs (SInd t m c a)                   = Ind (go bs t) (boundTermToCoreTerm bs m) (map (boundTermToCoreTerm bs) c) (go bs a)
-    go bs (SUniv i)                        = Univ i
-    go bs SBot                             = Bot
-    go bs STop                             = Top
-    go bs SNat                             = Nat
-    go bs SZero                            = Zero
-    go bs (SSucc m)                        = Succ $ go bs m
-    go bs (SInl m)                         = Inl $ go bs m
-    go bs (SInr m)                         = Inr $ go bs m
-    go bs (SFunext p)                      = Funext $ go bs p
-    go bs (SUnivalence f)                  = Univalence $ go bs f
-    go bs (SRefl m)                        = Refl $ fmap (go bs) m
-    go bs SStar                            = Star
-    go bs (SParamTerm ps m)                = go bs $ paramsToBinders ps m
-    go bs (SubstitutionTerm [] m)          = go bs m
-    go bs (SubstitutionTerm ((x, y):ss) m) = beta $ go bs $ SubstitutionTerm ss $ SApp (SLam (y, Nothing, Exp) m) (x, Exp)
+type CoreTerm a = Reader Binders a
 
-    boundTermToCoreTerm :: Binders -> SourceBoundTerm -> BoundTerm
-    boundTermToCoreTerm bs (SNoBind m) = NoBind $ go bs m
-    boundTermToCoreTerm bs (SBind x m) = Bind (Just x) $ boundTermToCoreTerm (Just x : bs) m
+toCoreTerm :: SourceTerm -> Term
+toCoreTerm m = runReader (go m) []
+  where
+    go :: SourceTerm -> CoreTerm Term
+    go (SVar x)                         = do
+      bs <- ask
+      case elemIndex (Just x) bs of
+        Just i  -> return $ Var (Bound i)
+        Nothing -> return $ Var (Free x)
+    go (SLam (x, Nothing, ex) m)        = do
+      m' <- local (Just x :) $ go m
+      return $ Lam (x, Nothing, ex) m'
+    go (SLam (x, Just t, ex) m)         = do
+      t' <- go t
+      m' <- local (Just x :) $ go m
+      return $ Lam (x, Just t', ex) m'
+    go (SPi (x, t, ex) m)               = do
+      t' <- go t
+      m' <- local (x :) $ go m
+      return $ Pi (x, t', ex) m'
+    go (SSigma (x, t) m)                = do
+      t' <- go t
+      m' <- local (x :) $ go m
+      return $ Sigma (x, t') m'
+    go (SApp m (n, ex))                 = do
+      m' <- go m
+      n' <- go n
+      return $ App m' (n', ex)
+    go (SPair m n)                      = do
+      m' <- go m
+      n' <- go n
+      return $ Pair m' n'
+    go (SSum m n)                       = do
+      m' <- go m
+      n' <- go n
+      return $ Sum m' n'
+    go (SIdFam t)                       = do
+      t' <- go t
+      return $ IdFam t'
+    go (SId t m n)                      = do
+      t' <- traverse go t
+      m' <- go m
+      n' <- go n
+      return $ Id t' m' n'
+    go (SInd t m c a)                   = do
+      t' <- go t
+      m' <- boundTermToCoreTerm m
+      c' <- traverse boundTermToCoreTerm c
+      a' <- go a
+      return $ Ind t' m' c' a'
+    go SBot                             = return Bot
+    go STop                             = return Top
+    go SNat                             = return Nat
+    go SZero                            = return Zero
+    go SStar                            = return Star
+    go (SUniv Nothing)                  = return $ Univ $ UFlex
+    go (SUniv (Just i))                 = return $ Univ $ ULvl i
+    go (SSucc m)                        = Succ <$> go m
+    go (SInl m)                         = Inl <$> go m
+    go (SInr m)                         = Inr <$> go m
+    go (SFunext p)                      = Funext <$> go p
+    go (SUnivalence f)                  = Univalence <$> go f
+    go (SRefl m)                        = do
+      m' <- traverse go m
+      return $ Refl m'
+    go (SParamTerm ps m)                = go $ paramsToBinders ps m
+    go (SubstitutionTerm [] m)          = go m
+    go (SubstitutionTerm ((x, y):ss) m) = do
+      m' <- go $ SubstitutionTerm ss $ SApp (SLam (y, Nothing, Exp) m) (x, Exp)
+      return $ beta m'
+    boundTermToCoreTerm :: SourceBoundTerm -> CoreTerm BoundTerm
+    boundTermToCoreTerm (SNoBind m) = NoBind <$> go m
+    boundTermToCoreTerm (SBind x m) = Bind (Just x) <$> local (Just x :) (boundTermToCoreTerm m)
 
 -- TODO: Support nested constructor patterns
 data ConstructorPattern
@@ -81,28 +121,28 @@ getConstructorPattern (Pattern SZero)                     = return CZero
 getConstructorPattern (Pattern (SSucc (SVar n)))          = return $ CSucc n
 getConstructorPattern p                                   = Error SyntaxError $ Just ("Invalid pattern matching constructor " ++ show p)
 
-data ElaborateState = ElaborateState
+newtype PatternMatchState = PatternMatchState
   { freshVarID :: Int
   }
- 
-type Elaborate a = StateT ElaborateState CanError a
 
-getFreshVar :: String -> Elaborate ByteString
+type PatternMatch a = StateT PatternMatchState CanError a
+
+getFreshVar :: String -> PatternMatch ByteString
 getFreshVar x = do
   st <- get
   let i = freshVarID st
   put $ st { freshVarID = i + 1 }
   return $ pack ("!" ++ x ++ show i)
 
-patternSyntaxError :: Maybe String -> Elaborate a
+patternSyntaxError :: Maybe String -> PatternMatch a
 patternSyntaxError ms = lift $ Error SyntaxError ms
 
 elaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> CanError SourceTerm
 elaboratePatternMatchedDefs id defs t = evalStateT (goElaboratePatternMatchedDefs id defs t) st
   where
-    st = ElaborateState { freshVarID=0 }
+    st = PatternMatchState { freshVarID=0 }
 
-goElaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
+goElaboratePatternMatchedDefs :: ByteString -> [SourceTerm] -> SourceTerm -> PatternMatch SourceTerm
 goElaboratePatternMatchedDefs _ [] _    = patternSyntaxError $ Just "Empty pattern matching cases"
 goElaboratePatternMatchedDefs id defs t = do
   -- Expand default paramaters into cases to get full case tree
@@ -111,13 +151,13 @@ goElaboratePatternMatchedDefs id defs t = do
   -- Elaborate each column starting from the leaves
   elaborateColumns id cases t
   where
-    expandDefaultParams :: [SourceTerm] -> Elaborate [SourceTerm]
+    expandDefaultParams :: [SourceTerm] -> PatternMatch [SourceTerm]
     expandDefaultParams defs = do
       n <- maxColumnIndex defs 0
 
       expandDefaultParamsInColumns defs n
 
-    expandDefaultParamsInColumns :: [SourceTerm] -> Int -> Elaborate [SourceTerm]
+    expandDefaultParamsInColumns :: [SourceTerm] -> Int -> PatternMatch [SourceTerm]
     expandDefaultParamsInColumns defs (-1) = return defs
     expandDefaultParamsInColumns defs i    = do
       patternMatched <- isColumnPatternMatched defs i
@@ -131,7 +171,7 @@ goElaboratePatternMatchedDefs id defs t = do
         expandDefaultParamsInColumns (concat expandedColumn) nextCol
       else expandDefaultParamsInColumns defs nextCol
 
-    expandDefaultParamsInRow :: SourceTerm -> Int -> [SourceTerm] -> Elaborate [SourceTerm]
+    expandDefaultParamsInRow :: SourceTerm -> Int -> [SourceTerm] -> PatternMatch [SourceTerm]
     expandDefaultParamsInRow p@(SParamTerm ps m) i cs = case ps !? i of
       -- Abstract over the default parameter with the expanded patterns
       Just (BinderParam (x, _, _)) -> return $ map (constructorToAbstractedSourceTerm ps i m x) cs
@@ -142,10 +182,10 @@ goElaboratePatternMatchedDefs id defs t = do
     constructorToAbstractedSourceTerm :: [Parameter] -> Int -> SourceTerm -> ByteString -> SourceTerm -> SourceTerm
     constructorToAbstractedSourceTerm ps i m x c = SParamTerm (replaceAt ps i (Pattern c)) $ SubstitutionTerm [(c, x)] m
 
-    replaceAt :: [a] -> Int -> a -> [a]    
+    replaceAt :: [a] -> Int -> a -> [a]
     replaceAt xs i x = take i xs ++ [x] ++ drop (i + 1) xs
 
-    getPatternsFromColumn :: [SourceTerm] -> Int -> Elaborate [SourceTerm]
+    getPatternsFromColumn :: [SourceTerm] -> Int -> PatternMatch [SourceTerm]
     getPatternsFromColumn [] _                       = patternSyntaxError $ Just "No patterns in column"
     getPatternsFromColumn ((SParamTerm ps m):defs) i = case ps !? i of
       Just (BinderParam _) -> getPatternsFromColumn defs i
@@ -154,7 +194,7 @@ goElaboratePatternMatchedDefs id defs t = do
         getPatternsFromConstructor p
       Nothing              -> patternSyntaxError $ Just "Insufficient parameters"
 
-    getPatternsFromConstructor :: ConstructorPattern -> Elaborate [SourceTerm]
+    getPatternsFromConstructor :: ConstructorPattern -> PatternMatch [SourceTerm]
     getPatternsFromConstructor CStar       = return [SStar]
     getPatternsFromConstructor CZero       = do
       id <- getFreshVar "n"
@@ -173,14 +213,14 @@ goElaboratePatternMatchedDefs id defs t = do
     getPatternsFromConstructor (CInr _)    = do
       id1 <- getFreshVar "l"
       id2 <- getFreshVar "r"
-      return[SInl $ SVar id1, SInr $ SVar id2]
+      return [SInl $ SVar id1, SInr $ SVar id2]
 
-    maxColumnIndex :: [SourceTerm] -> Int -> Elaborate Int
+    maxColumnIndex :: [SourceTerm] -> Int -> PatternMatch Int
     maxColumnIndex [] i                   = return i
     maxColumnIndex (SParamTerm ps _:ms) i = maxColumnIndex ms $ max i $ length ps - 1
     maxColumnIndex _ _                    = patternSyntaxError $ Just "Invalid pattern matching case"
 
-    elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
+    elaborateColumns :: ByteString -> [SourceTerm] -> SourceTerm -> PatternMatch SourceTerm
     elaborateColumns id defs t = do
       cases <- pushBinderParams defs
 
@@ -214,14 +254,14 @@ goElaboratePatternMatchedDefs id defs t = do
           | all (eq x) b = (x:b) : bs
           | otherwise    = b : insert x bs
 
-    normaliseParentBinders :: [SourceTerm] -> Elaborate [SourceTerm]
+    normaliseParentBinders :: [SourceTerm] -> PatternMatch [SourceTerm]
     normaliseParentBinders []  = return []
     normaliseParentBinders [a] = return [a]
     normaliseParentBinders ms  = do
       n <- maxColumnIndex ms 0
       goNormaliseParentBinders ms n
       where
-        goNormaliseParentBinders :: [SourceTerm] -> Int -> Elaborate [SourceTerm]
+        goNormaliseParentBinders :: [SourceTerm] -> Int -> PatternMatch [SourceTerm]
         goNormaliseParentBinders [] _ = patternSyntaxError $ Just "Insufficient parameters"
         goNormaliseParentBinders ms 0 = return ms
         goNormaliseParentBinders ms i = do
@@ -236,7 +276,7 @@ goElaboratePatternMatchedDefs id defs t = do
               case (xs, allSameLengths) of
                 (x:_, True) -> do
                   normalisedBinders <- replicateM (length x) (getFreshVar "a")
-                  traverse (\m -> useFreshBinders m i normalisedBinders) ms 
+                  traverse (\m -> useFreshBinders m i normalisedBinders) ms
                 _             -> patternSyntaxError $ Just "Mismatched constructors"
 
           goNormaliseParentBinders ms' (i - 1)
@@ -245,7 +285,7 @@ goElaboratePatternMatchedDefs id defs t = do
         allSame []     = True
         allSame (x:xs) = all (== x) xs
 
-        useFreshBinders :: SourceTerm -> Int -> [ByteString] -> Elaborate SourceTerm
+        useFreshBinders :: SourceTerm -> Int -> [ByteString] -> PatternMatch SourceTerm
         useFreshBinders (SParamTerm ps m) i xs = do
           (ys, c) <- case ps !? i of
             Just (BinderParam (y, t, ex)) -> case xs of
@@ -266,7 +306,7 @@ goElaboratePatternMatchedDefs id defs t = do
           return $ SParamTerm ps' $ SubstitutionTerm (zip (map SVar xs) ys) m
         useFreshBinders _ _ _                  = patternSyntaxError $ Just "Term is not a parameterised term"
 
-        getBindersInColumn :: [SourceTerm] -> Int -> [[ByteString]] -> Elaborate [[ByteString]]
+        getBindersInColumn :: [SourceTerm] -> Int -> [[ByteString]] -> PatternMatch [[ByteString]]
         getBindersInColumn [] _ xs                       = return xs
         getBindersInColumn ((SParamTerm ps m):defs) i xs = case ps !? i of
           Just (BinderParam (x, _, _)) -> getBindersInColumn defs i ([x]:xs)
@@ -300,7 +340,7 @@ goElaboratePatternMatchedDefs id defs t = do
       (Result (CSucc _), Result (CSucc _))     -> True
       (_, _)                                   -> False
 
-    pushBinderParams :: [SourceTerm] -> Elaborate [SourceTerm]
+    pushBinderParams :: [SourceTerm] -> PatternMatch [SourceTerm]
     pushBinderParams ps = do
       patternMatched <- isColumnPatternMatched ps 0
 
@@ -310,11 +350,11 @@ goElaboratePatternMatchedDefs id defs t = do
         pushBinderParams pushedBinders
       else return ps
       where
-        pushParam :: SourceTerm -> Elaborate SourceTerm
+        pushParam :: SourceTerm -> PatternMatch SourceTerm
         pushParam (SParamTerm (p:ps) m) = return $ SParamTerm ps $ paramsToBinders [p] m
         pushParam _                     = patternSyntaxError $ Just "Invalid pattern matching case"
 
-    isColumnPatternMatched :: [SourceTerm] -> Int -> Elaborate Bool
+    isColumnPatternMatched :: [SourceTerm] -> Int -> PatternMatch Bool
     isColumnPatternMatched (SParamTerm ps _:ms) i = case ps !? i of
       Just p  -> do
         c <- isColumnPatternMatched ms i
@@ -323,7 +363,7 @@ goElaboratePatternMatchedDefs id defs t = do
     isColumnPatternMatched [] _                   = return False
     isColumnPatternMatched _ _                    = patternSyntaxError $ Just "Misaligned patterns"
 
-toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> Elaborate SourceTerm
+toEliminator :: ByteString -> [SourceTerm] -> SourceTerm -> PatternMatch SourceTerm
 toEliminator id [] _                               = patternSyntaxError $ Just "Empty pattern matching cases"
 toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
   -- Get codomain of function to determine the motive
@@ -352,7 +392,7 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
   -- Return eliminator term
   return $ SParamTerm (BinderParam (pack "!p", Just indType, Exp) : ps) ind
   where
-    getPattern :: SourceTerm -> Elaborate (ConstructorPattern, SourceTerm)
+    getPattern :: SourceTerm -> PatternMatch (ConstructorPattern, SourceTerm)
     getPattern (SParamTerm (p:_) m) = do
       consPattern <- lift $ getConstructorPattern p
       return (consPattern, m)
@@ -363,14 +403,14 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
     applyParams ((BinderParam (x, _, ex)):ps) m = applyParams ps $ SApp m (SVar x, ex)
     applyParams ((Pattern pat):ps) m            = applyParams ps $ SApp m (pat, Exp)
 
-    subParamsInType :: SourceTerm -> [Parameter] -> Elaborate SourceTerm
+    subParamsInType :: SourceTerm -> [Parameter] -> PatternMatch SourceTerm
     subParamsInType m []                           = return m
     subParamsInType (SPi (Nothing, _, _) m) (_:ps) = subParamsInType m ps
     subParamsInType (SPi (Just x, _, _) m) (p:ps)  = do
       t <- parameterToTerm p
       subParamsInType (subParamInType t x m) ps
       where
-        parameterToTerm :: Parameter -> Elaborate SourceTerm
+        parameterToTerm :: Parameter -> PatternMatch SourceTerm
         parameterToTerm (Pattern m)             = return m
         parameterToTerm (BinderParam (x, _, _)) = return $ SVar x
 

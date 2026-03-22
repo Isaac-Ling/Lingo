@@ -2,6 +2,7 @@ module Core.Judgement.Utils where
 
 import Core.Term
 import Core.Error
+import Core.Judgement.Context
 
 import Data.Set (Set)
 import Control.Monad (join)
@@ -171,6 +172,33 @@ getMetasInTerm m                       = Set.empty
 containsMeta :: Term -> Bool
 containsMeta = not . Set.null . getMetasInTerm
 
+getUnivVarsInTerm :: Term -> Set Int
+getUnivVarsInTerm (Univ (UVar i))         = Set.singleton i
+getUnivVarsInTerm (Lam (x, Just t, _) n)  = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (Lam (x, Nothing, _) n) = getUnivVarsInTerm n
+getUnivVarsInTerm (Pi (x, t, _) n)        = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (Sum m n)               = getUnivVarsInTerm m <> getUnivVarsInTerm n
+getUnivVarsInTerm (Sigma (x, t) n)        = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (Pair t n)              = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (App t (n, _))          = getUnivVarsInTerm t <> getUnivVarsInTerm n
+getUnivVarsInTerm (Id mt m n)             = maybe Set.empty getUnivVarsInTerm mt <> getUnivVarsInTerm m <> getUnivVarsInTerm n
+getUnivVarsInTerm (Refl m)                = maybe Set.empty getUnivVarsInTerm m
+getUnivVarsInTerm (Funext m)              = getUnivVarsInTerm m
+getUnivVarsInTerm (Univalence m)          = getUnivVarsInTerm m
+getUnivVarsInTerm (Succ m)                = getUnivVarsInTerm m
+getUnivVarsInTerm (Inl m)                 = getUnivVarsInTerm m
+getUnivVarsInTerm (Inr m)                 = getUnivVarsInTerm m
+getUnivVarsInTerm (IdFam m)               = getUnivVarsInTerm m
+getUnivVarsInTerm (Ind t m' c a)          = getUnivVarsInTerm t <> getMetasInBoundTerm m' <> Set.unions (map getMetasInBoundTerm c) <> getUnivVarsInTerm a
+  where
+    getMetasInBoundTerm :: BoundTerm -> Set Int
+    getMetasInBoundTerm (NoBind m) = getUnivVarsInTerm m
+    getMetasInBoundTerm (Bind _ m) = getMetasInBoundTerm m
+getUnivVarsInTerm m                       = Set.empty
+
+containsUnivVar :: Term -> Bool
+containsUnivVar = not . Set.null . getUnivVarsInTerm
+
 isRigid :: Term -> Bool
 isRigid (Var (Meta _)) = False
 isRigid (App m _)      = isRigid m
@@ -202,7 +230,6 @@ showTermWithBinders b bs (Var (Bound i))
   where
     a :: Maybe ByteString
     a = join $ bs !? i
-    --a = Just $ pack $ show i
 
     errorString :: String
     errorString = "!ERROR"
@@ -230,8 +257,7 @@ showTermWithBinders False bs (Lam (x, Just t, Imp) m)           = showTermWithBi
 showTermWithBinders b bs (Lam (x, Just t, ex) m)                = "\\" ++ showExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders b bs t ++ showExRParen ex ++ ". " ++ showTermWithBinders b (Just x : bs) m
 showTermWithBinders False bs (Lam (x, Nothing, Imp) m)          = showTermWithBinders False (Just x : bs) m
 showTermWithBinders b bs (Lam (x, Nothing, ex) m)               = "\\" ++ showExLParenOrNone ex ++ unpack x ++ showExRParenOrNone ex ++ ". " ++ showTermWithBinders b (Just x : bs) m
-showTermWithBinders b bs (Univ 0)                               = "U"
-showTermWithBinders b bs (Univ i)                               = "U" ++ show i
+showTermWithBinders b bs (Univ u)                               = show u
 showTermWithBinders b bs Bot                                    = "_|_"
 showTermWithBinders b bs Top                                    = "T"
 showTermWithBinders b bs Nat                                    = "Nat"
@@ -313,11 +339,30 @@ showTermWithoutImplicits = showTermWithBinders False binders
     binders :: [Maybe ByteString]
     binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
 
+showTermWithContext :: BoundContext -> Term -> String
+showTermWithContext bctx = showTermWithBindersWithImplicits (map fst bctx)
+
+showTermWithContextWithoutImplicits :: BoundContext -> Term -> String
+showTermWithContextWithoutImplicits bctx = showTermWithBindersWithoutImplicits (map fst bctx)
+
 instance Show Term where
   show = showTermWithBinders True binders
     where
       binders :: [Maybe ByteString]
       binders = [Just $ pack ("!a" ++ show i) | i <- [0..]]
+
+instance Show Universe where
+  show UFlex      = "U"
+  show (UParam i) = "U"
+  show (UVar i)   = "U?" ++ show i
+  show (ULvl i)   = "U" ++ show i
+
+instance Show UnivConstraint where
+  show (ULeq u v) = show u ++ " <= " ++ show v
+  show (ULt u v)  = show u ++ " < " ++ show v
+
+instance Show TermData where
+  show td = "{ " ++  show (eterm td) ++ ", " ++ show (ecsts td) ++ " }"
 
 instance Show BoundTerm where
   show = showBoundTermWithBinders True binders

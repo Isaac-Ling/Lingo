@@ -14,6 +14,7 @@ data ErrorCode
   | DuplicateDefinitions
   | CircularDependency
   | UnificationError
+  | UniverseError
   deriving Eq
 
 data CanError a
@@ -73,6 +74,7 @@ instance Show ErrorCode where
   show DuplicateDefinitions           = "Duplicate definitions"
   show CircularDependency             = "Circular dependency"
   show UnificationError               = "Unification Error"
+  show UniverseError                  = "Universe Error"
 
 instance Show (CanError a) where
   show (Result a)            = "Success (0)"
@@ -89,6 +91,7 @@ getErrorCode TypeMismatch                   = 6
 getErrorCode DuplicateDefinitions           = 7
 getErrorCode CircularDependency             = 8
 getErrorCode UnificationError               = 9
+getErrorCode UniverseError                  = 10
 
 errorWith :: CanError a -> b
 errorWith e = errorWithoutStackTrace ("Program exited with: " ++ show e)
