@@ -47,9 +47,9 @@ goInferType (Var (Free x))                            = do
     Just td -> do
       -- Add universe constraints from this term to the constraints list
       st <- get
-      let uData = instantiateUnivs (eterm td) $ univID st
-      put st { univID=fuid uData, ucsts=applySubToConstraints (usub uData) (ecsts td) ++ ucsts st }
-      return (Var $ Free x, uterm uData)
+      let utData = instantiateUnivs (eterm td) $ univID st
+      put st { univID=fuid utData, ucsts=applySubToConstraints (usub utData) (ecsts td) ++ ucsts st }
+      return (Var $ Free x, uterm utData)
     Nothing -> typeError FailedToInferType $ Just ("Unknown variable " ++ show x)
 
 goInferType (Var (Meta i))                         = do
@@ -545,7 +545,21 @@ goCheckType (Refl Nothing) (Id _ a b)                    = do
   then return (Refl $ Just ea, Id Nothing ea ea)
   else typeError FailedToInferType $ Just ("refl is not a term of type " ++ showTermWithContext (tbctx ctxs) (Id Nothing a b))
 
-goCheckType m t                                          = unifyInferredType m t
+goCheckType m t                                          = do
+  ctxs <- ask
+  st   <- get
+
+  -- Try unfolding type
+  let t' = eval $ unfold (env ctxs) t
+  let r  = runCheckType ctxs st m t'
+
+  if equal (env ctxs) t t'
+  then unifyInferredType m t
+  else case r of
+    Result ((rm, rt), st') -> do
+      put st'
+      return (rm, rt)
+    _                      -> unifyInferredType m t
 
 unifyInferredType :: Term -> Term -> TypeCheck (Term, Term)
 unifyInferredType m t = do
@@ -599,21 +613,21 @@ imposeUnivLt u v = do
   put st { ucsts=ucst : ucsts st }
 
 unify :: Term -> Term -> Maybe String -> TypeCheck ()
-unify t t' ms = do
+unify m n ms = do
   ctxs <- ask
-  let errorString = fromMaybe ("Failed to unify types " ++ showTermWithContext (bctx ctxs) t ++ " and " ++ showTermWithContext (bctx ctxs) t') ms
+  let errorString = fromMaybe ("Failed to unify " ++ showTermWithContext (bctx ctxs) m ++ " and " ++ showTermWithContext (bctx ctxs) n) ms
 
-  if containsMeta t
-    || containsUnivVar t
-    || containsMeta t'
-    || containsUnivVar t'
+  if containsMeta m
+    || containsUnivVar m
+    || containsMeta n
+    || containsUnivVar n
   then do
     -- Add constraint
     st <- get
-    let cst = (bctx ctxs, t, t')
+    let cst = (bctx ctxs, m, n)
     put st { mcsts=cst : mcsts st }
   else do
-    unless (equal (env ctxs) t t') $
+    unless (equal (env ctxs) m n) $
       typeError TypeMismatch $ Just errorString
 
 unfoldAndInstantiateUnivs :: Term -> TypeCheck Term

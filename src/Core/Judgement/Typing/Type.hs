@@ -43,7 +43,7 @@ inferTypeAndElaborate env ctx m = do
   let polyUnivTerm     = uterm um
   let polyUnivType     = uterm ut
 
-  return TypingResult {tterm=polyUnivTerm, ttype=polyUnivType, tecsts=mSubConstraints, tycsts=tSubConstraints}
+  return TypingResult {tterm=eval polyUnivTerm, ttype=eval polyUnivType, tecsts=mSubConstraints, tycsts=tSubConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 
@@ -62,7 +62,7 @@ elaborate env ctx m = do
 checkTypeAndElaborate :: Environment-> Context -> Term -> Term -> CanError TypingResult
 checkTypeAndElaborate env ctx m t = do
   let mUData    = instantiateUnivs m 0
-  let tUData    = instantiateUnivs (eval $ unfold env t) $ fuid mUData
+  let tUData    = instantiateUnivs t $ fuid mUData
   let initState = TypeCheckState { mcsts=[], ucsts=[], mctx=[], metaID=0, univID=fuid tUData }
   result <- runCheckType initContexts initState (uterm mUData) $ uterm tUData
 
@@ -85,7 +85,7 @@ checkTypeAndElaborate env ctx m t = do
   let polyUnivTerm     = uterm um
   let polyUnivType     = uterm ut
 
-  return TypingResult {tterm=polyUnivTerm, ttype=polyUnivType, tecsts=mSubConstraints, tycsts=tSubConstraints}
+  return TypingResult {tterm=eval polyUnivTerm, ttype=eval polyUnivType, tecsts=mSubConstraints, tycsts=tSubConstraints}
   where
     initContexts = Contexts { env=env, ctx=ctx, bctx=[], tbctx=[] }
 

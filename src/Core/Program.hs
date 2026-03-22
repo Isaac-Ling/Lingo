@@ -71,18 +71,17 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
         Just t -> do
           tr <- tryRun $ checkTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m $ eterm t
 
-          -- TODO: Add term universe constraints and use them when unfolding a term
-          continue (addToRTEnv (x, eval $ unfold (rtenv ctxs) $ tterm tr) . addConstraintsToRTCtx x (tycsts tr)) (go ds')
+          continue (addToRTEnv (x, tterm tr) . addConstraintsToRTCtx x (tycsts tr)) (go ds')
         _      -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          continue (addToRTEnv (x, eval $ tterm tr) . addToRTCtx (x, TermData {eterm=eval $ ttype tr, ecsts=tycsts tr})) (go ds')
+          continue (addToRTEnv (x, tterm tr) . addToRTCtx (x, TermData {eterm=ttype tr, ecsts=tycsts tr})) (go ds')
 
     go (Signature (x, t'):ds)  = do
       ctxs <- askRTCtx
 
       let t = toCoreTerm t'
       tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) t
-      let p = continue (addToRTCtx (x, TermData {eterm=eval $ tterm tr, ecsts=tecsts tr}) . addToSourceTypeCtx (x, t')) (go ds)
+      let p = continue (addToRTCtx (x, TermData {eterm=tterm tr, ecsts=tecsts tr}) . addToSourceTypeCtx (x, t')) (go ds)
 
       case lookup x $ rtctx ctxs of
         Just td -> if equal (rtenv ctxs) (tterm tr) (eterm td)
@@ -94,22 +93,33 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
       ctxs <- askRTCtx
 
       let m = toCoreTerm m'
-      tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
 
-      let erf = eval $ unfold (rtenv ctxs) $ tterm tr
-      let et = eval $ ttype tr
-
-      liftIO $ putStrLn (showTerm (tterm tr) ++ " =>* " ++ showTerm erf ++ " : " ++ showTerm et)
-
+      case m of
+        (Var (Free x)) -> do
+          case lookup x $ rtctx ctxs of
+            Just td -> do
+              tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
+              liftIO $ putStrLn (showTerm (Var $ Free x) ++ " =>* " ++ showTerm (eval $ unfold (rtenv ctxs) $ tterm tr) ++ " : " ++ showTerm (eterm td))
+            _       -> abort FailedToInferType $ Just ("Unknown variable " ++ show x)
+        _              -> do
+          tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
+          liftIO $ putStrLn (showTerm m ++ " =>* " ++ showTerm (eval $ unfold (rtenv ctxs) $ tterm tr) ++ " : " ++ showTerm (ttype tr))
+          
       go ds
 
     go (Pragma (Type m'):ds)   = do
       ctxs <- askRTCtx
 
       let m = toCoreTerm m'
-      tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-      let et = eval $ ttype tr
-      liftIO $ putStrLn (showTerm (tterm tr) ++ " : " ++ showTerm et)
+
+      case m of
+        (Var (Free x)) -> do
+          case lookup x $ rtctx ctxs of
+            Just td -> liftIO $ putStrLn (showTerm (Var $ Free x) ++ " : " ++ showTerm (eterm td))
+            _       -> abort FailedToInferType $ Just ("Unknown variable " ++ show x)
+        _              -> do
+          tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
+          liftIO $ putStrLn (showTerm (tterm tr) ++ " : " ++ showTerm (tterm tr))
 
       go ds
 
@@ -118,8 +128,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
 
       let m = toCoreTerm m'
       tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-      let erf = eval $ unfold (rtenv ctxs) $ tterm tr
-      liftIO $ putStrLn (showTerm (tterm tr) ++ " =>* " ++ showTerm erf)
+      liftIO $ putStrLn (showTerm m ++ " =>* " ++ showTerm (eval $ unfold (rtenv ctxs) $ tterm tr))
 
       go ds
 

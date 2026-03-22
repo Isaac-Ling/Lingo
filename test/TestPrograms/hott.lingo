@@ -17,6 +17,7 @@ homotopic f g := (a : A) -> f a = g a
 
 -- Homotopy equivalence relation
 homotopyRefl : {A : U} -> {B : U} -> (f : A -> B) -> homotopic f f
+#eval homotopyRefl
 homotopyRefl f a := refl
 
 #check homotopyRefl
