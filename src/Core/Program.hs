@@ -119,7 +119,7 @@ run p f opts = runReaderT (runCanErrorT (go p)) initRuntimeContext
             _       -> abort FailedToInferType $ Just ("Unknown variable " ++ show x)
         _              -> do
           tr <- tryRun $ inferTypeAndElaborate (rtenv ctxs) (rtctx ctxs) m
-          liftIO $ putStrLn (showTerm (tterm tr) ++ " : " ++ showTerm (tterm tr))
+          liftIO $ putStrLn (showTerm (tterm tr) ++ " : " ++ showTerm (ttype tr))
 
       go ds
 
