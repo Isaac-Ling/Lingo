@@ -44,3 +44,9 @@ modusPonens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
 modusPonens (p, h) := h p
 
 #type modusPonens
+
+-- Type theoretic axiom of choice
+ac : {A : U} -> {B : U} -> {R : A -> B -> U} -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> R a (f a)))
+ac g := (\a. dfst (g a), \a. dsnd (g a))
+
+#type ac
