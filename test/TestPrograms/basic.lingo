@@ -33,20 +33,3 @@ comp g f a := g (f a)
 
 flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
 flip f b a := f a b
-
--- Propositional Logic
-not : (A : U) -> U
-not A := A -> _|_
-
-#check not
-
-modusPonens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
-modusPonens (p, h) := h p
-
-#type modusPonens
-
--- Type theoretic axiom of choice
-ac : {A : U} -> {B : U} -> {R : A -> B -> U} -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> R a (f a)))
-ac g := (\a. dfst (g a), \a. dsnd (g a))
-
-#type ac
