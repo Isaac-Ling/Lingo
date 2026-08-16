@@ -33,3 +33,12 @@ comp g f a := g (f a)
 
 flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
 flip f b a := f a b
+
+-- Finite types
+Fin : Nat -> U
+Fin 0       := T
+Fin succ(n) := (Fin n) + T
+
+fmax : (n : Nat) -> Fin n
+fmax 0       := *
+fmax succ(n) := inr(*)

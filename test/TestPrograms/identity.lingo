@@ -1,3 +1,9 @@
+-- Based path induction
+basedPathInduction : {A : U} -> {a : A} -> (C : (b : A) -> a = b -> U) -> (c : C a refl) -> (b : A) -> (p : a = b) -> C b p
+basedPathInduction C c b p := ind[=[A]](a. b. p. (C : (b : A) -> a = b -> U) -> C a refl -> C b p, z. \C. \d. d, a, b, p) C c
+
+#type basedPathInduction
+
 -- Identity Equivalence Relation
 idRefl : {A : U} -> (a : A) -> a = a
 idRefl a := refl
