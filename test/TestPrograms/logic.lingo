@@ -31,3 +31,13 @@ deMorgans : {A : U} -> {B : U} -> iff ((not A) x (not B)) (not (A + B))
 deMorgans := (deMorgansFwd, deMorgansBck)
 
 #type deMorgans
+
+notnot : {A : U} -> A -> not (not A)
+notnot a := \na. na a
+
+#type notnot
+
+tripleNot : {A : U} -> not (not (not A)) -> not A
+tripleNot h a := h (notnot a)
+
+#type tripleNot
