@@ -19,20 +19,27 @@ idTransLemma : {A : U} -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a =
 idTransLemma a b p := ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl, z, c, q), a, b, p)
 
 idTrans : {A : U} -> {a : A} -> {b : A} -> {c : A} -> a = b -> b = c -> a = c
-idTrans p := idTransLemma {A} a b p c
+idTrans p := idTransLemma a b p c
 
 #check idTrans
 
--- TODO: Unification not happy with leaving out implicits in proof term
-lPathId : {A : U} -> {a : A} -> {b : A}  -> (p : a = b) -> idTrans refl[a] p = p
-lPathId p := ind[=[A]](a. b. p. idTrans {A} {a} {a} {b} refl[a] p = p, z. refl[refl[z]], a, b, p)
+lPathId : {A : U} -> {a : A} -> {b : A}  -> (p : a = b) -> idTrans refl p = p
+lPathId p := ind[=[A]](a. b. p. idTrans refl p = p, z. refl[refl[z]], a, b, p)
 
 #type lPathId
 
-rPathId : {A : U} -> {a : A} -> {b : A}  -> (p : a = b) -> idTrans p refl[b] = p
-rPathId p := ind[=[A]](a. b. p. idTrans {A} {a} {b} {b} p refl[b] = p, z. refl[refl[z]], a, b, p)
+-- TODO: Unification not happy with leaving out implicits in proof term
+rPathId : {A : U} -> {a : A} -> {b : A}  -> (p : a = b) -> idTrans p refl = p
+rPathId p := ind[=[A]](a. b. p. idTrans p refl = p, z. refl[refl[z]], a, b, p)
 
 #type rPathId
+
+-- Inverse path alias
+idInv := idSymm
+
+lPathInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> idTrans (idInv p) (p) = refl
+
+#type lPathInv
 
 -- Functoriality of functions
 lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b

@@ -11,7 +11,7 @@ import Core.Judgement.Typing.Inference
 import Data.Set (Set)
 import GHC.Base (when)
 import Data.Maybe (fromMaybe)
-import Control.Monad (unless)
+import Control.Monad (unless, (>=>))
 import Data.List (elemIndex, delete, (!?))
 import Data.Bifunctor (second)
 import Control.Monad.Reader
@@ -264,7 +264,17 @@ solveMetaConstraints env ctx st = do
 
       if em /= m || em' /= m'
       then decompose bc em em'
-      else unificationError $ Just ("Failed to unify " ++ showTermWithContext bc m ++ " and " ++ showTermWithContext bc m')
+      else do
+        
+        -- Unify path induction candidates to unstick terms
+        um   <- unstickPathInduction bc m
+        um'  <- unstickPathInduction bc m'
+        eum  <- unfoldAndInstantiateUnivs um
+        eum' <- unfoldAndInstantiateUnivs um'
+
+        if eum /= m || eum' /= m'
+        then decompose bc eum eum'
+        else unificationError $ Just ("Failed to unify " ++ showTermWithContext bc m ++ " and " ++ showTermWithContext bc m')
 
     unfoldAndInstantiateUnivs :: Term -> Unification Term
     unfoldAndInstantiateUnivs m = do
@@ -273,6 +283,64 @@ solveMetaConstraints env ctx st = do
       let uData = instantiateUnivs (eval $ unfold (uenv ctxs) m) $ univID $ tcst st
       put st { tcst=(tcst st) { univID=fuid uData } }
       return $ uterm uData
+
+    unstickPathInduction :: BoundContext -> Term -> Unification Term
+    unstickPathInduction bc (Lam (x, Just t, ex) m)  = do
+      t' <- unstickPathInduction bc t
+      m' <- unstickPathInduction ((Just x, t) : bc) m
+      return $ Lam (x, Just t', ex) m'
+    unstickPathInduction bc (Pi (x, t, ex) m)        = do
+      t' <- unstickPathInduction bc t
+      m' <- unstickPathInduction ((x, t) : bc) m
+      return $ Pi (x, t', ex) m'
+    unstickPathInduction bc (Sigma (x, t) m)         = do
+      t' <- unstickPathInduction bc t
+      m' <- unstickPathInduction ((x, t) : bc) m
+      return $ Sigma (x, t') m'
+    unstickPathInduction bc (App m (n, ex))          = do
+      m' <- unstickPathInduction bc m
+      n' <- unstickPathInduction bc n
+      return $ App m' (n', ex)
+    unstickPathInduction bc (Pair m n)               = do
+      m' <- unstickPathInduction bc m
+      n' <- unstickPathInduction bc n
+      return $ Pair m' n'
+    unstickPathInduction bc (Sum m n)                = do
+      m' <- unstickPathInduction bc m
+      n' <- unstickPathInduction bc n
+      return $ Sum m' n'
+    unstickPathInduction bc (IdFam t)                = do
+      t' <- unstickPathInduction bc t
+      return $ IdFam t'
+    unstickPathInduction bc (Id t m n)               = do
+      t' <- traverse (unstickPathInduction bc) t
+      m' <- unstickPathInduction bc m
+      n' <- unstickPathInduction bc n
+      return $ Id t' m' n'
+    unstickPathInduction bc (Ind t m c a)            = case (t, c, a) of
+      (IdFam _, [Bind z (NoBind c'), NoBind b, NoBind b'], Refl (Just rb)) -> do
+        appendConstraint bc b b'
+        appendConstraint bc b rb
+        return $ Ind t m [Bind z (NoBind c'), NoBind b, NoBind b] $ Refl (Just rb)
+      _                                                                    -> do
+        t' <- unstickPathInduction bc t
+        m' <- unstickPathInductionInBoundTerm bc m
+        c' <- traverse (unstickPathInductionInBoundTerm bc) c
+        a' <- unstickPathInduction bc a
+        return $ Ind t' m' c' a'
+          where
+            unstickPathInductionInBoundTerm :: BoundContext -> BoundTerm -> Unification BoundTerm
+            unstickPathInductionInBoundTerm bc (NoBind m) = NoBind <$> unstickPathInduction bc m
+            unstickPathInductionInBoundTerm bc (Bind x m) = Bind x <$> unstickPathInductionInBoundTerm ((x, Top) : bc) m
+    unstickPathInduction bc (Succ m)                 = Succ <$> unstickPathInduction bc m
+    unstickPathInduction bc (Inl m)                  = Inl <$> unstickPathInduction bc m
+    unstickPathInduction bc (Inr m)                  = Inr <$> unstickPathInduction bc m
+    unstickPathInduction bc (Funext p)               = Funext <$> unstickPathInduction bc p
+    unstickPathInduction bc (Univalence f)           = Univalence <$> unstickPathInduction bc f
+    unstickPathInduction bc (Refl m)                 = do
+      m' <- traverse (unstickPathInduction bc) m
+      return $ Refl m'
+    unstickPathInduction bc m                        = return m
 
     metaOccursIn :: Int -> Term -> Bool
     metaOccursIn k (Var (Meta i))
