@@ -41,6 +41,11 @@ data UniContexts = UniContexts
   , uctx :: Context
   }
 
+data Head
+  = Head Term
+  | IndHead
+  deriving Eq
+
 type Unification a = ReaderT UniContexts (StateT UniState CanError) a
 
 solveMetaConstraints :: Environment -> Context -> TypeCheckState -> CanError (MetaSolutions, UnivConstraints)
@@ -186,76 +191,77 @@ solveMetaConstraints env ctx st = do
 
     decompose :: BoundContext -> Term -> Term -> Unification Bool
     -- Flex-flex case
-    decompose _ m m' | isFlex m && isFlex m'                     = return False
+    decompose _ m m' | isFlex m && isFlex m'                       = return False
     -- Flex-rigid case
-    decompose _ m m' | isFlex m /= isFlex m'                     = return False
+    decompose _ m m' | isFlex m /= isFlex m'                       = return False
     -- Rigid-rigid cases
-    decompose bc (Lam (x, Just t, _) m) (Lam (_, Just t', _) m') = do
+    decompose bc (Lam (x, Just t, _) m) (Lam (_, Just t', _) m')   = do
       appendConstraint bc t t'
       appendConstraint ((Just x, t) : bc) m m'
       return True
-    decompose bc (Univ i) (Univ j)                               = do
+    decompose bc (Univ i) (Univ j)                                 = do
       unifyUnivs i j
       return True
-    decompose bc (Lam (x, Nothing, _) m) (Lam _ m')              = do
+    decompose bc (Lam (x, Nothing, _) m) (Lam _ m')                = do
       unificationError $ Just "Unable to decompose implicit lambda for unification"
-    decompose bc (Pi (x, t, _) m) (Pi (_, t', _) m')             = do
+    decompose bc (Pi (x, t, _) m) (Pi (_, t', _) m')               = do
       appendConstraint bc t t'
       appendConstraint ((x, t) : bc) m m'
       return True
-    decompose bc (Sigma (x, t) m) (Sigma (_, t') m')             = do
+    decompose bc (Sigma (x, t) m) (Sigma (_, t') m')               = do
       appendConstraint bc t t'
       appendConstraint ((x, t) : bc) m m'
       return True
-    decompose bc (Id (Just t) m n) (Id (Just t') m' n')          = do
+    decompose bc (Id (Just t) m n) (Id (Just t') m' n')            = do
       appendConstraint bc t t'
       appendConstraint bc m m'
       appendConstraint bc n n'
       return True
-    decompose bc (Id _ m n) (Id _ m' n')                         = do
+    decompose bc (Id _ m n) (Id _ m' n')                           = do
       appendConstraint bc m m'
       appendConstraint bc n n'
       return True
-    decompose bc (App m (n, _)) (App m' (n', _))                 = do
+    decompose bc (App m (n, _)) (App m' (n', _)) 
+      | getHead m == getHead m'                                    = do
+        appendConstraint bc m m'
+        appendConstraint bc n n'
+        return True
+    decompose bc (Pair m n) (Pair m' n')                           = do
       appendConstraint bc m m'
       appendConstraint bc n n'
       return True
-    decompose bc (Pair m n) (Pair m' n')                         = do
+    decompose bc (Sum m n) (Sum m' n')                             = do
       appendConstraint bc m m'
       appendConstraint bc n n'
       return True
-    decompose bc (Sum m n) (Sum m' n')                           = do
-      appendConstraint bc m m'
-      appendConstraint bc n n'
-      return True
-    decompose bc (Succ m) (Succ m')                              = do
+    decompose bc (Succ m) (Succ m')                                = do
       appendConstraint bc m m'
       return True
-    decompose bc (Inl m) (Inl m')                                = do
+    decompose bc (Inl m) (Inl m')                                  = do
       appendConstraint bc m m'
       return True
-    decompose bc (Inr m) (Inr m')                                = do
+    decompose bc (Inr m) (Inr m')                                  = do
       appendConstraint bc m m'
       return True
-    decompose bc (Funext m) (Funext m')                          = do
+    decompose bc (Funext m) (Funext m')                            = do
       appendConstraint bc m m'
       return True
-    decompose bc (Univalence m) (Univalence m')                  = do
+    decompose bc (Univalence m) (Univalence m')                    = do
       appendConstraint bc m m'
       return True
-    decompose bc (Refl (Just m)) (Refl (Just m'))                = do
+    decompose bc (Refl (Just m)) (Refl (Just m'))                  = do
       appendConstraint bc m m'
       return True
-    decompose bc (IdFam m) (IdFam m')                            = do
+    decompose bc (IdFam m) (IdFam m')                              = do
       appendConstraint bc m m'
       return True
-    decompose bc (Ind t m cs a) (Ind t' m' cs' a')               = do
+    decompose bc (Ind t m cs a) (Ind t' m' cs' a')                 = do
       appendConstraint bc t t'
       appendBoundTermConstraint bc m m'
       appendBoundTermConstraints bc cs cs'
       appendConstraint bc a a'
       return True
-    decompose bc m m'                                            = do
+    decompose bc m m'                                              = do
       ctxs <- ask
 
       -- Try fully unfolding terms
@@ -265,16 +271,20 @@ solveMetaConstraints env ctx st = do
       if em /= m || em' /= m'
       then decompose bc em em'
       else do
-        
         -- Unify path induction candidates to unstick terms
-        um   <- unstickPathInduction bc m
-        um'  <- unstickPathInduction bc m'
-        eum  <- unfoldAndInstantiateUnivs um
-        eum' <- unfoldAndInstantiateUnivs um'
+        um   <- unstickPathInduction bc em
+        um'  <- unstickPathInduction bc em'
+        let eum  = eval um
+        let eum' = eval um'
 
         if eum /= m || eum' /= m'
         then decompose bc eum eum'
         else unificationError $ Just ("Failed to unify " ++ showTermWithContext bc m ++ " and " ++ showTermWithContext bc m')
+
+    getHead :: Term -> Head
+    getHead (App m n) = getHead m
+    getHead (Ind {})  = IndHead
+    getHead a         = Head a
 
     unfoldAndInstantiateUnivs :: Term -> Unification Term
     unfoldAndInstantiateUnivs m = do

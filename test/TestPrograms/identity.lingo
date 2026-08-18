@@ -15,11 +15,11 @@ idSymm p := ind[=[A]](a. b. p. b = a, z. refl, a, b, p)
 
 #check idSymm
 
-idTransLemma : {A : U} -> (a : A) -> (b : A) -> a = b -> (c : A) -> b = c -> a = c
-idTransLemma a b p := ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl, z, c, q), a, b, p)
+idTransLemma : {A : U} -> {a : A} -> {b : A} -> a = b -> (c : A) -> b = c -> a = c
+idTransLemma p := ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl, z, c, q), a, b, p)
 
 idTrans : {A : U} -> {a : A} -> {b : A} -> {c : A} -> a = b -> b = c -> a = c
-idTrans p := idTransLemma a b p c
+idTrans p := idTransLemma {A} {a} {b} p c
 
 #check idTrans
 
@@ -28,7 +28,6 @@ lPathId p := ind[=[A]](a. b. p. idTrans refl p = p, z. refl[refl[z]], a, b, p)
 
 #type lPathId
 
--- TODO: Unification not happy with leaving out implicits in proof term
 rPathId : {A : U} -> {a : A} -> {b : A}  -> (p : a = b) -> idTrans p refl = p
 rPathId p := ind[=[A]](a. b. p. idTrans p refl = p, z. refl[refl[z]], a, b, p)
 
