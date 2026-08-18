@@ -34,11 +34,27 @@ rPathId p := ind[=[A]](a. b. p. idTrans p refl = p, z. refl[refl[z]], a, b, p)
 #type rPathId
 
 -- Inverse path alias
-idInv := idSymm
+pathInv := idSymm
 
-lPathInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> idTrans (idInv p) (p) = refl
+reflInv : {A : U} -> (a : A) -> pathInv refl[a] = refl[a]
+reflInv a := refl 
+
+#type reflInv
+
+lPathInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> idTrans (pathInv p) p = refl
+lPathInv p := ind[=[A]](a. b. p. idTrans (pathInv p) p = refl, z. refl[refl[z]], a, b, p)
 
 #type lPathInv
+
+rPathInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> idTrans p (pathInv p) = refl
+rPathInv p := ind[=[A]](a. b. p. idTrans p (pathInv p) = refl, z. refl[refl[z]], a, b, p)
+
+#type rPathInv
+
+pathInvInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> pathInv (pathInv p) = p
+pathInvInv p := ind[=[A]](a. b. p. pathInv (pathInv p) = p, z. refl[refl[z]], a, b, p)
+
+#type pathInvInv
 
 -- Functoriality of functions
 lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
