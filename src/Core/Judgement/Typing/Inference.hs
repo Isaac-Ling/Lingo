@@ -541,9 +541,9 @@ goCheckType (Refl Nothing) (Id _ a b)                    = do
   (ea, _) <- goInferTypeAndElab a
   (eb, _) <- goInferTypeAndElab b
 
-  if equal (env ctxs) a b
-  then return (Refl $ Just ea, Id Nothing ea ea)
-  else typeError FailedToInferType $ Just ("refl is not a term of type " ++ showTermWithContext (tbctx ctxs) (Id Nothing a b))
+  unify a b $ Just ("refl is not a term of type " ++ showTermWithContext (tbctx ctxs) (Id Nothing a b))
+
+  return (Refl $ Just ea, Id Nothing ea ea)
 
 goCheckType m t                                          = do
   ctxs <- ask

@@ -1,0 +1,43 @@
+not : (A : U) -> U
+not A := A -> _|_
+
+#check not
+
+iff : (A : U) -> (B : U) -> U
+iff A B := (A -> B) x (B -> A)
+
+modusPonens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
+modusPonens (p, h) := h p
+
+#type modusPonens
+
+-- Type theoretic axiom of choice
+ac : {A : U} -> {B : U} -> {R : A -> B -> U} -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> R a (f a)))
+ac g := (\a. dfst (g a), \a. dsnd (g a))
+
+#type ac
+
+-- Cannot use not function in codomain due to elaborating
+-- pattern matching using source syntax only, so the function
+-- call would not be reduced
+deMorgansFwd : {A : U} -> {B : U} -> (not A) x (not B) -> A + B -> _|_
+deMorgansFwd (na, nb) inl(a) := na a 
+deMorgansFwd (na, nb) inr(b) := nb b
+
+deMorgansBck : {A : U} -> {B : U} -> (not (A + B)) -> ((not A) x (not B))
+deMorgansBck h := (\a. h inl(a), \b. h inr(b))
+
+deMorgans : {A : U} -> {B : U} -> iff ((not A) x (not B)) (not (A + B))
+deMorgans := (deMorgansFwd, deMorgansBck)
+
+#type deMorgans
+
+notnot : {A : U} -> A -> not (not A)
+notnot a := \na. na a
+
+#type notnot
+
+tripleNot : {A : U} -> not (not (not A)) -> not A
+tripleNot h a := h (notnot a)
+
+#type tripleNot

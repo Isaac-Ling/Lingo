@@ -34,8 +34,13 @@ eval (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b)) = eval $ A
 eval (Ind Nat _ [NoBind c0, _] Zero)                                  = eval c0
 eval (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] (Succ n))           = eval $ App (App (Lam (pack "x", Nothing, Exp) $ Lam (pack "y", Nothing, Exp) cs) (n, Exp)) (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] n, Exp)
 eval (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl ma''))
-  | a == a' && maybe True (a' ==) ma'' = eval $ App (Lam (pack "z", Nothing, Exp) c) (a, Exp)
-  | otherwise            = Ind (IdFam t) m [Bind z $ NoBind c, NoBind a, NoBind a'] (Refl ma'')
+  | isEqualOrFlex a a' && maybe True (isEqualOrFlex a') ma'' = eval $ App (Lam (pack "z", Nothing, Exp) c) (a, Exp)
+  | otherwise                                                = Ind (IdFam t) m [Bind z $ NoBind c, NoBind a, NoBind a'] (Refl ma'')
+  where
+    isEqualOrFlex :: Term -> Term -> Bool
+    isEqualOrFlex a b
+      | isFlex a || isFlex b = True
+      | otherwise            = a == b
 eval (Ind t m c a)
   | isValue $ Ind t m c a = Ind t m c a
   | otherwise             = eval $ Ind (eval t) (evalBoundTerm m) (map evalBoundTerm c) (eval a)
@@ -76,7 +81,7 @@ isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inl a))      
 isNeutral (Ind (Sum _ _) _ [Bind x (NoBind c), Bind y (NoBind d)] (Inr b))       = False
 isNeutral (Ind Nat _ [NoBind c0, _] Zero)                                        = False
 isNeutral (Ind Nat m [c0, Bind x (Bind y (NoBind cs))] (Succ n))                 = False
-isNeutral (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl ma'')) = a == a' && maybe True (a' ==) ma''
+isNeutral (Ind (IdFam t) m [Bind z (NoBind c), NoBind a, NoBind a'] (Refl ma'')) = not (a == a' && maybe True (a' ==) ma'')
 isNeutral (Ind t m c a)                                                          = isValue t && isBoundTermValue m && all isBoundTermValue c && isValue a
   where
     isBoundTermValue :: BoundTerm -> Bool
