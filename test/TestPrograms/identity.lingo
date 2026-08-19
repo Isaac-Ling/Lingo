@@ -56,6 +56,20 @@ pathInvInv p := ind[=[A]](a. b. p. pathInv (pathInv p) = p, z. refl[refl[z]], a,
 
 #type pathInvInv
 
+pathAssocLemma2 : {A : U} -> (c : A) -> (d : A) -> (r : c = d) -> idTrans refl (idTrans refl r) = idTrans refl r
+pathAssocLemma2 c d r := ind[=[A]](c. d. r. idTrans refl (idTrans refl r) = idTrans refl r, z. refl, c, d, r)
+
+pathAssocLemma1 : {A : U} -> (a : A) -> (c : A) -> (q : a = c) -> (d : A) -> (r : c = d) -> idTrans refl (idTrans q r) = idTrans (idTrans refl q) r
+pathAssocLemma1 a c q := ind[=[A]](a. c. q. (d : A) -> (r : c = d) -> idTrans refl (idTrans q r) = idTrans (idTrans refl q) r, z. pathAssocLemma2 z, a, c, q)
+
+pathAssocLemma : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> (c : A) -> (q : b = c) -> (d : A) -> (r : c = d) -> idTrans p (idTrans q r) = idTrans (idTrans p q) r
+pathAssocLemma p := ind[=[A]](a. b. p. (c : A) -> (q : b = c) -> (d : A) -> (r : c = d) -> idTrans p (idTrans q r) = idTrans (idTrans p q) r, z. pathAssocLemma1 z, a, b, p)
+
+pathAssoc : {A : U} -> {a : A} -> {b : A} -> {c : A} -> {d : A} -> (p : a = b) -> (q : b = c) -> (r : c = d) -> idTrans p (idTrans q r) = idTrans (idTrans p q) r
+pathAssoc p q := pathAssocLemma p c q d
+
+#type pathAssoc
+
 -- Functoriality of functions
 lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
 lift f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
