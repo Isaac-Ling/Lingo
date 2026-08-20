@@ -44,7 +44,7 @@ lAddId a := refl
 #check lAddId
 
 congSucc : {a : Nat} -> {b : Nat} -> a = b -> succ(a) = succ(b)
-congSucc := lift (\n. succ(n))
+congSucc := ap (\n. succ(n))
 
 #check congSucc
 

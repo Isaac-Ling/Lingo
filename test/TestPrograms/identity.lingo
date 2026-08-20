@@ -72,31 +72,31 @@ pathAssoc p q := pathAssocLemma p c q d
 #type pathAssoc
 
 -- Functoriality of functions
-lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
-lift f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
+ap : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
+ap f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
 
-#type lift
+#type ap
 
-liftRefl : {A : U} -> {B : U} -> (f : A -> B) -> (a : A) -> lift f refl[a] = refl[f a]
-liftRefl f a := refl
+apRefl : {A : U} -> {B : U} -> (f : A -> B) -> (a : A) -> ap f refl[a] = refl[f a]
+apRefl f a := refl
 
-#type liftRefl
+#type apRefl
 
-liftCatLemma1 : {A : U} -> {B : U} -> (a : A) -> (c : A) -> (q : a = c) -> (f : A -> B) -> lift f (pCat refl q) = pCat refl (lift f q)
-liftCatLemma1 a c q := ind[=[A]](a. c. q. (f : A -> B) -> lift f (pCat refl q) = pCat refl (lift f q), z. \f. refl, a, c, q)
+apCatLemma1 : {A : U} -> {B : U} -> (a : A) -> (c : A) -> (q : a = c) -> (f : A -> B) -> ap f (pCat refl q) = pCat refl (ap f q)
+apCatLemma1 a c q := ind[=[A]](a. c. q. (f : A -> B) -> ap f (pCat refl q) = pCat refl (ap f q), z. \f. refl, a, c, q)
 
-liftCatLemma : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (p : a = b) -> (c : A) -> (q : b = c) -> (f : A -> B) -> lift f (pCat p q) = pCat (lift f p) (lift f q)
-liftCatLemma p := ind[=[A]](a. b. p. (c : A) -> (q : b = c) -> (f : A -> B) -> lift f (pCat p q) = pCat (lift f p) (lift f q), z. liftCatLemma1 z, a, b, p)
+apCatLemma : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (p : a = b) -> (c : A) -> (q : b = c) -> (f : A -> B) -> ap f (pCat p q) = pCat (ap f p) (ap f q)
+apCatLemma p := ind[=[A]](a. b. p. (c : A) -> (q : b = c) -> (f : A -> B) -> ap f (pCat p q) = pCat (ap f p) (ap f q), z. apCatLemma1 z, a, b, p)
 
-liftCat : {A : U} -> {B : U} -> {a : A} -> {b : A} -> {c : A} -> (p : a = b) -> (q : b = c) -> (f : A -> B) -> lift f (pCat p q) = pCat (lift f p) (lift f q)
-liftCat p q := liftCatLemma p c q
+apCat : {A : U} -> {B : U} -> {a : A} -> {b : A} -> {c : A} -> (p : a = b) -> (q : b = c) -> (f : A -> B) -> ap f (pCat p q) = pCat (ap f p) (ap f q)
+apCat p q := apCatLemma p c q
 
-#type liftCat
+#type apCat
 
-liftInv : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (p : a = b) -> (f : A -> B) -> lift f (pInv p) = pInv (lift f p)
-liftInv p := ind[=[A]](a. b. p.  (f : A -> B) -> lift f (pInv p) = pInv (lift f p), z. \f. refl, a, b, p)
+apInv : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (p : a = b) -> (f : A -> B) -> ap f (pInv p) = pInv (ap f p)
+apInv p := ind[=[A]](a. b. p.  (f : A -> B) -> ap f (pInv p) = pInv (ap f p), z. \f. refl, a, b, p)
 
-#type liftInv
+#type apInv
 
 -- Transport
 transport : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> a = b -> P a -> P b
@@ -105,14 +105,14 @@ transport P p := ind[=[A]](a. b. p. P a -> P b, z. id, a, b, p)
 #type transport
 
 -- Path lifting property: transport takes a path in A to a path in the total space of a fibration over A
-transportPath : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> (p : a = b) -> (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u)
-transportPath P p := ind[=[A]](a. b. p. (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u), z. \u. refl, a, b, p)
+lift : {A : U} -> {a : A} -> {b : A} -> {P : A -> U} -> (p : a = b) -> (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u)
+lift p := ind[=[A]](a. b. p. (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u), z. \u. refl, a, b, p)
 
-#type transportPath
+#type lift
 
 -- Identity on type constructors
 productPath : {A : U} -> {B : U} -> (a : A x B) -> (b : A x B) -> (p : a = b) -> (fst a = fst b)
-productPath a b p := lift fst p
+productPath a b p := ap fst p
 
 #type productPath
 
