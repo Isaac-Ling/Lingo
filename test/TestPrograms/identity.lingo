@@ -33,39 +33,40 @@ rPathId p := ind[=[A]](a. b. p. idTrans p refl = p, z. refl[refl[z]], a, b, p)
 
 #type rPathId
 
--- Inverse path alias
-pathInv := idSymm
+-- Path aliases
+pInv := idSymm
+pCat := idTrans
 
-reflInv : {A : U} -> (a : A) -> pathInv refl[a] = refl[a]
+reflInv : {A : U} -> (a : A) -> pInv refl[a] = refl[a]
 reflInv a := refl 
 
 #type reflInv
 
-lPathInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> idTrans (pathInv p) p = refl
-lPathInv p := ind[=[A]](a. b. p. idTrans (pathInv p) p = refl, z. refl[refl[z]], a, b, p)
+lPathInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> pCat (pInv p) p = refl
+lPathInv p := ind[=[A]](a. b. p. idTrans (pInv p) p = refl, z. refl[refl[z]], a, b, p)
 
 #type lPathInv
 
-rPathInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> idTrans p (pathInv p) = refl
-rPathInv p := ind[=[A]](a. b. p. idTrans p (pathInv p) = refl, z. refl[refl[z]], a, b, p)
+rPathInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> pCat p (pInv p) = refl
+rPathInv p := ind[=[A]](a. b. p. idTrans p (pInv p) = refl, z. refl[refl[z]], a, b, p)
 
 #type rPathInv
 
-pathInvInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> pathInv (pathInv p) = p
-pathInvInv p := ind[=[A]](a. b. p. pathInv (pathInv p) = p, z. refl[refl[z]], a, b, p)
+pathInvInv : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> pInv (pInv p) = p
+pathInvInv p := ind[=[A]](a. b. p. pInv (pInv p) = p, z. refl[refl[z]], a, b, p)
 
 #type pathInvInv
 
-pathAssocLemma2 : {A : U} -> (c : A) -> (d : A) -> (r : c = d) -> idTrans refl (idTrans refl r) = idTrans refl r
-pathAssocLemma2 c d r := ind[=[A]](c. d. r. idTrans refl (idTrans refl r) = idTrans refl r, z. refl, c, d, r)
+pathAssocLemma2 : {A : U} -> (c : A) -> (d : A) -> (r : c = d) -> pCat refl (pCat refl r) = pCat refl r
+pathAssocLemma2 c d r := ind[=[A]](c. d. r. pCat refl (pCat refl r) = pCat refl r, z. refl, c, d, r)
 
-pathAssocLemma1 : {A : U} -> (a : A) -> (c : A) -> (q : a = c) -> (d : A) -> (r : c = d) -> idTrans refl (idTrans q r) = idTrans (idTrans refl q) r
-pathAssocLemma1 a c q := ind[=[A]](a. c. q. (d : A) -> (r : c = d) -> idTrans refl (idTrans q r) = idTrans (idTrans refl q) r, z. pathAssocLemma2 z, a, c, q)
+pathAssocLemma1 : {A : U} -> (a : A) -> (c : A) -> (q : a = c) -> (d : A) -> (r : c = d) -> pCat refl (pCat q r) = pCat (pCat refl q) r
+pathAssocLemma1 a c q := ind[=[A]](a. c. q. (d : A) -> (r : c = d) -> pCat refl (pCat q r) = pCat (pCat refl q) r, z. pathAssocLemma2 z, a, c, q)
 
-pathAssocLemma : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> (c : A) -> (q : b = c) -> (d : A) -> (r : c = d) -> idTrans p (idTrans q r) = idTrans (idTrans p q) r
-pathAssocLemma p := ind[=[A]](a. b. p. (c : A) -> (q : b = c) -> (d : A) -> (r : c = d) -> idTrans p (idTrans q r) = idTrans (idTrans p q) r, z. pathAssocLemma1 z, a, b, p)
+pathAssocLemma : {A : U} -> {a : A} -> {b : A} -> (p : a = b) -> (c : A) -> (q : b = c) -> (d : A) -> (r : c = d) -> pCat p (pCat q r) = pCat (pCat p q) r
+pathAssocLemma p := ind[=[A]](a. b. p. (c : A) -> (q : b = c) -> (d : A) -> (r : c = d) -> pCat p (pCat q r) = pCat (pCat p q) r, z. pathAssocLemma1 z, a, b, p)
 
-pathAssoc : {A : U} -> {a : A} -> {b : A} -> {c : A} -> {d : A} -> (p : a = b) -> (q : b = c) -> (r : c = d) -> idTrans p (idTrans q r) = idTrans (idTrans p q) r
+pathAssoc : {A : U} -> {a : A} -> {b : A} -> {c : A} -> {d : A} -> (p : a = b) -> (q : b = c) -> (r : c = d) -> pCat p (pCat q r) = pCat (pCat p q) r
 pathAssoc p q := pathAssocLemma p c q d
 
 #type pathAssoc
@@ -74,7 +75,23 @@ pathAssoc p q := pathAssocLemma p c q d
 lift : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (f : A -> B) -> a = b -> f a = f b
 lift f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
 
-#check lift
+#type lift
+
+liftRefl : {A : U} -> {B : U} -> (f : A -> B) -> (a : A) -> lift f refl[a] = refl[f a]
+liftRefl f a := refl
+
+#check liftRefl
+
+liftCatLemma1 : {A : U} -> {B : U} -> (a : A) -> (c : A) -> (q : a = c) -> (f : A -> B) -> lift f (pCat refl q) = pCat refl (lift f q)
+liftCatLemma1 a c q := ind[=[A]](a. c. q. (f : A -> B) -> lift f (pCat refl q) = pCat refl (lift f q), z. \f. refl, a, c, q)
+
+liftCatLemma : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (p : a = b) -> (c : A) -> (q : b = c) -> (f : A -> B) -> lift f (pCat p q) = pCat (lift f p) (lift f q)
+liftCatLemma p := ind[=[A]](a. b. p. (c : A) -> (q : b = c) -> (f : A -> B) -> lift f (pCat p q) = pCat (lift f p) (lift f q), z. liftCatLemma1 z, a, b, p)
+
+liftCat : {A : U} -> {B : U} -> {a : A} -> {b : A} -> {c : A} -> (p : a = b) -> (q : b = c) -> (f : A -> B) -> lift f (pCat p q) = pCat (lift f p) (lift f q)
+liftCat p q := liftCatLemma p c q
+
+#type liftCat
 
 -- Transport
 transport : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> a = b -> P a -> P b
