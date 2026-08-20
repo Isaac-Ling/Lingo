@@ -109,6 +109,8 @@ min succ(a) succ(b) := succ(min a b)
 
 #eval min 7 4
 
+-- Non-primitive recursive function definition, definable
+-- due to higher order natural induction motives
 ack : Nat -> Nat -> Nat
 ack 0       n       := succ(n)
 ack succ(m) 0       := ack m 1

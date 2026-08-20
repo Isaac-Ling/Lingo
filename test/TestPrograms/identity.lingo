@@ -80,7 +80,7 @@ lift f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
 liftRefl : {A : U} -> {B : U} -> (f : A -> B) -> (a : A) -> lift f refl[a] = refl[f a]
 liftRefl f a := refl
 
-#check liftRefl
+#type liftRefl
 
 liftCatLemma1 : {A : U} -> {B : U} -> (a : A) -> (c : A) -> (q : a = c) -> (f : A -> B) -> lift f (pCat refl q) = pCat refl (lift f q)
 liftCatLemma1 a c q := ind[=[A]](a. c. q. (f : A -> B) -> lift f (pCat refl q) = pCat refl (lift f q), z. \f. refl, a, c, q)
@@ -93,11 +93,22 @@ liftCat p q := liftCatLemma p c q
 
 #type liftCat
 
+liftInv : {A : U} -> {B : U} -> {a : A} -> {b : A} -> (p : a = b) -> (f : A -> B) -> lift f (pInv p) = pInv (lift f p)
+liftInv p := ind[=[A]](a. b. p.  (f : A -> B) -> lift f (pInv p) = pInv (lift f p), z. \f. refl, a, b, p)
+
+#type liftInv
+
 -- Transport
 transport : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> a = b -> P a -> P b
 transport P p := ind[=[A]](a. b. p. P a -> P b, z. id, a, b, p)
 
-#check transport
+#type transport
+
+-- Path lifting property: transport takes a path in A to a path in the total space of a fibration over A
+transportPath : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> (p : a = b) -> (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u)
+transportPath P p := ind[=[A]](a. b. p. (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u), z. \u. refl, a, b, p)
+
+#type transportPath
 
 -- Identity on type constructors
 productPath : {A : U} -> {B : U} -> (a : A x B) -> (b : A x B) -> (p : a = b) -> (fst a = fst b)
