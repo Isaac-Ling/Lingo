@@ -104,9 +104,12 @@ transport P p := ind[=[A]](a. b. p. P a -> P b, z. id, a, b, p)
 
 #type transport
 
--- Path lifting property: transport takes a path in A to a path in the total space of a fibration over A
-lift : {A : U} -> {a : A} -> {b : A} -> {P : A -> U} -> (p : a = b) -> (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u)
-lift p := ind[=[A]](a. b. p. (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u), z. \u. refl, a, b, p)
+-- Path lifting property: transport lifts a path in A to a path in the total space of a fibration over A
+liftLemma : {A : U} -> {a : A} -> {b : A} -> (P : A -> U) -> (p : a = b) -> (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u)
+liftLemma P p := ind[=[A]](a. b. p. (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u), z. \u. refl, a, b, p)
+
+lift : {A : U} -> {a : A} -> {b : A} -> {P : A -> U} -> (u : P a) -> (p : a = b) -> (a, u) =[(a : A) x P a] (b, transport P p u)
+lift u p := liftLemma {A} {a} {b} P p u
 
 #type lift
 
