@@ -10,6 +10,12 @@ fun1EqualsFun2 := funext(fun1PointwiseEqualsFun2)
 
 #type fun1EqualsFun2
 
+-- Example term demonstrating that canonicity fails when adding the funext algorithm
+noCanonicity : Nat
+noCanonicity := ind[=[T -> T]](a. b. p. Nat, z. 0, fun1, fun2, fun1EqualsFun2)
+
+#eval noCanonicity
+
 homotopic : {A : U} -> {B : U} -> (f : A -> B) -> (g : A -> B) -> U
 homotopic f g := (a : A) -> f a = g a
 
