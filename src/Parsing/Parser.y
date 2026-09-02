@@ -15,8 +15,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %error { parseError }
 %monad { Alex }
 %lexer { lexer } { PositionedToken TkEOF _ }
--- TODO: Resolve all shift-reduce conflicts
---%expect 0
+%expect 0
 
 %token
   '\n'     { PositionedToken TkNewL _ }
@@ -36,7 +35,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
   '='      { PositionedToken TkEq _ }
   '->'     { PositionedToken TkRArrow _ }
   '*'      { PositionedToken TkStar _ }
-  'ind'    { PositionedToken TkInd pos }
+  'ind'    { PositionedToken TkInd _ }
   'check'  { PositionedToken TkCheck _ }
   'type'   { PositionedToken TkType _ }
   'eval'   { PositionedToken TkEval _ }
@@ -60,10 +59,10 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
 %nonassoc ':' '.' ','
 %right '->'
 %nonassoc '='
+%nonassoc REDUCE_SUM
+%nonassoc var
 %right 'x'
 %right '+'
-%nonassoc var univ int '0' '(' '{' '[' '\\' 'T' '_|_' 'U' 'Nat' '*' 'ind' 'succ' 'funext' 'ua' 'refl'
-%nonassoc APP
 
 %%
 
@@ -95,8 +94,8 @@ Param :: { Parameter }
   | 'succ' '(' var ')'  { Pattern $ SSucc (SVar $3) }
   | '*'                 { Pattern $ SStar }
   | '(' var ',' var ')' { Pattern $ SPair (SVar $2) (SVar $4) }
-  | 'inl' '(' var ')'   { Pattern $ SInl $ SVar $ $3 }
-  | 'inr' '(' var ')'   { Pattern $ SInr $ SVar $ $3 }
+  | 'inl' '(' var ')'   { Pattern $ SInl $ SVar $3 }
+  | 'inr' '(' var ')'   { Pattern $ SInr $ SVar $3 }
 
 Params :: { [Parameter] }
   :              { [] }
@@ -112,26 +111,8 @@ Pragma :: { Pragma }
   | 'include' string { Include $ unpack $2 }
 
 Term :: { SourceTerm }
-  : '(' Term ')' { $2 }
-  | var          { SVar $1 }
-  | Terminal     { $1 }
-  | univ         { SUniv $1 }
-  | Abstraction  { $1 }
-  | Application  { $1 }
-  | PiType       { $1 }
-  | Identity     { $1 }
-  | SigmaType    { $1 }
-  | CoProduct    { $1 }
-  | Tuple        { $1 }
-  | NatNums      { $1 }
-  | Induction    { $1 }
-  | Funext       { $1 }
-  | Univalence   { $1 }
-  | '*'          { SStar }
-
-Application :: { SourceTerm }
-  : Term Term         %prec APP { SApp $1 ($2, Exp) }
-  | Term '{' Term '}' %prec APP { SApp $1 ($3, Imp) }
+  : Abstraction { $1 }                       
+  | PiExpr      { $1 }
 
 Abstraction :: { SourceTerm }
   : '\\' '(' var ':' Term ')' '.' Term { SLam ($3, Just $5, Exp) $8 }
@@ -139,54 +120,69 @@ Abstraction :: { SourceTerm }
   | '\\' var '.' Term                  { SLam ($2, Nothing, Exp) $4 }
   | '\\' '{' var '}' '.' Term          { SLam ($3, Nothing, Imp) $6 }
 
-PiType :: { SourceTerm }
+PiExpr :: { SourceTerm }
   : '(' var ':' Term ')' '->' Term { SPi (Just $2, $4, Exp) $7 }
   | '{' var ':' Term '}' '->' Term { SPi (Just $2, $4, Imp) $7 }
-  | Term '->' Term                 { SPi (Nothing, $1, Exp) $3 }
+  | EqExpr '->' Term               { SPi (Nothing, $1, Exp) $3 }
+  | EqExpr                         { $1 }
 
-Terminal :: { SourceTerm }
-  : 'T'   { STop }
-  | '_|_' { SBot }
+EqExpr :: { SourceTerm }
+  : SigmaExpr '=' SigmaExpr              { SId Nothing $1 $3 }
+  | SigmaExpr '=' '[' Term ']' SigmaExpr { SId (Just $4) $1 $6 }
+  | SigmaExpr                            { $1 }
 
-Identity :: { SourceTerm }
-  : Term '=' Term              { SId Nothing $1 $3 }
-  | '=' '[' Term ']'           { SIdFam $3 }
-  | Term '=' '[' Term ']' Term { SId (Just $4) $1 $6 }
-  | 'refl' '[' Term ']'        { SRefl $ Just $3 }
-  | 'refl'                     { SRefl Nothing }
+SigmaExpr :: { SourceTerm }
+  : '(' var ':' Term ')' 'x' SigmaExpr { SSigma (Just $2, $4) $7 }
+  | SumExpr 'x' SigmaExpr              { SSigma (Nothing, $1) $3 }
+  | SumExpr                            { $1 }
 
-SigmaType :: { SourceTerm }
-  : '(' var ':' Term ')' 'x' Term { SSigma (Just $2, $4) $7 }
-  | Term 'x' Term                 { SSigma (Nothing, $1) $3 }
+SumExpr :: { SourceTerm }
+  : AppExpr '+' SumExpr      { SSum $1 $3 }
+  | AppExpr %prec REDUCE_SUM { $1 } 
 
-CoProduct :: { SourceTerm }
-  : Term '+' Term { SSum $1 $3 }
-  | 'inl' '(' Term ')' { SInl $3 }
-  | 'inr' '(' Term ')' { SInr $3 }
+AppExpr :: { SourceTerm }
+  : AppExpr AtomicTerm   { SApp $1 ($2, Exp) }
+  | AppExpr '{' Term '}' { SApp $1 ($3, Imp) }
+  | AtomicTerm           { $1 }
+
+AtomicTerm :: { SourceTerm }
+  : '(' Term ')'           { $2 }
+  | '(' Term ',' Terms ')' 
+    {
+      case $4 of
+        []     -> outputParseError $5
+        (m:ms) -> parseTuple $2 m ms
+    }
+  | var                    { SVar $1 }
+  | univ                   { SUniv $1 }
+  | int                    { parseNum $1 }
+  | '0'                    { SZero }
+  | '*'                    { SStar }
+  | 'T'                    { STop }
+  | '_|_'                  { SBot }
+  | 'Nat'                  { SNat }
+  | 'succ' '(' Term ')'    { SSucc $3 }
+  | 'inl' '(' Term ')'     { SInl $3 }
+  | 'inr' '(' Term ')'     { SInr $3 }
+  | 'refl' '[' Term ']'    { SRefl $ Just $3 }
+  | 'refl'                 { SRefl Nothing }
+  | '=' '[' Term ']'       { SIdFam $3 }
+  | 'funext' '(' Term ')'  { SFunext $3 }
+  | 'ua' '(' Term ')'      { SUnivalence $3 }
+  | 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ')'
+    {
+      case $7 of
+        []          -> outputParseError $8
+        [SNoBind a] -> SInd $3 $6 [] a
+        (_:xs)      -> case last xs of
+          SBind _ _ -> outputParseError $8
+          SNoBind a -> SInd $3 $6 (init $7) a
+        _           -> outputParseError $8
+    }
 
 Terms :: { [SourceTerm] }
   : Term           { [$1] }
   | Term ',' Terms { $1 : $3 }
-
-Tuple :: { SourceTerm }
-  : '(' Term ',' Terms ')'
-  {
-    case $4 of
-      []     -> outputParseError $5
-      (m:ms) -> parseTuple $2 m ms
-  }
-
-NatNums :: { SourceTerm }
-  : 'Nat'               { SNat }
-  | 'succ' '(' Term ')' { SSucc $3 }
-  | '0'                 { SZero }
-  | int                 { parseNum $1 }
-
-Funext :: { SourceTerm }
-  : 'funext' '(' Term ')' { SFunext $3 }
-
-Univalence :: { SourceTerm }
-  : 'ua' '(' Term ')' { SUnivalence $3 }
 
 BoundTerm :: { SourceBoundTerm }
   : Term              { SNoBind $1 }
@@ -200,18 +196,6 @@ BoundTerms :: { [SourceBoundTerm] }
 BoundTermsList :: { [SourceBoundTerm] }
   :                { [] }
   | ',' BoundTerms { $2 }
-
-Induction :: { SourceTerm }
-  : 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ')' 
-  {
-    case $7 of
-      []          -> outputParseError $8
-      [SNoBind a] -> SInd $3 $6 [] a
-      (_:xs)      -> case last xs of
-        SBind _ _ -> outputParseError $8
-        SNoBind a -> SInd $3 $6 (init $7) a 
-      _           -> outputParseError $8
-  }
 
 {
 data Pragma
@@ -250,4 +234,12 @@ parseNum n = SSucc $ parseNum (n - 1)
 parseTuple :: SourceTerm -> SourceTerm -> [SourceTerm] -> SourceTerm
 parseTuple m n []     = SPair m n
 parseTuple m n (t:ts) = SPair m $ parseTuple n t ts
+
+varListToPis :: [ByteString] -> SourceTerm -> Explicitness -> SourceTerm -> SourceTerm
+varListToPis []          t e m = m
+varListToPis (x:xs) t e m = SPi (Just x, t, e) $ varListToPis xs t e m
+
+varListToSigmas :: [ByteString] -> SourceTerm -> Explicitness -> SourceTerm -> SourceTerm
+varListToSigmas []          t e m = m
+varListToSigmas (x:xs) t e m = SSigma (Just x, t) $ varListToSigmas xs t e m
 }
