@@ -3,16 +3,16 @@ not A := A -> _|_
 
 #check not
 
-iff : (A : U) -> (B : U) -> U
+iff : (A, B : U) -> U
 iff A B := (A -> B) x (B -> A)
 
-modusPonens : {P : U} -> {Q : U} -> P x (P -> Q) -> Q
+modusPonens : {P, Q : U} -> P x (P -> Q) -> Q
 modusPonens (p, h) := h p
 
 #type modusPonens
 
 -- Type theoretic axiom of choice
-ac : {A : U} -> {B : U} -> {R : A -> B -> U} -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> R a (f a)))
+ac : {A, B : U} -> {R : A -> B -> U} -> ((a : A) -> (b : B) x (R a b)) -> ((f : A -> B) x ((a : A) -> R a (f a)))
 ac g := (\a. dfst (g a), \a. dsnd (g a))
 
 #type ac
@@ -20,14 +20,14 @@ ac g := (\a. dfst (g a), \a. dsnd (g a))
 -- Cannot use not function in codomain due to elaborating
 -- pattern matching using source syntax only, so the function
 -- call would not be reduced
-deMorgansFwd : {A : U} -> {B : U} -> (not A) x (not B) -> A + B -> _|_
+deMorgansFwd : {A, B : U} -> (not A) x (not B) -> A + B -> _|_
 deMorgansFwd (na, nb) inl(a) := na a 
 deMorgansFwd (na, nb) inr(b) := nb b
 
-deMorgansBck : {A : U} -> {B : U} -> (not (A + B)) -> ((not A) x (not B))
+deMorgansBck : {A, B : U} -> (not (A + B)) -> ((not A) x (not B))
 deMorgansBck h := (\a. h inl(a), \b. h inr(b))
 
-deMorgans : {A : U} -> {B : U} -> iff ((not A) x (not B)) (not (A + B))
+deMorgans : {A, B : U} -> iff ((not A) x (not B)) (not (A + B))
 deMorgans := (deMorgansFwd, deMorgansBck)
 
 #type deMorgans

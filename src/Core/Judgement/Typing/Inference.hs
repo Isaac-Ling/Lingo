@@ -1,5 +1,6 @@
 module Core.Judgement.Typing.Inference (runInferType, evalInferType, runCheckType, evalCheckType) where
 
+import IO.Pretty
 import Core.Term
 import Core.Error
 import Core.Judgement.Utils

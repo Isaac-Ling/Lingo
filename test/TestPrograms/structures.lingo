@@ -8,10 +8,10 @@ getMagmaUnderlyingType : Magma -> U
 getMagmaUnderlyingType (M, op) := M
 
 magmaAssoc : Magma -> U
-magmaAssoc (M, op) := (a : M) -> (b : M) -> (c : M) -> op (op a b) c = op a (op b c)
+magmaAssoc (M, op) := (a, b, c : M) -> op (op a b) c = op a (op b c)
 
 magmaComm : Magma -> U
-magmaComm (M, op) := (a : M) -> (b : M) -> op a b = op b a
+magmaComm (M, op) := (a, b : M) -> op a b = op b a
 
 SemiGroup : U
 SemiGroup := (M : Magma) x (magmaAssoc M)

@@ -1,9 +1,9 @@
 module Lingo (main) where
 
+import Program
 import Core.Error
 import IO.Args
 import IO.Source
-import Core.Program
 import Parsing.Parser (parse)
 import System.Directory (makeAbsolute)
 

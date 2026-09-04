@@ -121,8 +121,8 @@ Abstraction :: { SourceTerm }
   | '\\' '{' var '}' '.' Term          { SLam ($3, Nothing, Imp) $6 }
 
 PiExpr :: { SourceTerm }
-  : '(' var ':' Term ')' '->' Term { SPi (Just $2, $4, Exp) $7 }
-  | '{' var ':' Term '}' '->' Term { SPi (Just $2, $4, Imp) $7 }
+  : '(' Terms ':' Term ')' '->' Term { varListToPis (termsToVars $5 $2) $4 Exp $7 }
+  | '{' Terms ':' Term '}' '->' Term { varListToPis (termsToVars $5 $2) $4 Imp $7 }
   | EqExpr '->' Term               { SPi (Nothing, $1, Exp) $3 }
   | EqExpr                         { $1 }
 
@@ -132,7 +132,7 @@ EqExpr :: { SourceTerm }
   | SigmaExpr                            { $1 }
 
 SigmaExpr :: { SourceTerm }
-  : '(' var ':' Term ')' 'x' SigmaExpr { SSigma (Just $2, $4) $7 }
+  : '(' Terms ':' Term ')' 'x' SigmaExpr { varListToSigmas (termsToVars $5 $2) $4 Exp $7 }
   | SumExpr 'x' SigmaExpr              { SSigma (Nothing, $1) $3 }
   | SumExpr                            { $1 }
 
@@ -146,12 +146,12 @@ AppExpr :: { SourceTerm }
   | AtomicTerm           { $1 }
 
 AtomicTerm :: { SourceTerm }
-  : '(' Term ')'           { $2 }
-  | '(' Term ',' Terms ')' 
+  : '(' Terms ')'
     {
-      case $4 of
-        []     -> outputParseError $5
-        (m:ms) -> parseTuple $2 m ms
+      case $2 of
+        [t]          -> t
+        (m : n : ts) -> parseTuple m n ts
+        []           -> outputParseError $3
     }
   | var                    { SVar $1 }
   | univ                   { SUniv $1 }
@@ -236,10 +236,15 @@ parseTuple m n []     = SPair m n
 parseTuple m n (t:ts) = SPair m $ parseTuple n t ts
 
 varListToPis :: [ByteString] -> SourceTerm -> Explicitness -> SourceTerm -> SourceTerm
-varListToPis []          t e m = m
-varListToPis (x:xs) t e m = SPi (Just x, t, e) $ varListToPis xs t e m
+varListToPis []       t e m = m
+varListToPis (x:xs)   t e m = SPi (Just x, t, e) $ varListToPis xs t e m
 
 varListToSigmas :: [ByteString] -> SourceTerm -> Explicitness -> SourceTerm -> SourceTerm
-varListToSigmas []          t e m = m
+varListToSigmas []     t e m = m
 varListToSigmas (x:xs) t e m = SSigma (Just x, t) $ varListToSigmas xs t e m
+
+termsToVars :: PositionedToken -> [SourceTerm] -> [ByteString]
+termsToVars _ []          = []
+termsToVars t (SVar x:ts) = x : termsToVars t ts
+termsToVars t _           = outputParseError t
 }

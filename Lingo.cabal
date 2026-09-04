@@ -18,12 +18,12 @@ extra-source-files:  README.md
 executable lingo
   hs-source-dirs:      src
   main-is:             Lingo.hs
-  other-modules:       Lexing.Lexer
+  other-modules:       Program
+                     , Lexing.Lexer
                      , Lexing.Tokens
                      , Parsing.Parser
                      , Core.Term
                      , Core.Error
-                     , Core.Program
                      , Core.Elaboration
                      , Core.Judgement.Utils
                      , Core.Judgement.Context
@@ -34,6 +34,7 @@ executable lingo
                      , Core.Judgement.Typing.Unification
                      , IO.Args
                      , IO.Source
+                     , IO.Pretty
   default-language:    Haskell2010
   build-depends:       directory >= 1.3.8.5
                      , base >= 4.7 && < 5

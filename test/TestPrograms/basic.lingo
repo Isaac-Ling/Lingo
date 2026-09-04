@@ -8,30 +8,30 @@ id a := a
 dfst : {A : U} -> {B : A -> U} -> (a : A) x B a -> A
 dfst (a, b) := a
 
-#check dfst
+#type dfst
 
 dsnd : {A : U} -> {B : A -> U} -> (p : (a : A) x B a) -> B (dfst p)
 dsnd (a, b) := b
 
-#check dsnd
+#type dsnd
 
-fst : {A : U} -> {B : U} -> A x B -> A
+fst : {A, B : U} -> A x B -> A
 fst p := dfst p
 
 #check fst (*, 32)
 
-snd : {A : U} -> {B : U} -> A x B -> B
+snd : {A, B : U} -> A x B -> B
 snd p := dsnd p
 
 #check snd (*, 32)
 
 -- Composition
-comp : {A : U} -> {B : U} -> {C : U} -> (B -> C) -> (A -> B) -> A -> C
+comp : {A, B, C : U} -> (B -> C) -> (A -> B) -> A -> C
 comp g f a := g (f a)
 
 #check comp
 
-flip : {A : U} -> {B : U} -> {C : U} -> (A -> B -> C) -> B -> A -> C
+flip : {A, B, C : U} -> (A -> B -> C) -> B -> A -> C
 flip f b a := f a b
 
 -- Finite types
