@@ -1,5 +1,6 @@
 module Core.Judgement.Typing.Unification where
 
+import IO.Pretty
 import Core.Term
 import Core.Error
 import Core.Judgement.Utils

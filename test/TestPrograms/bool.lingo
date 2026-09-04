@@ -17,7 +17,7 @@ ifThenElse : {C : U} -> Bool -> C -> C -> C
 ifThenElse inl(a) c c' := c
 ifThenElse inr(a) c c' := c'
 
-#check ifThenElse
+#type ifThenElse
 
 boolNot : Bool -> Bool
 boolNot b := ifThenElse b false true

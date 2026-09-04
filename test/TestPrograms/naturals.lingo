@@ -2,8 +2,6 @@
 a : Nat
 a := 5
 
-#check a
-
 double : Nat -> Nat
 double 0       := 0
 double succ(n) := succ(succ(double n))
@@ -41,26 +39,26 @@ pow m succ(n) := multiply m (pow m n)
 lAddId : (a : Nat) -> add 0 a = a
 lAddId a := refl
 
-#check lAddId
+#type lAddId
 
-congSucc : {a : Nat} -> {b : Nat} -> a = b -> succ(a) = succ(b)
+congSucc : {a, b : Nat} -> a = b -> succ(a) = succ(b)
 congSucc := ap (\n. succ(n))
 
-#check congSucc
+#type congSucc
 
 rAddId : (a : Nat) -> add a 0 = a
 rAddId 0       := refl
 rAddId succ(n) := congSucc (rAddId n)
 
-#check rAddId
+#type rAddId
 
-moveSucc : (a : Nat) -> (b : Nat) -> add succ(a) b = add a succ(b)
+moveSucc : (a, b : Nat) -> add succ(a) b = add a succ(b)
 moveSucc 0       n := refl
 moveSucc succ(m) n := congSucc (moveSucc m n)
 
 #type moveSucc
 
-addComm : (a : Nat) -> (b : Nat) -> add a b = add b a
+addComm : (a, b : Nat) -> add a b = add b a
 addComm 0       0       := refl
 addComm 0       succ(n) := idSymm (rAddId succ(n))
 addComm succ(n) 0       := rAddId succ(n)
@@ -68,7 +66,7 @@ addComm succ(m) succ(n) := idSymm (congSucc (idTrans (idSymm (addComm succ(m) n)
 
 #type addComm
 
-addAssoc : (a : Nat) -> (b : Nat) -> (c : Nat) -> add (add a b) c = add a (add b c)
+addAssoc : (a, b, c : Nat) -> add (add a b) c = add a (add b c)
 addAssoc 0       b c := refl
 addAssoc succ(a) b c := congSucc (addAssoc a b c)
 

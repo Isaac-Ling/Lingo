@@ -1,4 +1,4 @@
-module Core.Program (run, Option(..), Options) where
+module Program (run, Option(..), Options) where
 
 import Core.Term
 import Core.Error
@@ -8,6 +8,7 @@ import Core.Judgement.Utils
 import Core.Judgement.Context
 import Core.Judgement.Evaluation
 import Core.Judgement.Typing.Type
+import IO.Pretty
 import IO.Source (readSource)
 
 import Control.Monad (when)
