@@ -78,13 +78,19 @@ showTermWithBinders b bs (Sigma (Nothing, t) m)                 = showSigmaOpera
 showTermWithBinders False bs (Pi (Just x, t, Imp) m)            = showTermWithBinders False (Just x : bs) m
 showTermWithBinders False bs (Pi (Nothing, t, Imp) m)           = showTermWithBinders False (Nothing : bs) m
 showTermWithBinders b bs (Pi (Nothing, Pi (y, t, ex') m, ex) n) = showExLParen ex ++ showTermWithBinders b bs (Pi (y, t, ex') m) ++ showExRParen ex ++ " -> " ++ showTermWithBinders b (Nothing : bs) n
-showTermWithBinders b bs (Pi (Just x, t, ex)
-  (Pi (Just y, t', ex') m)) | t == bumpDown t' && ex == ex'     = showIteratedPis (Just y : Just x : bs) ex t [y, x] m
+showTermWithBinders b bs
+  (Pi (Just x, t, ex)
+  (Pi (Just y, t', ex') m))
+    | equalOrMetaUniv t (bumpDown t') && ex == ex'              = showIteratedPis (Just y : Just x : bs) ex t [y, x] m
   where
     showIteratedPis :: Binders -> Explicitness -> Term -> [ByteString] -> Term -> String
     showIteratedPis bs' ex t vars (Pi (Just x, t', ex') m)
-      | t == shift (-(length vars)) t' && ex == ex' = showIteratedPis (Just x : bs') ex t (x : vars) m
-    showIteratedPis bs' ex t vars m                 = showExLParen ex ++ intercalate ", " (reverse $ map unpack vars) ++ " : " ++ showTermWithBinders b bs t ++ showExRParen ex ++ " -> " ++ showTermWithBinders b bs' m
+      | equalOrMetaUniv t (shift (-(length vars)) t') && ex == ex' = showIteratedPis (Just x : bs') ex t (x : vars) m
+    showIteratedPis bs' ex t vars m                                = showExLParen ex ++ intercalate ", " (reverse $ map unpack vars) ++ " : " ++ showTermWithBinders b bs t ++ showExRParen ex ++ " -> " ++ showTermWithBinders b bs' m
+
+    equalOrMetaUniv :: Term -> Term -> Bool
+    equalOrMetaUniv (Univ (UParam _)) (Univ (UParam _)) = True
+    equalOrMetaUniv m n                                 = m == n
 showTermWithBinders b bs (Pi (Just x, t, ex) m)                 = showExLParen ex ++ unpack x ++ " : " ++ showTermWithBinders b bs t ++ showExRParen ex ++ " -> " ++ showTermWithBinders b (Just x : bs) m
 showTermWithBinders b bs (Pi (Nothing, t, ex) m)                = showTermWithBinders b bs t ++ " -> " ++ showTermWithBinders b (Nothing : bs) m
 showTermWithBinders b bs (Succ m)

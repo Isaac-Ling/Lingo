@@ -29,7 +29,7 @@ snd p := dsnd p
 comp : {A, B, C : U} -> (B -> C) -> (A -> B) -> A -> C
 comp g f a := g (f a)
 
-#check comp
+#type comp
 
 flip : {A, B, C : U} -> (A -> B -> C) -> B -> A -> C
 flip f b a := f a b

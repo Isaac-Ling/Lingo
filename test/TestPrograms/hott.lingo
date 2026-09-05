@@ -74,3 +74,32 @@ unitPathEquiv a b := (\(p : a = b). *, allUnitEq a b, \(a : T). idSymm (uniqT a)
 
 happly : {A, B : U} -> (f, g : A -> B) -> f = g -> (a : A) -> f a = g a
 happly f g p a := ind[=[A -> B]](f. g. p'. f a = g a, z. refl, f, g, p)
+
+#type happly
+
+isProp : U -> U
+isProp P := (a, b : P) -> a = b
+
+isSet : U -> U
+isSet S := (a, b : S) -> (p, q : a = b) -> p = q
+
+#eval isProp
+#eval isSet
+
+equivProps : {P, Q : U} -> isProp P -> isProp Q -> (iff P Q) -> isequiv P Q
+equivProps h h' (f, g) := (f, g, \q. h' (f (g q)) q, \p. h (g (f p)) p)
+
+#type equivProps
+
+inhabitedPropContractable : {P : U} -> isProp P -> (p : P) -> isequiv P T
+inhabitedPropContractable h p := (\p. *, \u. p, \u. pInv (uniqT u), \a. h p a)
+
+#type inhabitedPropContractable
+
+-- Classical logic
+
+isDecidable : U -> U
+isDecidable A := A + not A
+
+LEM := (A : U) -> isProp A -> isDecidable A
+LDG := (A : U) -> isProp A -> not (not A) -> A
