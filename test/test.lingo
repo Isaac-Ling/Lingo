@@ -1,0 +1,10 @@
+#include "prelude/hott"
+
+#include "test/finite"
+#include "test/logic"
+#include "test/terminal"
+#include "test/identity"
+#include "test/structures"
+#include "test/naturals"
+#include "test/bool"
+#include "test/hott"

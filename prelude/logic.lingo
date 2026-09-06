@@ -1,0 +1,5 @@
+not : (A : U) -> U
+not A := A -> _|_
+
+iff : (A, B : U) -> U
+iff A B := (A -> B) x (B -> A)

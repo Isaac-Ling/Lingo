@@ -167,8 +167,6 @@ AtomicTerm :: { SourceTerm }
   | 'refl' '[' Term ']'    { SRefl $ Just $3 }
   | 'refl'                 { SRefl Nothing }
   | '=' '[' Term ']'       { SIdFam $3 }
-  | 'funext' '(' Term ')'  { SFunext $3 }
-  | 'ua' '(' Term ')'      { SUnivalence $3 }
   | 'ind' '[' Term ']' '(' BoundTerm BoundTermsList ')'
     {
       case $7 of

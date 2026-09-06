@@ -232,8 +232,6 @@ instantiateUnivs m i = udata
     go (Succ m)                 = Succ <$> go m
     go (Inl m)                  = Inl <$> go m
     go (Inr m)                  = Inr <$> go m
-    go (Funext p)               = Funext <$> go p
-    go (Univalence f)           = Univalence <$> go f
     go (Refl m)                 = do
       m' <- traverse go m
       return $ Refl m'
@@ -298,8 +296,6 @@ univVarsToParams m = udata
     go (Succ m)                 = Succ <$> go m
     go (Inl m)                  = Inl <$> go m
     go (Inr m)                  = Inr <$> go m
-    go (Funext p)               = Funext <$> go p
-    go (Univalence f)           = Univalence <$> go f
     go (Refl m)                 = do
       m' <- traverse go m
       return $ Refl m'

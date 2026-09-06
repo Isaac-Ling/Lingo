@@ -1,8 +1,0 @@
-#include "test/TestPrograms/basic"
-#include "test/TestPrograms/logic"
-#include "test/TestPrograms/terminal"
-#include "test/TestPrograms/identity"
-#include "test/TestPrograms/structures"
-#include "test/TestPrograms/naturals"
-#include "test/TestPrograms/bool"
-#include "test/TestPrograms/hott"
