@@ -1,14 +1,14 @@
 #include "prelude/mltt"
 
+-- Function extensionality
+funext : {A, B : U} -> {f, g : A -> B} -> ((a : A) -> f a = g a) -> f = g
+
 homotopic : {A, B : U} -> (f, g : A -> B) -> U
 homotopic f g := (a : A) -> f a = g a
 
 -- Half adjoint equivalence
 isequiv : (A, B : U) -> U
 isequiv A B := (f : A -> B) x (g : B -> A) x (eta : homotopic (comp g f) (id {A})) x (eps : homotopic (comp f g) (id {B})) x ((a : A) -> ap f (eta a) = eps (f a))
-
--- Function extensionality
-funext : {A, B : U} -> {f, g : A -> B} -> ((a : A) -> f a = g a) -> f = g
 
 -- Univalence
 ua : {A, B : U} -> isequiv A B -> A = B
