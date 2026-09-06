@@ -24,7 +24,6 @@ An implementation of Martin-Löf Type Theory, following closely to the Homotopy 
 | Identity                | $A = B$              | `A = B`          |
 | Reflexivity             | $\text{refl}_A$      | `refl[A]`        |
 | Universe                | $\text{Univ}_2$      | `U2`             |
-| Function Extensionality | $\text{funext}(p)$   | `funext(p)`      |
 | Type annotation         | $a : A$              | `a : A`          |
 | Definition              | $a := \text{foo}$    | `a := foo`       |
 

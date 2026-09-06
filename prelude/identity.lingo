@@ -1,0 +1,25 @@
+-- Path Inverse
+pInv : {A : U} -> {a, b : A} -> a = b -> b = a
+pInv p := ind[=[A]](a. b. p. b = a, z. refl, a, b, p) 
+
+-- Path concatenation
+pCatLemma : {A : U} -> {a, b : A} -> a = b -> (c : A) -> b = c -> a = c
+pCatLemma p := ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl, z, c, q), a, b, p)
+
+pCat : {A : U} -> {a, b, c : A} -> a = b -> b = c -> a = c
+pCat p := pCatLemma {A} {a} {b} p c
+
+-- Functoriality of functions
+ap : {A, B : U} -> {a, b : A} -> (f : A -> B) -> a = b -> f a = f b
+ap f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
+
+-- Transport
+transport : {A : U} -> {a, b : A} -> (P : A -> U) -> a = b -> P a -> P b
+transport P p := ind[=[A]](a. b. p. P a -> P b, z. id, a, b, p)
+
+-- Path lifting property: transport lifts a path in A to a path in the total space of a fibration over A
+liftLemma : {A : U} -> {a, b : A} -> (P : A -> U) -> (p : a = b) -> (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u)
+liftLemma P p := ind[=[A]](a. b. p. (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u), z. \u. refl, a, b, p)
+
+lift : {A : U} -> {a, b : A} -> {P : A -> U} -> (u : P a) -> (p : a = b) -> (a, u) =[(a : A) x P a] (b, transport P p u)
+lift u p := liftLemma P p u

@@ -244,12 +244,6 @@ solveMetaConstraints env ctx st = do
     decompose bc (Inr m) (Inr m')                                  = do
       appendConstraint bc m m'
       return True
-    decompose bc (Funext m) (Funext m')                            = do
-      appendConstraint bc m m'
-      return True
-    decompose bc (Univalence m) (Univalence m')                    = do
-      appendConstraint bc m m'
-      return True
     decompose bc (Refl (Just m)) (Refl (Just m'))                  = do
       appendConstraint bc m m'
       return True
@@ -346,8 +340,6 @@ solveMetaConstraints env ctx st = do
     unstickPathInduction bc (Succ m)                 = Succ <$> unstickPathInduction bc m
     unstickPathInduction bc (Inl m)                  = Inl <$> unstickPathInduction bc m
     unstickPathInduction bc (Inr m)                  = Inr <$> unstickPathInduction bc m
-    unstickPathInduction bc (Funext p)               = Funext <$> unstickPathInduction bc p
-    unstickPathInduction bc (Univalence f)           = Univalence <$> unstickPathInduction bc f
     unstickPathInduction bc (Refl m)                 = do
       m' <- traverse (unstickPathInduction bc) m
       return $ Refl m'
@@ -365,8 +357,6 @@ solveMetaConstraints env ctx st = do
     metaOccursIn k (App t (n, _))          = metaOccursIn k t || metaOccursIn k n
     metaOccursIn k (Id mt m n)             = maybe False (metaOccursIn k) mt || metaOccursIn k m || metaOccursIn k n
     metaOccursIn k (Refl m)                = maybe False (metaOccursIn k) m
-    metaOccursIn k (Funext m)              = metaOccursIn k m
-    metaOccursIn k (Univalence m)          = metaOccursIn k m
     metaOccursIn k (Succ m)                = metaOccursIn k m
     metaOccursIn k (Inl m)                 = metaOccursIn k m
     metaOccursIn k (Inr m)                 = metaOccursIn k m
@@ -424,8 +414,6 @@ expandMetas sols (Pair t n)               = Pair (expandMetas sols t) (expandMet
 expandMetas sols (App t (n, ex))          = App (expandMetas sols t) (expandMetas sols n, ex)
 expandMetas sols (Id mt m n)              = Id (fmap (expandMetas sols) mt) (expandMetas sols m) (expandMetas sols n)
 expandMetas sols (Refl m)                 = Refl $ fmap (expandMetas sols) m
-expandMetas sols (Funext m)               = Funext $ expandMetas sols m
-expandMetas sols (Univalence m)           = Univalence $ expandMetas sols m
 expandMetas sols (Succ m)                 = Succ $ expandMetas sols m
 expandMetas sols (Inl m)                  = Inl $ expandMetas sols m
 expandMetas sols (Inr m)                  = Inr $ expandMetas sols m

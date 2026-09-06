@@ -1,4 +1,6 @@
--- Function extensionality
+happly : {A, B : U} -> (f, g : A -> B) -> f = g -> (a : A) -> f a = g a
+happly f g p a := ind[=[A -> B]](f. g. p'. f a = g a, z. refl, f, g, p)
+
 fun1 : T -> T
 fun2 : T -> T
 
@@ -6,7 +8,7 @@ fun1PointwiseEqualsFun2 : (a : T) -> fun1 a = fun2 a
 fun1PointwiseEqualsFun2 a := idTrans (uniqT (fun1 a)) (idSymm (uniqT (fun2 a)))
 
 fun1EqualsFun2 : fun1 = fun2
-fun1EqualsFun2 := funext(fun1PointwiseEqualsFun2)
+fun1EqualsFun2 := funext fun1PointwiseEqualsFun2
 
 #type fun1EqualsFun2
 
@@ -15,11 +17,6 @@ noCanonicity : Nat
 noCanonicity := ind[=[T -> T]](a. b. p. Nat, z. 0, fun1, fun2, fun1EqualsFun2)
 
 #check noCanonicity
-
-homotopic : {A, B : U} -> (f, g : A -> B) -> U
-homotopic f g := (a : A) -> f a = g a
-
-#eval homotopic
 
 -- Homotopy equivalence relation
 homotopyRefl : {A, B : U} -> (f : A -> B) -> homotopic f f
@@ -43,21 +40,18 @@ qinv f := (g : B -> A) x (homotopic (comp f g) id) x (homotopic (comp g f) id)
 
 #eval qinv
 
--- TODO: Use half adjoint equivalences to define isequiv
-isequiv : (A, B : U) -> U
-isequiv A B := (f : A -> B) x (qinv f)
-
-#eval isequiv
-
 idSelfInverse : {A : U} -> qinv (id {A})
 idSelfInverse := (id, \a. refl, \a. refl)
 
 #type idSelfInverse
 
-isequivRefl : (A : U) -> isequiv A A
-isequivRefl A := (id, idSelfInverse)
+isqequiv : (A, B : U) -> U
+isqequiv A B := (f : A -> B) x (qinv f)
 
-#type isequivRefl
+isqequivRefl : (A : U) -> isqequiv A A
+isqequivRefl A := (id, idSelfInverse)
+
+#type isqequivRefl
 
 -- Formalised from Theorem 2.8.1 in HoTT book
 
@@ -67,15 +61,10 @@ allUnitEq * * u := refl
 unitPathEquivLemma : {a, b : T} -> (p : a = b) -> allUnitEq a b * = p
 unitPathEquivLemma p := ind[=[T]](c. d. q. allUnitEq c d * = q, z. ind[T](z'. allUnitEq z' z' * = refl, refl, z), a, b, p)
 
-unitPathEquiv : (a, b : T) -> isequiv (a = b) T
+unitPathEquiv : (a, b : T) -> isqequiv (a = b) T
 unitPathEquiv a b := (\(p : a = b). *, allUnitEq a b, \(a : T). idSymm (uniqT a), \(p : a = b). unitPathEquivLemma p)
 
 #type unitPathEquiv
-
-happly : {A, B : U} -> (f, g : A -> B) -> f = g -> (a : A) -> f a = g a
-happly f g p a := ind[=[A -> B]](f. g. p'. f a = g a, z. refl, f, g, p)
-
-#type happly
 
 isProp : U -> U
 isProp P := (a, b : P) -> a = b
@@ -86,12 +75,12 @@ isSet S := (a, b : S) -> (p, q : a = b) -> p = q
 #eval isProp
 #eval isSet
 
-equivProps : {P, Q : U} -> isProp P -> isProp Q -> (iff P Q) -> isequiv P Q
+equivProps : {P, Q : U} -> isProp P -> isProp Q -> (iff P Q) -> isqequiv P Q
 equivProps h h' (f, g) := (f, g, \q. h' (f (g q)) q, \p. h (g (f p)) p)
 
 #type equivProps
 
-inhabitedPropContractable : {P : U} -> isProp P -> (p : P) -> isequiv P T
+inhabitedPropContractable : {P : U} -> isProp P -> (p : P) -> isqequiv P T
 inhabitedPropContractable h p := (\p. *, \u. p, \u. pInv (uniqT u), \a. h p a)
 
 #type inhabitedPropContractable

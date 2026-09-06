@@ -88,8 +88,6 @@ toCoreTerm m = runReader (go m) []
     go (SSucc m)                        = Succ <$> go m
     go (SInl m)                         = Inl <$> go m
     go (SInr m)                         = Inr <$> go m
-    go (SFunext p)                      = Funext <$> go p
-    go (SUnivalence f)                  = Univalence <$> go f
     go (SRefl m)                        = do
       m' <- traverse go m
       return $ Refl m'
@@ -441,8 +439,6 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
         subParamInType m x (SInr n)         = SInr $ subParamInType m x n
         subParamInType m x (SRefl n)        = SRefl $ fmap (subParamInType m x) n
         subParamInType m x (SSucc n)        = SSucc $ subParamInType m x n
-        subParamInType m x (SFunext p)      = SFunext $ subParamInType m x p
-        subParamInType m x (SUnivalence a)  = SUnivalence $ subParamInType m x a
         subParamInType m x (SInd t m' c a)  = SInd (subParamInType m x t) (subParamInBoundType m x m') (map (subParamInBoundType m x) c) (subParamInType m x a)
           where
             subParamInBoundType :: SourceTerm -> ByteString -> SourceBoundTerm -> SourceBoundTerm
@@ -481,8 +477,6 @@ toEliminator id cases@((SParamTerm (p:ps) m):ms) t = do
     substituteVarForRecursiveCall subs bs y m (SInr n)                  = SInr $ substituteVarForRecursiveCall subs bs y m n
     substituteVarForRecursiveCall subs bs y m (SRefl n)                 = SRefl $ fmap (substituteVarForRecursiveCall subs bs y m) n
     substituteVarForRecursiveCall subs bs y m (SSucc n)                 = SSucc $ substituteVarForRecursiveCall subs bs y m n
-    substituteVarForRecursiveCall subs bs y m (SFunext p)               = SFunext $ substituteVarForRecursiveCall subs bs y m p
-    substituteVarForRecursiveCall subs bs y m (SUnivalence a)           = SUnivalence $ substituteVarForRecursiveCall subs bs y m a
     substituteVarForRecursiveCall subs bs y m (SubstitutionTerm ss n)   = SubstitutionTerm ss $ substituteVarForRecursiveCall (ss ++ subs) bs y m n
     substituteVarForRecursiveCall subs bs y m (SInd t m' c a)           = SInd (substituteVarForRecursiveCall subs bs y m t) (substituteVarForRecursiveCallInBoundTerm subs bs y m m') (map (substituteVarForRecursiveCallInBoundTerm subs bs y m) c) (substituteVarForRecursiveCall subs bs y m a)
       where

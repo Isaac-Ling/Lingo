@@ -2,8 +2,6 @@
 basedPathInduction : {A : U} -> {a : A} -> (C : (b : A) -> a = b -> U) -> (c : C a refl) -> (b : A) -> (p : a = b) -> C b p
 basedPathInduction C c b p := ind[=[A]](a. b. p. (C : (b : A) -> a = b -> U) -> C a refl -> C b p, z. \C. \d. d, a, b, p) C c
 
-#type basedPathInduction
-
 -- Identity Equivalence Relation
 idRefl : {A : U} -> (a : A) -> a = a
 idRefl a := refl
@@ -11,15 +9,12 @@ idRefl a := refl
 #type idRefl
 
 idSymm : {A : U} -> {a, b : A} -> a = b -> b = a
-idSymm p := ind[=[A]](a. b. p. b = a, z. refl, a, b, p) 
+idSymm := pInv
 
 #type idSymm
 
-idTransLemma : {A : U} -> {a, b : A} -> a = b -> (c : A) -> b = c -> a = c
-idTransLemma p := ind[=[A]](a. b. p. (c : A) -> b = c -> a = c, z. \c. \q. ind[=[A]](a. c. p. a = c, z'. refl, z, c, q), a, b, p)
-
 idTrans : {A : U} -> {a, b, c : A} -> a = b -> b = c -> a = c
-idTrans p := idTransLemma {A} {a} {b} p c
+idTrans := pCat
 
 #type idTrans
 
@@ -32,10 +27,6 @@ rPathId : {A : U} -> {a, b : A}  -> (p : a = b) -> idTrans p refl = p
 rPathId p := ind[=[A]](a. b. p. idTrans p refl = p, z. refl[refl[z]], a, b, p)
 
 #type rPathId
-
--- Path aliases
-pInv := idSymm
-pCat := idTrans
 
 reflInv : {A : U} -> (a : A) -> pInv refl[a] = refl[a]
 reflInv a := refl 
@@ -71,12 +62,6 @@ pathAssoc p q := pathAssocLemma p c q d
 
 #type pathAssoc
 
--- Functoriality of functions
-ap : {A, B : U} -> {a, b : A} -> (f : A -> B) -> a = b -> f a = f b
-ap f p := ind[=[A]](a. b. p. f a = f b, z. refl, a, b, p)
-
-#type ap
-
 apRefl : {A, B : U} -> (f : A -> B) -> (a : A) -> ap f refl[a] = refl[f a]
 apRefl f a := refl
 
@@ -97,21 +82,6 @@ apInv : {A, B : U} -> {a, b : A} -> (p : a = b) -> (f : A -> B) -> ap f (pInv p)
 apInv p := ind[=[A]](a. b. p.  (f : A -> B) -> ap f (pInv p) = pInv (ap f p), z. \f. refl, a, b, p)
 
 #type apInv
-
--- Transport
-transport : {A : U} -> {a, b : A} -> (P : A -> U) -> a = b -> P a -> P b
-transport P p := ind[=[A]](a. b. p. P a -> P b, z. id, a, b, p)
-
-#type transport
-
--- Path lifting property: transport lifts a path in A to a path in the total space of a fibration over A
-liftLemma : {A : U} -> {a, b : A} -> (P : A -> U) -> (p : a = b) -> (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u)
-liftLemma P p := ind[=[A]](a. b. p. (u : P a) -> (a, u) =[(a : A) x P a] (b, transport P p u), z. \u. refl, a, b, p)
-
-lift : {A : U} -> {a, b : A} -> {P : A -> U} -> (u : P a) -> (p : a = b) -> (a, u) =[(a : A) x P a] (b, transport P p u)
-lift u p := liftLemma P p u
-
-#type lift
 
 -- Identity on type constructors
 productPath : {A, B : U} -> (a, b : A x B) -> (p : a = b) -> (fst a = fst b)

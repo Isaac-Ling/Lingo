@@ -1,0 +1,8 @@
+-- Finite types
+Fin : Nat -> U
+Fin 0       := T
+Fin succ(n) := (Fin n) + T
+
+fmax : (n : Nat) -> Fin n
+fmax 0       := *
+fmax succ(n) := inr(*)

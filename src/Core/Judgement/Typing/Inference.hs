@@ -208,28 +208,6 @@ goInferType (Succ m)                                  = do
   unify mt Nat $ Just ("Cannot apply succ to a term of type " ++ showTermWithContext (bctx ctxs) mt)
   return (Succ em, Nat)
 
-goInferType (Funext p)                                = do
-  ctxs <- ask
-
-  (ep, pt) <- goInferTypeAndElab p
-
-  et <- unfoldAndInstantiateUnivs pt
-  case et of
-    Pi _ (Id _ (App f (Var (Bound 0), Exp)) (App g (Var (Bound 0), Exp))) -> do
-      goInferType pt
-      return (Funext ep, Id Nothing (bumpDown f) (bumpDown g))
-    _                                                                     -> typeError FailedToInferType $ Just ("Cannot apply funext to a term of type " ++ showTermWithContext (bctx ctxs) pt)
-
--- TODO: Type check univalence with half adjoint equivalences
-goInferType (Univalence f)                            = do
-  ctxs <- ask
-
-  (ef, ft) <- goInferEvaluatedType f
-
-  case ft of
-    Top -> return (Univalence ef, Top)
-    _   -> typeError FailedToInferType $ Just ("Cannot apply univalence to a term of type " ++ showTermWithContext (bctx ctxs) ft)
-
 goInferType (IdFam t)                                 = do
   ctxs <- ask
 
