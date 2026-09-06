@@ -1,6 +1,6 @@
 # Lingo
 
-An implementation of Martin-Löf Type Theory, following closely to the Homotopy Type Theory (HoTT) book.
+An implementation of Martin-Löf Type Theory (MLTT) with a Homotopy Type Theory/Univalent Foundations (HoTT/UF) prelude, following closely to the HoTT/UF book (The Univalent Foundations Program, 2013).
 
 ## Rosetta Stone
 
@@ -99,3 +99,6 @@ Use the `#include` pragma to include another Lingo source file. For example,
 ```
 
 Will mean that the source of `foo.lingo` is included at the location of the include statement.
+
+Included are the "prelude/mltt.lingo" and "prelude/hott.lingo" libraries, the latter allowing the use
+of the `funext` and `ua` axioms.
