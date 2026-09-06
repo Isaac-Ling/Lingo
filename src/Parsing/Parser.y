@@ -45,8 +45,6 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, unpack)
   'refl'   { PositionedToken TkRefl _ }
   'Nat'    { PositionedToken TkNat _ }
   'succ'   { PositionedToken TkSucc _ }
-  'funext' { PositionedToken TkFunext _ }
-  'ua'     { PositionedToken TkUnivalence _ }
   'T'      { PositionedToken (TkTop) _ }
   '_|_'    { PositionedToken (TkBot) _ }
   '0'      { PositionedToken (TkInt 0) _ }
